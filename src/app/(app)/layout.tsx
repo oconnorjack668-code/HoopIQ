@@ -1,0 +1,47 @@
+// src/app/(app)/layout.tsx
+import React from 'react';
+import { requireUser } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { Navbar } from '@/components/layout/Navbar';
+import { BottomNav } from '@/components/layout/BottomNav';
+import type { Profile } from '@/lib/supabase/types';
+
+export const metadata = {
+  title: 'HoopIQ - Player Development OS',
+  description: 'Train with intent. See your progress. Improve every day.',
+};
+
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const user = await requireUser();
+
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  const { data: roles } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'owner');
+
+  const isOwner = !!roles;
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+      <Navbar profile={profile as Profile | null} isOwner={isOwner} />
+
+      <main className="flex-1 flex flex-col overflow-hidden pb-20 md:pb-0">
+        {children}
+      </main>
+
+      <BottomNav />
+    </div>
+  );
+}

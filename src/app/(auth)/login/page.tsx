@@ -1,0 +1,152 @@
+// src/app/(auth)/login/page.tsx
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
+import { Alert } from '@/components/ui/Alert';
+import { Flame } from 'lucide-react';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirectTo') || '/dashboard';
+  const queryError = searchParams.get('error');
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(
+    queryError === 'auth_callback_failed'
+      ? 'Verification link expired or invalid. Please sign in or request a new link.'
+      : null
+  );
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      router.push(redirectTo);
+      router.refresh();
+    } catch {
+      setError('An unexpected error occurred. Please try again.');
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center p-4 bg-zinc-950">
+      {/* Basketball court subtle background glow */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-orange-600/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-amber-600/10 rounded-full blur-3xl" />
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Brand Header */}
+        <div className="flex flex-col items-center mb-8 text-center">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-600/30 mb-3">
+            <Flame className="h-8 w-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-black tracking-tight text-white uppercase">HoopIQ</h1>
+          <p className="text-xs text-zinc-400 mt-1">Player Development Operating System</p>
+        </div>
+
+        <Card className="border-zinc-800/80 bg-zinc-900/90 shadow-2xl backdrop-blur-xl">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-xl">Sign in to your player record</CardTitle>
+            <CardDescription>
+              Train with intent. See your progress. Improve every day.
+            </CardDescription>
+          </CardHeader>
+
+          <form onSubmit={handleLogin}>
+            <CardContent className="space-y-4">
+              {error && (
+                <Alert variant="error" title="Sign in failed">
+                  {error}
+                </Alert>
+              )}
+
+              <Input
+                label="Email"
+                type="email"
+                placeholder="player@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="password"
+                    className="block text-xs font-semibold uppercase tracking-wider text-zinc-300"
+                  >
+                    Password
+                  </label>
+                  <Link
+                    href="/reset-password"
+                    className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
+            </CardContent>
+
+            <CardFooter className="flex flex-col space-y-3 pt-2">
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="w-full"
+                isLoading={isLoading}
+              >
+                Sign In
+              </Button>
+
+              <p className="text-xs text-center text-zinc-400">
+                New to HoopIQ?{' '}
+                <Link
+                  href="/signup"
+                  className="font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+                >
+                  Create an account
+                </Link>
+              </p>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+    </div>
+  );
+}
