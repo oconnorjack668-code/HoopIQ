@@ -1,0 +1,208 @@
+// src/app/(app)/workouts/tests/new/page.tsx
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { performanceTestSchema } from '@/lib/validation';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
+import { Alert } from '@/components/ui/Alert';
+import { ArrowLeft, Award } from 'lucide-react';
+import Link from 'next/link';
+
+const TESTS = [
+  { value: 'standing_vertical', label: 'Standing Vertical (inches)' },
+  { value: 'approach_vertical', label: 'Approach Vertical (inches)' },
+  { value: 'sprint_three_quarter', label: '3/4 Court Sprint (seconds)' },
+  { value: 'sprint_40yd', label: '40 Yard Dash (seconds)' },
+  { value: 'lane_agility', label: 'Lane Agility (seconds)' },
+  { value: 'pro_agility_5_10_5', label: 'Pro Agility 5-10-5 (seconds)' },
+  { value: 'standing_broad_jump', label: 'Standing Broad Jump (inches)' },
+  { value: 'custom', label: 'Custom Test' },
+];
+
+export default function NewPerformanceTestPage() {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [testDate, setTestDate] = useState(new Date().toISOString().split('T')[0]);
+  const [testType, setTestType] = useState('standing_vertical');
+  const [customTestName, setCustomTestName] = useState('');
+  const [value, setValue] = useState('');
+  const [unit, setUnit] = useState('inches');
+  const [notes, setNotes] = useState('');
+
+  // Determine unit based on test type
+  const getUnit = () => {
+    if (['sprint_three_quarter', 'sprint_40yd', 'lane_agility', 'pro_agility_5_10_5'].includes(testType)) {
+      return 'seconds';
+    }
+    if (['standing_vertical', 'approach_vertical', 'standing_broad_jump'].includes(testType)) {
+      return 'inches';
+    }
+    return unit;
+  };
+
+  async function handleSave() {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const result = performanceTestSchema.safeParse({
+        testDate,
+        testType: testType === 'custom' ? testType : testType,
+        customTestName: testType === 'custom' ? customTestName : null,
+        value: Number(value),
+        unit: getUnit(),
+        notes: notes || null,
+      });
+
+      if (!result.success) {
+        setError('Invalid test data. Please check all fields.');
+        setIsLoading(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      const { error: insertError } = await supabase.from('performance_tests').insert({
+        user_id: user.id,
+        test_date: testDate,
+        test_type: testType,
+        custom_test_name: testType === 'custom' ? customTestName.trim() : null,
+        value: Number(value),
+        unit: getUnit(),
+        notes: notes || null,
+      });
+
+      if (insertError) {
+        setError('Failed to save test.');
+        setIsLoading(false);
+        return;
+      }
+
+      router.push('/workouts/tests');
+      router.refresh();
+    } catch {
+      setError('An unexpected error occurred.');
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-auto">
+      <div className="p-4 md:p-8 max-w-2xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-black tracking-tight text-white">Log Performance Test</h1>
+          <Link href="/workouts/tests">
+            <Button variant="outline" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+
+        {error && (
+          <Alert variant="error" title="Error">
+            {error}
+          </Alert>
+        )}
+
+        <Card className="border-zinc-800 bg-zinc-900/70">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-orange-400" />
+              Test Details
+            </CardTitle>
+            <CardDescription>Log your athletic performance measurement</CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Test Date"
+                type="date"
+                value={testDate}
+                onChange={(e) => setTestDate(e.target.value)}
+                required
+              />
+              <Select
+                label="Test Type"
+                value={testType}
+                onChange={(e) => setTestType(e.target.value)}
+                options={TESTS}
+              />
+            </div>
+
+            {testType === 'custom' && (
+              <Input
+                label="Custom Test Name"
+                placeholder="e.g., Vertical with 2-step approach"
+                value={customTestName}
+                onChange={(e) => setCustomTestName(e.target.value)}
+                required
+              />
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label={`Value (${getUnit()})`}
+                type="number"
+                placeholder="0.0"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                step="0.1"
+                required
+              />
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
+                  Unit
+                </label>
+                <div className="h-11 px-3.5 py-2 rounded-xl border border-zinc-700/80 bg-zinc-900/90 flex items-center text-sm text-zinc-400">
+                  {getUnit()}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
+                Notes (Optional)
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="How did the test feel? Any conditions to note?"
+                className="w-full h-16 rounded-xl border border-zinc-700/80 bg-zinc-900/90 px-3.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              />
+            </div>
+          </CardContent>
+
+          <CardFooter className="flex justify-between pt-4">
+            <Link href="/workouts/tests">
+              <Button variant="outline">Cancel</Button>
+            </Link>
+            <Button
+              variant="primary"
+              onClick={handleSave}
+              isLoading={isLoading}
+              disabled={!testDate || !value || (testType === 'custom' && !customTestName.trim())}
+            >
+              Save Test Result
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    </div>
+  );
+}
