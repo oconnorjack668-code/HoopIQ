@@ -27,7 +27,16 @@ export default async function WorkoutDetailPage({
     .select('*')
     .eq('id', id)
     .eq('user_id', user.id)
-    .single();
+    .single() as unknown as {
+      data: {
+        id: string;
+        workout_type: string;
+        workout_date: string;
+        duration_minutes: number;
+        rpe: number;
+        notes: string | null;
+      } | null;
+    };
 
   if (!workout) {
     notFound();
@@ -37,7 +46,19 @@ export default async function WorkoutDetailPage({
     .from('workout_sets')
     .select('*')
     .eq('workout_id', id)
-    .order('set_number', { ascending: true });
+    .order('set_number', { ascending: true })
+    .returns<Array<{
+      id: string;
+      exercise_name: string;
+      set_number: number;
+      reps: number | null;
+      weight_kg: number | null;
+      duration_seconds: number | null;
+      distance_meters: number | null;
+      rpe: number | null;
+      is_personal_record: boolean;
+      notes: string | null;
+    }>>();
 
   const workoutTypeLabel = {
     strength: 'Strength',

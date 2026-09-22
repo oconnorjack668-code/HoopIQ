@@ -20,7 +20,14 @@ export default async function WorkoutsPage() {
     .select('*')
     .eq('user_id', user.id)
     .order('workout_date', { ascending: false })
-    .limit(10);
+    .limit(10)
+    .returns<Array<{
+      id: string;
+      workout_type: string;
+      workout_date: string;
+      duration_minutes: number;
+      rpe: number;
+    }>>();
 
   return (
     <div className="flex-1 overflow-auto">

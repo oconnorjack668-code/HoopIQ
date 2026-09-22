@@ -9,7 +9,7 @@ import { Plus, Target, TrendingUp } from 'lucide-react';
 import { formatShootingPercentage } from '@/lib/stats';
 
 export const metadata = {
-  title: 'Basketball Sessions - HoopIQ';
+  title: 'Basketball Sessions - HoopIQ',
 };
 
 export default async function BasketballPage() {
@@ -22,13 +22,26 @@ export default async function BasketballPage() {
     .select('*')
     .eq('user_id', user.id)
     .order('session_date', { ascending: false })
-    .limit(10);
+    .limit(10)
+    .returns<Array<{
+      id: string;
+      session_type: string;
+      session_date: string;
+      duration_minutes: number;
+      intensity_rpe: number;
+      perceived_quality: number;
+      notes: string | null;
+    }>>();
 
   // Fetch all shooting data for summary stats
   const { data: shootingData } = await supabase
     .from('shooting_entries')
     .select('makes, attempts')
-    .eq('user_id', user.id);
+    .eq('user_id', user.id)
+    .returns<Array<{
+      makes: number;
+      attempts: number;
+    }>>();
 
   const totalMakes = shootingData?.reduce((sum, s) => sum + s.makes, 0) || 0;
   const totalAttempts = shootingData?.reduce((sum, s) => sum + s.attempts, 0) || 0;

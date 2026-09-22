@@ -14,7 +14,12 @@ export default async function StudyPage() {
     .from('study_topics')
     .select('*')
     .eq('is_active', true)
-    .order('display_order', { ascending: true });
+    .order('display_order', { ascending: true })
+    .returns<Array<{
+      id: string;
+      title: string;
+      description: string;
+    }>>();
 
   return (
     <div className="flex-1 overflow-auto p-4 md:p-8 max-w-7xl mx-auto">

@@ -1,0 +1,82 @@
+{
+  "name": "HoopIQ - Player Development OS",
+  "short_name": "HoopIQ",
+  "description": "Train with intent. See your progress. Improve every day.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#09090b",
+  "theme_color": "#ea580c",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "health", "productivity"],
+  "screenshots": [
+    {
+      "src": "/screenshot-540.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshot-1280.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log Basketball Session",
+      "short_name": "New Session",
+      "description": "Quickly log a new basketball training session",
+      "url": "/basketball/new",
+      "icons": [
+        {
+          "src": "/icon-shortcut-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Log Workout",
+      "short_name": "New Workout",
+      "description": "Log a strength or conditioning workout",
+      "url": "/workouts/new",
+      "icons": [
+        {
+          "src": "/icon-shortcut-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "media",
+          "accept": ["video/*", "image/*"]
+        }
+      ]
+    }
+  }
+}

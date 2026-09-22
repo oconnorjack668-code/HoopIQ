@@ -35,17 +35,17 @@ export const updatePasswordSchema = z.object({
 export const onboardingSchema = z.object({
   displayName: z.string().min(2, 'Display name is required'),
   ageBracket: z.enum(['under-14', '14-17', '18-22', '23-30', '30+'], {
-    errorMap: () => ({ message: 'Please select an age bracket' }),
+    message: 'Please select an age bracket',
   }),
   heightCm: z.number().min(120, 'Height must be at least 120 cm').max(240, 'Height must be under 240 cm').nullable().optional(),
   position: z.enum(['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'multi'], {
-    errorMap: () => ({ message: 'Please select your primary position' }),
+    message: 'Please select your primary position',
   }),
   dominantHand: z.enum(['left', 'right', 'ambidextrous'], {
-    errorMap: () => ({ message: 'Please select your dominant hand' }),
+    message: 'Please select your dominant hand',
   }),
   playingLevel: z.enum(['beginner', 'intermediate', 'advanced', 'elite', 'college_pro'], {
-    errorMap: () => ({ message: 'Please select your playing level' }),
+    message: 'Please select your playing level',
   }),
   goals: z.array(z.string()).min(1, 'Select at least one training goal'),
   strengths: z.array(z.string()).default([]),

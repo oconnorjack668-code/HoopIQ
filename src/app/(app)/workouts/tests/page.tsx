@@ -31,7 +31,15 @@ export default async function PerformanceTestsPage() {
     .from('performance_tests')
     .select('*')
     .eq('user_id', user.id)
-    .order('test_date', { ascending: false });
+    .order('test_date', { ascending: false })
+    .returns<Array<{
+      id: string;
+      test_type: string;
+      test_date: string;
+      value: number;
+      is_personal_record: boolean;
+      notes: string | null;
+    }>>();
 
   // Group tests by type and find PRs
   const testsByType = (tests || []).reduce(
@@ -42,7 +50,14 @@ export default async function PerformanceTestsPage() {
       acc[test.test_type].push(test);
       return acc;
     },
-    {} as Record<string, typeof tests>
+    {} as Record<string, Array<{
+      id: string;
+      test_type: string;
+      test_date: string;
+      value: number;
+      is_personal_record: boolean;
+      notes: string | null;
+    }>>
   );
 
   // Calculate best (PR) and trend for each test type

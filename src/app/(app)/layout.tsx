@@ -4,7 +4,6 @@ import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
-import type { Profile } from '@/lib/supabase/types';
 
 export const metadata = {
   title: 'HoopIQ - Player Development OS',
@@ -35,7 +34,7 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-      <Navbar profile={profile as Profile | null} isOwner={isOwner} />
+      <Navbar profile={profile} isOwner={isOwner} />
 
       <main className="flex-1 flex flex-col overflow-hidden pb-20 md:pb-0">
         {children}
