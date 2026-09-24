@@ -11,25 +11,34 @@ export interface DashboardMetrics {
   weeklyGoalTarget: number;
 }
 
+// YYYY-MM-DD in the server's local calendar (session_date is a plain date column)
+function toDateString(d: Date): string {
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
+function addDays(d: Date, days: number): Date {
+  const copy = new Date(d);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
 export async function calculateDashboardMetrics(userId: string): Promise<DashboardMetrics> {
   const supabase = await createClient();
 
-  // Get this week's sessions (Monday-Sunday)
-  const now = new Date();
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay()); // Start from Sunday
-  startOfWeek.setHours(0, 0, 0, 0);
-
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
-  endOfWeek.setHours(23, 59, 59, 999);
+  // This week runs Monday-Sunday
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startOfWeek = addDays(today, -((today.getDay() + 6) % 7));
+  const endOfWeek = addDays(startOfWeek, 6);
 
   const { data: weekSessions } = await supabase
     .from('training_sessions')
-    .select('*')
+    .select('session_date')
     .eq('user_id', userId)
-    .gte('session_date', startOfWeek.toISOString().split('T')[0])
-    .lte('session_date', endOfWeek.toISOString().split('T')[0])
+    .gte('session_date', toDateString(startOfWeek))
+    .lte('session_date', toDateString(endOfWeek))
     .returns<Array<{ session_date: string }>>();
 
   // Get all sessions for streak calculation
@@ -40,24 +49,14 @@ export async function calculateDashboardMetrics(userId: string): Promise<Dashboa
     .order('session_date', { ascending: false })
     .returns<Array<{ session_date: string }>>();
 
-  // Calculate streak
+  // Streak: consecutive training days ending today, or yesterday if today isn't logged yet
+  // (same rule as the leaderboard_standings view)
+  const trainedDays = new Set((allSessions || []).map((s) => s.session_date));
   let currentStreak = 0;
-  if (allSessions && allSessions.length > 0) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (const session of allSessions) {
-      const sessionDate = new Date(session.session_date);
-      sessionDate.setHours(0, 0, 0, 0);
-
-      const daysDiff = Math.floor((today.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (daysDiff === currentStreak) {
-        currentStreak++;
-      } else if (daysDiff > currentStreak) {
-        break;
-      }
-    }
+  let cursor = trainedDays.has(toDateString(today)) ? today : addDays(today, -1);
+  while (trainedDays.has(toDateString(cursor))) {
+    currentStreak++;
+    cursor = addDays(cursor, -1);
   }
 
   // Get shooting percentage
@@ -72,36 +71,46 @@ export async function calculateDashboardMetrics(userId: string): Promise<Dashboa
   const shootingPercentage = totalAttempts > 0 ? Math.round((totalMakes / totalAttempts) * 1000) / 10 : 0;
 
   // Get total sessions
-  const { data: allSessionsCount, count: totalCount } = await supabase
+  const { count: totalCount } = await supabase
     .from('training_sessions')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId);
 
-  // Get PRs from this week
-  const { data: prSets, count: prCount } = await supabase
+  // Personal records (workout sets + performance tests)
+  const { count: prSetCount } = await supabase
     .from('workout_sets')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('is_personal_record', true);
+  const { count: prTestCount } = await supabase
+    .from('performance_tests')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('is_personal_record', true);
 
-  // Get weekly goal
+  // Get weekly goal (most recent if several are active)
   const { data: weeklyGoal } = await supabase
     .from('goals')
-    .select('*')
+    .select('target_value')
     .eq('user_id', userId)
     .eq('goal_type', 'weekly_training_days')
     .eq('is_active', true)
-    .single() as unknown as {
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle() as unknown as {
       data: { target_value: number } | null;
     };
+
+  // Weekly goal counts training days, not individual sessions
+  const weekTrainingDays = new Set((weekSessions || []).map((s) => s.session_date)).size;
 
   return {
     thisWeekSessions: weekSessions?.length || 0,
     shootingPercentage,
     currentStreak,
     totalSessions: totalCount || 0,
-    personalRecords: prCount || 0,
-    weeklyGoalProgress: weekSessions?.length || 0,
+    personalRecords: (prSetCount || 0) + (prTestCount || 0),
+    weeklyGoalProgress: weekTrainingDays,
     weeklyGoalTarget: weeklyGoal?.target_value || 4,
   };
 }
@@ -117,7 +126,7 @@ export async function getSessionTrends(userId: string, days: number = 30) {
     .from('training_sessions')
     .select('session_date, intensity_rpe, perceived_quality')
     .eq('user_id', userId)
-    .gte('session_date', startDate.toISOString().split('T')[0])
+    .gte('session_date', toDateString(startDate))
     .order('session_date', { ascending: true })
     .returns<Array<{ session_date: string; intensity_rpe: number; perceived_quality: number }>>();
 

@@ -33,6 +33,12 @@ export default async function BasketballPage() {
       notes: string | null;
     }>>();
 
+  // Total count (the list above only shows the latest 10)
+  const { count: totalSessions } = await supabase
+    .from('training_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id);
+
   // Fetch all shooting data for summary stats
   const { data: shootingData } = await supabase
     .from('shooting_entries')
@@ -93,7 +99,7 @@ export default async function BasketballPage() {
                 Total Sessions
               </div>
               <span className="text-3xl font-black text-emerald-400">
-                {sessions?.length || 0}
+                {totalSessions || 0}
               </span>
             </CardContent>
           </Card>
@@ -128,7 +134,7 @@ export default async function BasketballPage() {
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="space-y-1">
                       <h3 className="font-semibold text-white capitalize">
-                        {session.session_type.replace('-', ' ')}
+                        {session.session_type.replace(/-/g, ' ')}
                       </h3>
                       <p className="text-xs text-zinc-400">
                         {new Date(session.session_date).toLocaleDateString('en-US', {

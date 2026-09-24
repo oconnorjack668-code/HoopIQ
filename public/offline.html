@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#09090b" />
+    <title>Offline - HoopIQ</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #09090b;
+        color: #e4e4e7;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        text-align: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      img { width: 72px; height: 72px; border-radius: 18px; }
+      h1 { font-size: 22px; margin: 20px 0 8px; color: #fff; }
+      p { color: #a1a1aa; font-size: 15px; line-height: 1.5; max-width: 320px; margin: 0 auto 24px; }
+      button {
+        background: #ea580c; color: #fff; border: 0; border-radius: 12px;
+        padding: 12px 24px; font-size: 15px; font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icon-192.png" alt="HoopIQ" />
+      <h1>You're offline</h1>
+      <p>HoopIQ needs a connection to load and save your training. Check your signal and try again.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

@@ -1,101 +1,62 @@
 // public/sw.js
-const CACHE_NAME = 'hoopiq-v1';
-const RUNTIME_CACHE = 'hoopiq-runtime-v1';
+// Pages hold private player data, so HTML and API responses are never cached:
+// navigations go to the network and fall back to a static offline page.
+// Only public, versioned static assets are cached.
+const CACHE_NAME = 'hoopiq-v2';
 
 const ASSETS_TO_CACHE = [
-  '/',
-  '/dashboard',
   '/offline.html',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/manifest.json',
 ];
 
-// Install event - cache essential assets
+// Install event - cache the offline page and icons
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE)));
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate event - remove caches from older versions (including v1's cached pages)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME && name !== RUNTIME_CACHE)
-          .map((name) => caches.delete(name))
-      );
-    })
+    caches
+      .keys()
+      .then((names) => Promise.all(names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))))
   );
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fall back to network
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  if (request.method !== 'GET') return;
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
-    return;
-  }
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
 
-  // Skip API requests - always fetch fresh
-  if (request.url.includes('/api/')) {
+  // Page navigations: network only, offline page when there is no connection
+  if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => {
-        return caches.match('/offline.html') || new Response('Offline');
-      })
+      fetch(request).catch(async () => (await caches.match('/offline.html')) || Response.error())
     );
     return;
   }
 
-  // Network first for HTML
-  if (request.headers.get('accept')?.includes('text/html')) {
+  // Build assets are content-hashed, so cache-first is safe
+  if (url.pathname.startsWith('/_next/static/') || ASSETS_TO_CACHE.includes(url.pathname)) {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          // Cache successful responses
-          if (response.ok) {
-            const cache = caches.open(RUNTIME_CACHE);
-            cache.then((c) => c.put(request, response.clone()));
-          }
-          return response;
-        })
-        .catch(() => {
-          // Fall back to cache or offline page
-          return caches.match(request) || caches.match('/offline.html');
-        })
-    );
-    return;
-  }
-
-  // Cache first for other assets
-  event.respondWith(
-    caches.match(request).then((response) => {
-      if (response) {
-        return response;
-      }
-
-      return fetch(request)
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type === 'error') {
+      caches.match(request).then(
+        (cached) =>
+          cached ||
+          fetch(request).then((response) => {
+            if (response.ok) {
+              const copy = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            }
             return response;
-          }
-
-          // Cache successful responses
-          const responseClone = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => {
-            cache.put(request, responseClone);
-          });
-
-          return response;
-        })
-        .catch(() => {
-          // Return cached version or placeholder
-          return caches.match(request);
-        });
-    })
-  );
+          })
+      )
+    );
+  }
+  // Everything else (API, data, uploads) goes straight to the network
 });

@@ -104,7 +104,7 @@ export default async function StudyTopicPage({
             items.map((item) => {
               const isCompleted = completedItemIds.has(item.id);
               const videoSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
-                `${item.title} ${item.youtube_channel}`
+                `${item.title} basketball`
               )}`;
               return (
                 <a key={item.id} href={videoSearchUrl} target="_blank" rel="noopener noreferrer" className="block">
@@ -123,7 +123,7 @@ export default async function StudyTopicPage({
                           <p className="text-sm text-zinc-400 mt-1">{item.description}</p>
                           <div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
                             <Clock className="h-3 w-3" />
-                            {item.duration_minutes ? `${item.duration_minutes} min · ` : ''}Find on YouTube ({item.youtube_channel})
+                            {item.duration_minutes ? `${item.duration_minutes} min · ` : ''}Find videos on YouTube
                           </div>
                         </div>
                       </div>

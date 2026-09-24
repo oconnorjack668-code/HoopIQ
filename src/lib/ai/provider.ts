@@ -1,24 +1,24 @@
 // src/lib/ai/provider.ts
 export interface CoachingEvidence {
   sessionType: string;
+  sessionDate: string;
   duration: number;
   intensity: number;
+  perceivedQuality?: number;
   shootingPercentage?: number;
+  totalMakes?: number;
+  totalAttempts?: number;
+  zoneBreakdown?: Array<{ zone: string; makes: number; attempts: number }>;
   drillsCompleted?: string[];
-  notableMetrics?: Record<string, number | string>;
   playerNotes?: string;
+  previousFeedbackSummary?: string;
 }
 
-export interface CoachingReport {
-  id: string;
-  sessionId: string;
-  userId: string;
+export interface CoachingOutput {
   summary: string;
   keyInsights: string[];
   recommendations: string[];
   comparisonToPrevious?: string;
-  createdAt: string;
-  creditsUsed: number;
 }
 
 export interface AIProviderConfig {
@@ -28,142 +28,108 @@ export interface AIProviderConfig {
 }
 
 export abstract class AIProvider {
+  abstract readonly name: string;
+
   abstract generateCoachingSummary(
     evidence: CoachingEvidence,
     config: AIProviderConfig
-  ): Promise<CoachingReport>;
+  ): Promise<CoachingOutput>;
+}
 
-  abstract extractSessionEvidence(sessionData: any): CoachingEvidence;
+const SYSTEM_PROMPT = `You are an expert basketball coach giving a player specific, actionable feedback on one training session.
+Only use the numbers provided; never invent stats. Speak directly to the player.
+Respond with a JSON object with these keys:
+- "summary": 2-3 sentences on session quality and the key takeaway
+- "keyInsights": array of 2-3 specific observations from the data
+- "recommendations": array of 2-3 concrete things to do next session
+- "comparisonToPrevious": one sentence comparing to the previous feedback if it is provided, otherwise omit`;
+
+function buildPrompt(evidence: CoachingEvidence): string {
+  const lines = [
+    `Session date: ${evidence.sessionDate}`,
+    `Session type: ${evidence.sessionType}`,
+    `Duration: ${evidence.duration} minutes`,
+    `Intensity (RPE): ${evidence.intensity}/10`,
+  ];
+  if (evidence.perceivedQuality) lines.push(`Player-rated quality: ${evidence.perceivedQuality}/5`);
+  if (evidence.totalAttempts) {
+    lines.push(
+      `Shooting: ${evidence.totalMakes}/${evidence.totalAttempts} (${evidence.shootingPercentage?.toFixed(1)}%)`
+    );
+  }
+  if (evidence.zoneBreakdown?.length) {
+    lines.push(
+      `By zone: ${evidence.zoneBreakdown
+        .map((z) => `${z.zone} ${z.makes}/${z.attempts}`)
+        .join(', ')}`
+    );
+  }
+  if (evidence.drillsCompleted?.length) lines.push(`Drills: ${evidence.drillsCompleted.join(', ')}`);
+  if (evidence.playerNotes) lines.push(`Player notes: ${evidence.playerNotes}`);
+  if (evidence.previousFeedbackSummary) {
+    lines.push(`Previous session feedback: ${evidence.previousFeedbackSummary}`);
+  }
+  return lines.join('\n');
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
 // OpenAI implementation
 export class OpenAIProvider extends AIProvider {
+  readonly name = 'openai';
+
   async generateCoachingSummary(
     evidence: CoachingEvidence,
     config: AIProviderConfig
-  ): Promise<CoachingReport> {
-    const prompt = this.buildPrompt(evidence);
-
+  ): Promise<CoachingOutput> {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${config.apiKey}`,
+        Authorization: `Bearer ${config.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: config.model || 'gpt-4-turbo',
-        max_tokens: config.maxTokens || 1000,
+        model: config.model,
+        max_tokens: config.maxTokens,
+        response_format: { type: 'json_object' },
         messages: [
-          {
-            role: 'system',
-            content: `You are an expert basketball coach providing detailed, actionable feedback on player development.
-Analyze session data and provide:
-1. A concise 2-3 sentence summary of the session quality and key takeaway
-2. 2-3 specific insights about performance
-3. 2-3 actionable recommendations for improvement
-Format your response as JSON with keys: summary, keyInsights (array), recommendations (array)`,
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: buildPrompt(evidence) },
         ],
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
+      // OpenAI puts the useful reason (bad key, unknown model, no quota) in the body
+      const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      throw new Error(`OpenAI API error (${response.status}): ${body?.error?.message || response.statusText}`);
     }
 
-    const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>;
-      usage: { total_tokens: number };
-    };
-
+    const data = (await response.json()) as { choices: Array<{ message: { content: string | null } }> };
     const content = data.choices[0]?.message.content;
     if (!content) {
       throw new Error('No response from OpenAI');
     }
 
-    let parsed: { summary: string; keyInsights: string[]; recommendations: string[] };
+    let parsed: Record<string, unknown>;
     try {
-      // Extract JSON from markdown code blocks if present
-      const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || [null, content];
-      parsed = JSON.parse(jsonMatch[1] || content);
+      parsed = JSON.parse(content);
     } catch {
-      parsed = {
-        summary: content.split('\n')[0] || 'Session completed',
-        keyInsights: [],
-        recommendations: [],
-      };
+      throw new Error('OpenAI returned feedback in an unexpected format');
+    }
+
+    if (typeof parsed.summary !== 'string' || !parsed.summary.trim()) {
+      throw new Error('OpenAI returned feedback without a summary');
     }
 
     return {
-      id: `report_${Date.now()}`,
-      sessionId: '',
-      userId: '',
       summary: parsed.summary,
-      keyInsights: parsed.keyInsights || [],
-      recommendations: parsed.recommendations || [],
-      createdAt: new Date().toISOString(),
-      creditsUsed: Math.ceil((data.usage?.total_tokens || 500) / 100),
-    };
-  }
-
-  extractSessionEvidence(sessionData: any): CoachingEvidence {
-    return {
-      sessionType: sessionData.session_type || 'general',
-      duration: sessionData.duration_minutes || 0,
-      intensity: sessionData.intensity_rpe || 5,
-      shootingPercentage: sessionData.shooting_percentage,
-      playerNotes: sessionData.notes,
-      notableMetrics: {
-        quality: sessionData.perceived_quality,
-        date: sessionData.session_date,
-      },
-    };
-  }
-
-  private buildPrompt(evidence: CoachingEvidence): string {
-    return `
-Session Type: ${evidence.sessionType}
-Duration: ${evidence.duration} minutes
-Intensity (RPE): ${evidence.intensity}/10
-Shooting %: ${evidence.shootingPercentage ? evidence.shootingPercentage.toFixed(1) + '%' : 'N/A'}
-${evidence.drillsCompleted ? `Drills: ${evidence.drillsCompleted.join(', ')}` : ''}
-${evidence.playerNotes ? `Player Notes: ${evidence.playerNotes}` : ''}
-
-Provide coaching feedback based on this session data.
-    `.trim();
-  }
-}
-
-// Anthropic/Claude implementation (placeholder)
-export class AnthropicProvider extends AIProvider {
-  async generateCoachingSummary(
-    evidence: CoachingEvidence,
-    config: AIProviderConfig
-  ): Promise<CoachingReport> {
-    // Placeholder for Claude API integration
-    return {
-      id: `report_${Date.now()}`,
-      sessionId: '',
-      userId: '',
-      summary: 'Claude integration coming soon',
-      keyInsights: [],
-      recommendations: [],
-      createdAt: new Date().toISOString(),
-      creditsUsed: 0,
-    };
-  }
-
-  extractSessionEvidence(sessionData: any): CoachingEvidence {
-    return {
-      sessionType: sessionData.session_type || 'general',
-      duration: sessionData.duration_minutes || 0,
-      intensity: sessionData.intensity_rpe || 5,
-      shootingPercentage: sessionData.shooting_percentage,
-      playerNotes: sessionData.notes,
+      keyInsights: asStringArray(parsed.keyInsights),
+      recommendations: asStringArray(parsed.recommendations),
+      comparisonToPrevious:
+        typeof parsed.comparisonToPrevious === 'string' ? parsed.comparisonToPrevious : undefined,
     };
   }
 }
@@ -172,9 +138,7 @@ export function getAIProvider(provider: string): AIProvider {
   switch (provider.toLowerCase()) {
     case 'openai':
       return new OpenAIProvider();
-    case 'anthropic':
-      return new AnthropicProvider();
     default:
-      return new OpenAIProvider();
+      throw new Error(`AI provider "${provider}" is not supported. Set AI_PROVIDER=openai.`);
   }
 }

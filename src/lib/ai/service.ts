@@ -1,176 +1,196 @@
-// @ts-nocheck
 // src/lib/ai/service.ts
+// SERVER-ONLY: generates post-session coaching reports and manages AI credits.
 import { createClient } from '@/lib/supabase/server';
-import { getAIProvider, CoachingEvidence, CoachingReport, AIProviderConfig } from './provider';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { checkIsOwner } from '@/lib/auth';
+import { getAIProvider, type CoachingEvidence, type CoachingOutput } from './provider';
 
-export interface SessionCoachingInput {
-  sessionId: string;
-  userId: string;
-  sessionData: any;
-  shootingData?: any[];
-}
+export const CREDITS_PER_REPORT = 1;
+const PROMPT_VERSION = '1.1';
 
-export class AICoachService {
-  private provider = getAIProvider(process.env.AI_PROVIDER || 'openai');
-
-  async generateSessionSummary(input: SessionCoachingInput): Promise<CoachingReport> {
-    const config: AIProviderConfig = {
-      apiKey: process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '',
-      model: process.env.AI_MODEL || 'gpt-4-turbo',
-      maxTokens: 1000,
-    };
-
-    if (!config.apiKey) {
-      throw new Error('AI provider API key not configured');
-    }
-
-    // Extract evidence from session data
-    const evidence = this.provider.extractSessionEvidence(input.sessionData);
-
-    // Add shooting data if available
-    if (input.shootingData && input.shootingData.length > 0) {
-      const totalMakes = input.shootingData.reduce((sum, s) => sum + (s.makes || 0), 0);
-      const totalAttempts = input.shootingData.reduce((sum, s) => sum + (s.attempts || 0), 0);
-      evidence.shootingPercentage = totalAttempts > 0 ? (totalMakes / totalAttempts) * 100 : 0;
-    }
-
-    // Generate coaching report
-    const report = await this.provider.generateCoachingSummary(evidence, config);
-    report.sessionId = input.sessionId;
-    report.userId = input.userId;
-
-    // Deduct credits from user subscription
-    await this.deductCredits(input.userId, report.creditsUsed);
-
-    // Store report in database
-    await this.storeReport(report);
-
-    return report;
-  }
-
-  async compareWithPreviousSession(
-    userId: string,
-    currentSessionId: string,
-    previousSessionId?: string
-  ): Promise<string | null> {
-    const supabase = await createClient();
-
-    // Fetch current report
-    const { data: currentReport } = (await supabase
-      .from('ai_reports')
-      .select('*')
-      .eq('session_id', currentSessionId)
-      .single()) as unknown as { data: any };
-
-    if (!currentReport) return null;
-
-    if (!previousSessionId) {
-      // Get most recent previous session
-      const { data: previousReports } = (await supabase
-        .from('ai_reports')
-        .select('*')
-        .eq('user_id', userId)
-        .neq('session_id', currentSessionId)
-        .order('created_at', { ascending: false })
-        .limit(1)) as unknown as { data: any[] };
-
-      if (!previousReports || previousReports.length === 0) {
-        return 'This is your first tracked session.';
-      }
-
-      previousSessionId = previousReports[0].session_id;
-    }
-
-    // Fetch previous report
-    const { data: previousReport } = (await supabase
-      .from('ai_reports')
-      .select('*')
-      .eq('session_id', previousSessionId || '')
-      .single()) as unknown as { data: any };
-
-    if (!previousReport) return null;
-
-    // Generate comparison
-    const comparison = `
-Current Session: ${currentReport.summary}
-Previous Session: ${previousReport.summary}
-
-Key differences and progress:
-- Current insights focus on: ${currentReport.key_insights?.[0] || 'session quality'}
-- Previous insights focused on: ${previousReport.key_insights?.[0] || 'session quality'}
-    `.trim();
-
-    return comparison;
-  }
-
-  async getMonthlyCreditsUsed(userId: string): Promise<number> {
-    const supabase = await createClient();
-
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const { data } = (await supabase
-      .from('ai_reports')
-      .select('credits_used')
-      .eq('user_id', userId)
-      .gte('created_at', monthStart.toISOString())) as unknown as { data: any[] };
-
-    return data?.reduce((sum, r) => sum + (r.credits_used || 0), 0) || 0;
-  }
-
-  async getRemainingCredits(userId: string): Promise<number> {
-    const supabase = await createClient();
-
-    const { data: subscription } = (await supabase
-      .from('subscriptions')
-      .select('plan_type, ai_credits_remaining')
-      .eq('user_id', userId)
-      .single()) as unknown as { data: any };
-
-    if (!subscription) return 0;
-
-    if (subscription.plan_type === 'pro' || subscription.plan_type === 'owner') {
-      return 999; // Unlimited
-    }
-
-    return subscription.ai_credits_remaining || 0;
-  }
-
-  // @ts-nocheck
-  private async deductCredits(userId: string, credits: number): Promise<void> {
-    const supabase = await createClient();
-
-    const remaining = await this.getRemainingCredits(userId);
-    if (remaining === 999) return; // Unlimited
-
-    const newRemaining = Math.max(0, remaining - credits);
-
-    const query = supabase
-      .from('subscriptions')
-      .update({ ai_credits_remaining: newRemaining } as any);
-
-    await query.eq('user_id', userId);
-  }
-
-  private async storeReport(report: CoachingReport): Promise<void> {
-    const supabase = await createClient();
-
-    const { error } = (await (supabase.from('ai_reports').insert([{
-      id: report.id,
-      session_id: report.sessionId,
-      user_id: report.userId,
-      summary: report.summary,
-      key_insights: report.keyInsights,
-      recommendations: report.recommendations,
-      comparison_to_previous: report.comparisonToPrevious,
-      created_at: report.createdAt,
-      credits_used: report.creditsUsed,
-    }] as any))) as unknown as { error: any };
-
-    if (error) {
-      console.error('Failed to store AI report:', error);
-    }
+export class AICoachError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
   }
 }
 
-export const aiCoachService = new AICoachService();
+export interface GeneratedReport {
+  id: string;
+  output: CoachingOutput;
+}
+
+function aiConfig() {
+  const provider = process.env.AI_PROVIDER || 'openai';
+  const apiKey = process.env.OPENAI_API_KEY || '';
+  if (!apiKey) {
+    throw new AICoachError('AI Coach is not configured (OPENAI_API_KEY is missing).', 503);
+  }
+  return {
+    provider,
+    config: { apiKey, model: process.env.AI_MODEL || 'gpt-4o-mini', maxTokens: 800 },
+  };
+}
+
+/** Unlimited for owners (role or OWNER_EMAIL) and pro/owner plans. */
+async function hasUnlimitedCredits(planType: string | undefined): Promise<boolean> {
+  return planType === 'pro' || planType === 'owner' || (await checkIsOwner());
+}
+
+/**
+ * Takes one credit before calling the AI provider. Credits are changed with the
+ * service role because players cannot update their own subscription (00007).
+ * The update only applies if the balance hasn't changed since it was read, so
+ * two simultaneous requests can't both spend the last credit.
+ */
+async function reserveCredit(userId: string): Promise<'unlimited' | 'reserved'> {
+  const admin = createAdminClient() as any;
+  const { data: sub, error } = await admin
+    .from('subscriptions')
+    .select('plan_type, ai_credits_remaining')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw new AICoachError('Could not load your AI credits.', 500);
+
+  if (await hasUnlimitedCredits(sub?.plan_type)) return 'unlimited';
+
+  const remaining: number = sub?.ai_credits_remaining ?? 0;
+  if (remaining < CREDITS_PER_REPORT) {
+    throw new AICoachError('You have no AI credits left.', 402);
+  }
+
+  const { data: updated, error: updateError } = await admin
+    .from('subscriptions')
+    .update({ ai_credits_remaining: remaining - CREDITS_PER_REPORT, updated_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('ai_credits_remaining', remaining)
+    .select('id');
+  if (updateError) throw new AICoachError('Could not use an AI credit.', 500);
+  if (!updated || updated.length === 0) {
+    throw new AICoachError('Your credits changed while generating. Please try again.', 409);
+  }
+  return 'reserved';
+}
+
+async function refundCredit(userId: string): Promise<void> {
+  const admin = createAdminClient() as any;
+  const { data: sub } = await admin
+    .from('subscriptions')
+    .select('ai_credits_remaining')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!sub) return;
+  await admin
+    .from('subscriptions')
+    .update({ ai_credits_remaining: sub.ai_credits_remaining + CREDITS_PER_REPORT, updated_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('ai_credits_remaining', sub.ai_credits_remaining);
+}
+
+/** Collects the session, its drills and shots (all RLS-scoped to the player). */
+async function buildEvidence(userId: string, sessionId: string): Promise<CoachingEvidence> {
+  const supabase = (await createClient()) as any;
+
+  const { data: session } = await supabase
+    .from('training_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!session) throw new AICoachError('Session not found.', 404);
+
+  const { data: drills } = await supabase
+    .from('session_drills')
+    .select('id, drill_name')
+    .eq('session_id', sessionId)
+    .order('display_order', { ascending: true });
+
+  const drillIds: string[] = (drills || []).map((d: any) => d.id);
+  const { data: shots } = drillIds.length
+    ? await supabase.from('shooting_entries').select('shot_zone, makes, attempts').in('drill_id', drillIds)
+    : { data: [] };
+
+  const zones = new Map<string, { makes: number; attempts: number }>();
+  for (const s of shots || []) {
+    const z = zones.get(s.shot_zone) || { makes: 0, attempts: 0 };
+    z.makes += s.makes;
+    z.attempts += s.attempts;
+    zones.set(s.shot_zone, z);
+  }
+  const totalMakes = [...zones.values()].reduce((sum, z) => sum + z.makes, 0);
+  const totalAttempts = [...zones.values()].reduce((sum, z) => sum + z.attempts, 0);
+
+  const { data: previous } = await supabase
+    .from('ai_reports')
+    .select('output_content')
+    .eq('user_id', userId)
+    .eq('report_type', 'post_session')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    sessionType: session.session_type,
+    sessionDate: session.session_date,
+    duration: session.duration_minutes,
+    intensity: session.intensity_rpe,
+    perceivedQuality: session.perceived_quality,
+    totalMakes,
+    totalAttempts,
+    shootingPercentage: totalAttempts > 0 ? (totalMakes / totalAttempts) * 100 : undefined,
+    zoneBreakdown: [...zones.entries()].map(([zone, z]) => ({ zone, ...z })),
+    drillsCompleted: (drills || []).map((d: any) => d.drill_name),
+    playerNotes: session.notes || undefined,
+    previousFeedbackSummary: previous?.output_content?.summary,
+  };
+}
+
+export async function generateSessionReport(userId: string, sessionId: string): Promise<GeneratedReport> {
+  const { provider: providerName, config } = aiConfig();
+  const provider = getAIProvider(providerName);
+  const supabase = (await createClient()) as any;
+
+  const { data: existing } = await supabase
+    .from('ai_reports')
+    .select('id')
+    .eq('user_id', userId)
+    .contains('source_session_ids', [sessionId])
+    .limit(1);
+  if (existing && existing.length > 0) {
+    throw new AICoachError('This session already has AI feedback.', 409);
+  }
+
+  const evidence = await buildEvidence(userId, sessionId);
+  const credit = await reserveCredit(userId);
+
+  let output: CoachingOutput;
+  try {
+    output = await provider.generateCoachingSummary(evidence, config);
+  } catch (err) {
+    if (credit === 'reserved') await refundCredit(userId);
+    const message = err instanceof Error ? err.message : 'AI request failed';
+    throw new AICoachError(message, 502);
+  }
+
+  const { data: report, error } = await supabase
+    .from('ai_reports')
+    .insert({
+      user_id: userId,
+      report_type: 'post_session',
+      input_data: evidence,
+      provider: provider.name,
+      model: config.model,
+      prompt_version: PROMPT_VERSION,
+      output_content: output,
+      status: 'delivered',
+      source_session_ids: [sessionId],
+    })
+    .select('id')
+    .single();
+
+  if (error || !report) {
+    if (credit === 'reserved') await refundCredit(userId);
+    throw new AICoachError('Could not save the AI feedback.', 500);
+  }
+
+  return { id: report.id, output };
+}
