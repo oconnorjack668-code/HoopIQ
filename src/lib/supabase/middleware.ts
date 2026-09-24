@@ -46,7 +46,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/reset-password') ||
     pathname.startsWith('/auth/callback');
 
-  const isPublicMarketingPath = pathname === '/' || pathname.startsWith('/about');
+  const isPublicMarketingPath =
+    pathname === '/' || pathname.startsWith('/about') || pathname.startsWith('/privacy');
 
   // If user is not authenticated and trying to access protected routes
   if (!user && !isAuthPath && !isPublicMarketingPath) {

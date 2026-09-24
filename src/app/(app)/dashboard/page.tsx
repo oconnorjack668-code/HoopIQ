@@ -90,14 +90,16 @@ export default async function DashboardPage() {
               <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">AI Credits</div>
               <div className="flex items-baseline justify-between">
                 <span className="text-3xl font-black text-amber-400">
-                  {subscription?.ai_credits_remaining || 0}
+                  {subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner'
+                    ? '∞'
+                    : subscription?.ai_credits_remaining || 0}
                 </span>
-                <Badge variant="default" className="text-xs">monthly</Badge>
+                <Badge variant="default" className="text-xs">{subscription?.plan_type || 'free'}</Badge>
               </div>
               <div className="text-xs text-zinc-500 mt-2">
                 {subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner'
                   ? 'Unlimited'
-                  : 'Free tier'}
+                  : '1 credit per AI report'}
               </div>
             </CardContent>
           </Card>
@@ -147,7 +149,7 @@ export default async function DashboardPage() {
                       <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-xs font-bold text-white">
                         {idx + 1}
                       </div>
-                      <div className="capitalize">{zone.zone.replace('-', ' ')}</div>
+                      <div className="capitalize">{zone.zone.replace(/-/g, ' ')}</div>
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-orange-400">{zone.percentage.toFixed(1)}%</div>

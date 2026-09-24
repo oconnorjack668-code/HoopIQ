@@ -14,7 +14,8 @@ import {
   Video,
 } from 'lucide-react';
 
-const NAV_ITEMS = [
+// Shared with the desktop links in Navbar
+export const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { href: '/basketball', label: 'Hoops', icon: Target },
   { href: '/workouts', label: 'Gym', icon: Dumbbell },

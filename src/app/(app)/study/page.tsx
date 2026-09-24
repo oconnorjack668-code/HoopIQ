@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { BookOpen } from 'lucide-react';
+import Link from 'next/link';
 
 export const metadata = { title: 'Basketball IQ - HoopIQ' };
 
@@ -35,12 +36,14 @@ export default async function StudyPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {topics?.map((topic) => (
-          <Card key={topic.id} className="border-zinc-800 bg-zinc-900/70 hover:bg-zinc-900/90 transition-colors cursor-pointer">
-            <CardContent className="p-5">
-              <h3 className="font-bold text-white">{topic.title}</h3>
-              <p className="text-xs text-zinc-400 mt-2">{topic.description}</p>
-            </CardContent>
-          </Card>
+          <Link key={topic.id} href={`/study/${topic.id}`} className="block">
+            <Card className="border-zinc-800 bg-zinc-900/70 hover:bg-zinc-900/90 transition-colors cursor-pointer h-full">
+              <CardContent className="p-5">
+                <h3 className="font-bold text-white">{topic.title}</h3>
+                <p className="text-xs text-zinc-400 mt-2">{topic.description}</p>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>

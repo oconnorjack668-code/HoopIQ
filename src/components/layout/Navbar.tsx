@@ -7,6 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Flame, LogOut, User, ShieldAlert } from 'lucide-react';
 import type { Profile } from '@/lib/auth';
+import { NAV_ITEMS } from './BottomNav';
 
 interface NavbarProps {
   profile: Profile | null;
@@ -41,6 +42,26 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
             </span>
           </div>
         </Link>
+
+        {/* Desktop section links (phones use BottomNav) */}
+        <nav className="hidden md:flex items-center gap-1">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
+                  isActive ? 'bg-orange-500/10 text-orange-400' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
 
         {/* Right side: Owner badge, Profile link, Sign Out */}
         <div className="flex items-center gap-3">

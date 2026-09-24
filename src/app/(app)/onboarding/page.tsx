@@ -135,6 +135,13 @@ export default function OnboardingPage() {
   // @ts-ignore
   async function handleFinish() {
     setError(null);
+
+    // Matches the profiles.height_cm CHECK (between 100 and 250 cm)
+    if (heightCm !== '' && (Number(heightCm) <= 100 || Number(heightCm) >= 250)) {
+      setError('Height must be between 101 and 249 cm (for example, 6 ft 1 in is 185 cm).');
+      return;
+    }
+
     setIsLoading(true);
 
     try {

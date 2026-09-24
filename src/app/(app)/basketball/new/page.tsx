@@ -101,9 +101,35 @@ export default function NewBasketballSessionPage() {
       });
 
       if (!sessionResult.success) {
-        setError('Invalid session data. Please check all fields.');
+        setError(sessionResult.error.issues[0].message);
         setIsLoading(false);
         return;
+      }
+
+      // Validate every drill and shot before saving anything
+      const drillsToSave = drills.filter((drill) => drill.drillName.trim());
+      for (const [drillIdx, drill] of drillsToSave.entries()) {
+        const label = drill.drillName.trim() || `Drill ${drillIdx + 1}`;
+        if (drill.durationMinutes !== '') {
+          const minutes = Number(drill.durationMinutes);
+          if (!Number.isInteger(minutes) || minutes < 0 || minutes > 600) {
+            setError(`${label}: duration must be a whole number of minutes (0-600).`);
+            setIsLoading(false);
+            return;
+          }
+        }
+        for (const shot of drill.shots) {
+          const shotResult = shootingEntrySchema.safeParse({
+            shotZone: shot.shotZone,
+            makes: shot.makes,
+            attempts: shot.attempts,
+          });
+          if (!shotResult.success) {
+            setError(`${label}: ${shotResult.error.issues[0].message}`);
+            setIsLoading(false);
+            return;
+          }
+        }
       }
 
       const supabase = createClient();
@@ -140,10 +166,8 @@ export default function NewBasketballSessionPage() {
         return;
       }
 
-      // Create drills and shooting entries
-      for (const drill of drills) {
-        if (!drill.drillName.trim()) continue;
-
+      // Create drills and shooting entries; undo the whole session if any part fails
+      for (const [drillIdx, drill] of drillsToSave.entries()) {
         const drillResponse = await supabase
           .from('session_drills')
           .insert({
@@ -152,34 +176,33 @@ export default function NewBasketballSessionPage() {
             drill_name: drill.drillName.trim(),
             drill_category: drill.drillCategory,
             duration_minutes: drill.durationMinutes === '' ? null : Number(drill.durationMinutes),
+            display_order: drillIdx,
           })
           .select()
           .single();
 
         const newDrill = drillResponse.data as any;
-        const drillError = drillResponse.error;
+        let saveError = drillResponse.error || (!newDrill ? new Error('missing drill') : null);
 
-        if (drillError || !newDrill) continue;
-
-        // Add shooting entries for this drill
-        for (const shot of drill.shots) {
-          const shotResult = shootingEntrySchema.safeParse({
-            shotZone: shot.shotZone,
-            makes: shot.makes,
-            attempts: shot.attempts,
-          });
-
-          if (!shotResult.success) continue;
-
-          await supabase
-            .from('shooting_entries')
-            .insert({
+        if (!saveError && drill.shots.length > 0) {
+          const { error: shotsError } = await supabase.from('shooting_entries').insert(
+            drill.shots.map((shot) => ({
               drill_id: newDrill.id,
               user_id: user.id,
               shot_zone: shot.shotZone,
               makes: shot.makes,
               attempts: shot.attempts,
-            });
+            }))
+          );
+          saveError = shotsError;
+        }
+
+        if (saveError) {
+          // Deleting the session cascades to its drills and shots
+          await supabase.from('training_sessions').delete().eq('id', newSession.id);
+          setError(`Could not save "${drill.drillName.trim()}". Nothing was saved, please try again.`);
+          setIsLoading(false);
+          return;
         }
       }
 
@@ -242,6 +265,7 @@ export default function NewBasketballSessionPage() {
                       { value: 'footwork', label: 'Footwork' },
                       { value: 'scrimmage', label: 'Scrimmage' },
                       { value: 'pickup', label: 'Pickup Game' },
+                      { value: 'skills', label: 'Skills' },
                       { value: 'game', label: 'Game' },
                       { value: 'mixed', label: 'Mixed' },
                     ]}
@@ -354,6 +378,8 @@ export default function NewBasketballSessionPage() {
                           { value: 'footwork', label: 'Footwork' },
                           { value: 'defense', label: 'Defense' },
                           { value: 'conditioning', label: 'Conditioning' },
+                          { value: 'passing', label: 'Passing' },
+                          { value: 'other', label: 'Other' },
                         ]}
                       />
                       <Input

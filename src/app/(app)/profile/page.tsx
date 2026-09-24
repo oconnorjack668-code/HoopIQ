@@ -2,11 +2,13 @@ import React from 'react';
 import { requireUser, getCurrentProfile } from '@/lib/auth';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { User } from 'lucide-react';
+import Link from 'next/link';
+import { ProfileSettings } from './ProfileSettings';
 
 export const metadata = { title: 'Profile - HoopIQ' };
 
 export default async function ProfilePage() {
-  await requireUser();
+  const user = await requireUser();
   const profile = await getCurrentProfile();
 
   return (
@@ -46,6 +48,12 @@ export default async function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      <ProfileSettings userId={user.id} initialIsPublic={profile?.is_public ?? false} />
+
+      <p className="mt-8 text-center text-xs text-zinc-500">
+        <Link href="/privacy" className="underline hover:text-zinc-300">Privacy policy</Link>
+      </p>
     </div>
   );
 }

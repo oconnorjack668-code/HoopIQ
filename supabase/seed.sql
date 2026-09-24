@@ -1,10 +1,14 @@
 -- supabase/seed.sql
 -- Default system seed data: Exercise Library, Basketball IQ Study Topics & Quizzes, Leaderboard Season
+-- Safe to re-run: every insert skips rows that already exist.
+-- Note: youtube_video_id values are placeholders; the app links each lesson to a YouTube search by title.
 
 -- =============================================================================
 -- 1. SYSTEM EXERCISE LIBRARY
 -- =============================================================================
-INSERT INTO public.exercise_library (name, category, muscle_groups, equipment, description, is_system) VALUES
+INSERT INTO public.exercise_library (name, category, muscle_groups, equipment, description, is_system)
+SELECT v.name, v.category, v.muscle_groups, v.equipment, v.description, v.is_system
+FROM (VALUES
 -- Legs / Lower Body
 ('Trap Bar Deadlift', 'legs', ARRAY['hamstrings', 'glutes', 'quads', 'lower_back'], ARRAY['trap_bar', 'weight_plates'], 'Foundational posterior chain builder for explosive vertical power.', true),
 ('Barbell Back Squat', 'legs', ARRAY['quads', 'glutes', 'adductors'], ARRAY['barbell', 'squat_rack'], 'Deep squat to develop knee extension strength for cutting and jumping.', true),
@@ -39,7 +43,10 @@ INSERT INTO public.exercise_library (name, category, muscle_groups, equipment, d
 ('Couch Stretch (Hip Flexor / Quad)', 'mobility', ARRAY['psoas', 'rectus_femoris'], ARRAY['wall', 'mat'], 'Unlocks tight anterior hips from repetitive sprint and jumping.', true),
 ('Thoracic Spine Rotations (Open Books)', 'mobility', ARRAY['thoracic_spine', 'chest'], ARRAY['mat'], 'Upper spine rotation for fluid shooting pocket mechanics and passing vision.', true),
 ('Ankle Dorsiflexion Knee-to-Wall', 'mobility', ARRAY['soleus', 'achilles'], ARRAY['wall'], 'Restores ankle range of motion essential for deep landing mechanics.', true)
-ON CONFLICT DO NOTHING;
+) AS v(name, category, muscle_groups, equipment, description, is_system)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.exercise_library e WHERE e.is_system = true AND e.name = v.name
+);
 
 -- =============================================================================
 -- 2. CURATED BASKETBALL IQ STUDY TOPICS & LESSONS
@@ -71,12 +78,16 @@ DECLARE
   v_shooting_topic_id uuid;
   v_finishing_topic_id uuid;
   v_pnr_topic_id uuid;
+  v_defense_topic_id uuid;
 BEGIN
   SELECT id INTO v_shooting_topic_id FROM public.study_topics WHERE slug = 'shooting-mechanics' LIMIT 1;
   SELECT id INTO v_finishing_topic_id FROM public.study_topics WHERE slug = 'finishing-footwork' LIMIT 1;
   SELECT id INTO v_pnr_topic_id FROM public.study_topics WHERE slug = 'pnr-reads' LIMIT 1;
+  SELECT id INTO v_defense_topic_id FROM public.study_topics WHERE slug = 'defense-rotations' LIMIT 1;
 
-  IF v_shooting_topic_id IS NOT NULL THEN
+  -- Each topic's lessons are only inserted if that topic has none yet
+  IF v_shooting_topic_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.study_items WHERE topic_id = v_shooting_topic_id) THEN
     INSERT INTO public.study_items (
       topic_id, title, description, youtube_video_id, youtube_channel, duration_minutes,
       key_takeaways, reflection_prompt, quiz_questions, display_order
@@ -126,7 +137,8 @@ BEGIN
     ) ON CONFLICT DO NOTHING;
   END IF;
 
-  IF v_finishing_topic_id IS NOT NULL THEN
+  IF v_finishing_topic_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.study_items WHERE topic_id = v_finishing_topic_id) THEN
     INSERT INTO public.study_items (
       topic_id, title, description, youtube_video_id, youtube_channel, duration_minutes,
       key_takeaways, reflection_prompt, quiz_questions, display_order
@@ -151,7 +163,8 @@ BEGIN
     ) ON CONFLICT DO NOTHING;
   END IF;
 
-  IF v_pnr_topic_id IS NOT NULL THEN
+  IF v_pnr_topic_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.study_items WHERE topic_id = v_pnr_topic_id) THEN
     INSERT INTO public.study_items (
       topic_id, title, description, youtube_video_id, youtube_channel, duration_minutes,
       key_takeaways, reflection_prompt, quiz_questions, display_order
@@ -175,30 +188,52 @@ BEGIN
       1
     ) ON CONFLICT DO NOTHING;
   END IF;
+
+  IF v_defense_topic_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.study_items WHERE topic_id = v_defense_topic_id) THEN
+    INSERT INTO public.study_items (
+      topic_id, title, description, youtube_video_id, youtube_channel, duration_minutes,
+      key_takeaways, reflection_prompt, quiz_questions, display_order
+    ) VALUES (
+      v_defense_topic_id,
+      'Closeouts and Help-Side Positioning',
+      'How to close out under control, stay in a stance that lets you recover, and sit in the gap on the weak side.',
+      'placeholder',
+      'HoopIQ',
+      8,
+      ARRAY['Sprint the first two-thirds of a closeout, then chop your feet with high hands', 'On the weak side, see both your player and the ball (pistols position)', 'Help early in the gap so you are not late at the rim'],
+      'Think about the last time your player scored after a closeout. Were you out of control, or did you give up a straight-line drive?',
+      '[
+        {
+          "question": "What is the main goal of chopping your feet at the end of a closeout?",
+          "options": ["To draw a charge", "To stay balanced so the shooter cannot drive straight past you", "To block every shot", "To get back on offense faster"],
+          "correct_index": 1,
+          "explanation": "Short, choppy steps keep you balanced, so you can contest the shot and still slide if the shooter drives."
+        },
+        {
+          "question": "Where should a weak-side defender be when the ball is on the opposite wing?",
+          "options": ["Face-guarding their player at the three-point line", "In the gap near the paint, seeing both their player and the ball", "At half court", "Behind the backboard"],
+          "correct_index": 1,
+          "explanation": "Sitting in the gap lets you stop penetration early and still recover to your player on a kick-out."
+        }
+      ]'::jsonb,
+      1
+    ) ON CONFLICT DO NOTHING;
+  END IF;
 END $$;
 
 -- =============================================================================
 -- 3. INITIAL LEADERBOARD SEASON (Active)
 -- =============================================================================
-INSERT INTO public.leaderboard_seasons (
-  name, starts_at, ends_at, scoring_rules, is_active
-) VALUES (
+-- Only created if there is no active season (the leaderboard expects exactly one).
+-- Points are calculated by the leaderboard_standings view (migration 00007).
+INSERT INTO public.leaderboard_seasons (name, starts_at, ends_at, is_active)
+SELECT
   'Season 1: Foundation & Consistency',
   now() - interval '7 days',
   now() + interval '83 days',
-  '{
-    "goal_adherence_weight": 0.40,
-    "variety_weight": 0.25,
-    "study_weight": 0.20,
-    "challenge_weight": 0.15,
-    "max_daily_points": 150,
-    "max_weekly_points": 1000,
-    "base_session_points": 25,
-    "base_workout_points": 25,
-    "base_study_points": 20
-  }'::jsonb,
   true
-) ON CONFLICT DO NOTHING;
+WHERE NOT EXISTS (SELECT 1 FROM public.leaderboard_seasons WHERE is_active = true);
 
 -- =============================================================================
 -- 4. OWNER PROVISIONING HELPER

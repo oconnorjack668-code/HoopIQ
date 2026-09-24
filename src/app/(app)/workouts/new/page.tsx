@@ -12,6 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Alert } from '@/components/ui/Alert';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { workoutSchema, workoutSetSchema } from '@/lib/validation';
 
 interface WorkoutSet {
   exerciseName: string;
@@ -66,6 +67,40 @@ export default function NewWorkoutPage() {
     setError(null);
     setIsLoading(true);
 
+    // Validate everything before saving anything
+    const workoutResult = workoutSchema.safeParse({
+      workoutDate,
+      workoutType,
+      durationMinutes: Number(durationMinutes),
+      rpe: Number(rpe),
+      notes: notes || null,
+    });
+    if (!workoutResult.success) {
+      setError(workoutResult.error.issues[0].message);
+      setIsLoading(false);
+      return;
+    }
+
+    const toNumber = (v: number | '') => (v === '' ? null : Number(v));
+    const setsToSave = sets.filter((s) => s.exerciseName.trim());
+    for (const [idx, set] of setsToSave.entries()) {
+      const setResult = workoutSetSchema.safeParse({
+        exerciseName: set.exerciseName.trim(),
+        setNumber: idx + 1,
+        reps: toNumber(set.reps),
+        weightKg: toNumber(set.weight_kg),
+        durationSeconds: toNumber(set.duration_seconds),
+        distanceMeters: toNumber(set.distance_meters),
+        rpe: toNumber(set.rpe),
+        isPersonalRecord: set.isPersonalRecord,
+      });
+      if (!setResult.success) {
+        setError(`${set.exerciseName.trim()} (set ${idx + 1}): ${setResult.error.issues[0].message}`);
+        setIsLoading(false);
+        return;
+      }
+    }
+
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -97,23 +132,27 @@ export default function NewWorkoutPage() {
         return;
       }
 
-      for (const set of sets) {
-        if (!set.exerciseName.trim()) continue;
+      const { error: setsError } = await supabase.from('workout_sets').insert(
+        setsToSave.map((set, idx) => ({
+          workout_id: workout.id,
+          user_id: user.id,
+          exercise_name: set.exerciseName.trim(),
+          set_number: idx + 1,
+          reps: toNumber(set.reps),
+          weight_kg: toNumber(set.weight_kg),
+          duration_seconds: toNumber(set.duration_seconds),
+          distance_meters: toNumber(set.distance_meters),
+          rpe: toNumber(set.rpe),
+          is_personal_record: set.isPersonalRecord,
+        }))
+      );
 
-        await supabase
-          .from('workout_sets')
-          .insert({
-            workout_id: workout.id,
-            user_id: user.id,
-            exercise_name: set.exerciseName.trim(),
-            set_number: set.setNumber,
-            reps: set.reps === '' ? null : Number(set.reps),
-            weight_kg: set.weight_kg === '' ? null : Number(set.weight_kg),
-            duration_seconds: set.duration_seconds === '' ? null : Number(set.duration_seconds),
-            distance_meters: set.distance_meters === '' ? null : Number(set.distance_meters),
-            rpe: set.rpe === '' ? null : Number(set.rpe),
-            is_personal_record: set.isPersonalRecord,
-          });
+      if (setsError) {
+        // Deleting the workout cascades to any sets that were saved
+        await supabase.from('workouts').delete().eq('id', workout.id);
+        setError('Could not save your sets. Nothing was saved, please try again.');
+        setIsLoading(false);
+        return;
       }
 
       router.push('/workouts');
@@ -162,6 +201,7 @@ export default function NewWorkoutPage() {
                     { value: 'recovery', label: 'Recovery' },
                     { value: 'conditioning', label: 'Conditioning' },
                     { value: 'testing', label: 'Testing' },
+                    { value: 'mixed', label: 'Mixed' },
                   ]}
                 />
               </div>

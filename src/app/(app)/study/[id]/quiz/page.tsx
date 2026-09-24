@@ -13,6 +13,7 @@ import Link from 'next/link';
 
 interface Question {
   id: string;
+  itemId: string;
   text: string;
   options: string[];
   correctAnswer: number;
@@ -46,18 +47,31 @@ export default function QuizPage() {
   async function loadQuiz() {
     try {
       const supabase = createClient();
-      const { data, error: fetchError } = (await supabase
-        .from('study_topics')
-        .select('quiz_config')
-        .eq('id', topicId)
-        .single()) as unknown as { data: any; error: any };
+      // A topic's quiz is the combined quiz_questions of its lessons
+      const { data: items, error: fetchError } = (await supabase
+        .from('study_items')
+        .select('id, quiz_questions')
+        .eq('topic_id', topicId)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })) as unknown as { data: any[] | null; error: any };
 
-      if (fetchError || !data?.quiz_config) {
+      if (fetchError || !items) {
         setError('Quiz not found');
         return;
       }
 
-      setQuestions(data?.quiz_config?.questions || []);
+      const loaded: Question[] = items.flatMap((item) =>
+        (Array.isArray(item.quiz_questions) ? item.quiz_questions : []).map((q: any, idx: number) => ({
+          id: `${item.id}-${idx}`,
+          itemId: item.id,
+          text: q.question,
+          options: q.options || [],
+          correctAnswer: q.correct_index,
+          explanation: q.explanation,
+        }))
+      );
+
+      setQuestions(loaded);
     } catch (err) {
       setError('Failed to load quiz');
     } finally {
@@ -115,13 +129,42 @@ export default function QuizPage() {
 
       if (!user?.user) return;
 
-      await (supabase.from('quiz_completions').insert([{
+      const { error: insertError } = await (supabase.from('quiz_completions').insert([{
         user_id: user.user.id,
         topic_id: topicId,
         score: quizResult.score,
         total_questions: quizResult.totalQuestions,
         percentage: quizResult.percentage,
       }] as any) as any);
+      if (insertError) throw insertError;
+
+      // Record per-lesson progress; a lesson counts as completed at 80%+
+      const itemIds = Array.from(new Set(questions.map((q) => q.itemId)));
+      for (const itemId of itemIds) {
+        const itemQuestionIdxs = questions
+          .map((q, idx) => (q.itemId === itemId ? idx : -1))
+          .filter((idx) => idx >= 0);
+        const correct = itemQuestionIdxs.filter(
+          (idx) => quizResult.answers[idx] === questions[idx].correctAnswer
+        ).length;
+        const itemScore = Math.round((correct / itemQuestionIdxs.length) * 100);
+        const now = new Date().toISOString();
+
+        const progress: Record<string, unknown> = {
+          user_id: user.user.id,
+          item_id: itemId,
+          quiz_score: itemScore,
+          quiz_answers: itemQuestionIdxs.map((idx) => quizResult.answers[idx] ?? null),
+          updated_at: now,
+        };
+        // Only set completed_at on a pass so a later failed retake doesn't erase it
+        if (itemScore >= 80) progress.completed_at = now;
+
+        const { error: progressError } = await (supabase
+          .from('study_progress')
+          .upsert(progress as any, { onConflict: 'user_id,item_id' }) as any);
+        if (progressError) throw progressError;
+      }
     } catch (err) {
       console.error('Failed to save quiz result:', err);
     }

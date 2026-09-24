@@ -56,8 +56,8 @@ export const onboardingSchema = z.object({
 export const sessionSchema = z.object({
   sessionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Valid date required (YYYY-MM-DD)'),
   sessionType: z.enum(['shooting', 'ball-handling', 'footwork', 'scrimmage', 'pickup', 'skills', 'game', 'mixed']),
-  durationMinutes: z.number().min(5, 'Minimum 5 minutes').max(360, 'Maximum 360 minutes'),
-  intensityRpe: z.number().min(1, 'RPE must be 1-10').max(10, 'RPE must be 1-10'),
+  durationMinutes: z.number().int('Duration must be whole minutes').min(5, 'Minimum 5 minutes').max(360, 'Maximum 360 minutes'),
+  intensityRpe: z.number().int().min(1, 'RPE must be 1-10').max(10, 'RPE must be 1-10'),
   perceivedQuality: z.number().min(1, 'Quality must be 1-5').max(5, 'Quality must be 1-5'),
   notes: z.string().max(1000).optional().nullable(),
 });
@@ -80,8 +80,8 @@ export const shootingEntrySchema = z.object({
     'all-around',
   ]),
   shotType: z.enum(['catch-and-shoot', 'off-the-dribble', 'step-back', 'free-throw', 'floater', 'pull-up', 'spot-up']).optional().nullable(),
-  makes: z.number().min(0, 'Makes cannot be negative'),
-  attempts: z.number().min(0, 'Attempts cannot be negative'),
+  makes: z.number().int('Makes must be a whole number').min(0, 'Makes cannot be negative'),
+  attempts: z.number().int('Attempts must be a whole number').min(0, 'Attempts cannot be negative'),
 }).refine((data) => data.attempts >= data.makes, {
   message: 'Attempts must be greater than or equal to makes',
   path: ['attempts'],
@@ -90,20 +90,20 @@ export const shootingEntrySchema = z.object({
 export const workoutSchema = z.object({
   workoutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Valid date required (YYYY-MM-DD)'),
   workoutType: z.enum(['strength', 'power_plyos', 'mobility', 'recovery', 'conditioning', 'testing', 'mixed']),
-  durationMinutes: z.number().min(5, 'Minimum 5 minutes').max(240, 'Maximum 240 minutes'),
-  rpe: z.number().min(1, 'RPE must be 1-10').max(10, 'RPE must be 1-10'),
+  durationMinutes: z.number().int('Duration must be whole minutes').min(5, 'Minimum 5 minutes').max(240, 'Maximum 240 minutes'),
+  rpe: z.number().int().min(1, 'RPE must be 1-10').max(10, 'RPE must be 1-10'),
   notes: z.string().max(1000).optional().nullable(),
 });
 
 export const workoutSetSchema = z.object({
   exerciseName: z.string().min(1, 'Exercise name is required'),
   exerciseCategory: z.string().optional().nullable(),
-  setNumber: z.number().min(1),
-  reps: z.number().min(0).optional().nullable(),
-  weightKg: z.number().min(0).optional().nullable(),
-  durationSeconds: z.number().min(0).optional().nullable(),
-  distanceMeters: z.number().min(0).optional().nullable(),
-  rpe: z.number().min(1).max(10).optional().nullable(),
+  setNumber: z.number().int().min(1),
+  reps: z.number().int('Reps must be a whole number').min(0, 'Reps cannot be negative').optional().nullable(),
+  weightKg: z.number().min(0, 'Weight cannot be negative').optional().nullable(),
+  durationSeconds: z.number().int('Seconds must be a whole number').min(0, 'Seconds cannot be negative').optional().nullable(),
+  distanceMeters: z.number().min(0, 'Distance cannot be negative').optional().nullable(),
+  rpe: z.number().int('RPE must be a whole number').min(1, 'RPE must be 1-10').max(10, 'RPE must be 1-10').optional().nullable(),
   isPersonalRecord: z.boolean().default(false),
   notes: z.string().max(500).optional().nullable(),
 });

@@ -1,0 +1,115 @@
+// src/app/(app)/profile/ProfileSettings.tsx
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Alert';
+
+export function ProfileSettings({ userId, initialIsPublic }: { userId: string; initialIsPublic: boolean }) {
+  const router = useRouter();
+  const [isPublic, setIsPublic] = useState(initialIsPublic);
+  const [savingVisibility, setSavingVisibility] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function toggleVisibility() {
+    const next = !isPublic;
+    setSavingVisibility(true);
+    setError(null);
+    const supabase = createClient() as any;
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ is_public: next, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+    setSavingVisibility(false);
+    if (updateError) {
+      setError('Could not update leaderboard visibility.');
+      return;
+    }
+    setIsPublic(next);
+    router.refresh();
+  }
+
+  async function deleteAccount() {
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/account/delete', { method: 'POST' });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setError(data.error || 'Could not delete your account.');
+        setDeleting(false);
+        return;
+      }
+      await createClient().auth.signOut().catch(() => undefined);
+      router.push('/');
+      router.refresh();
+    } catch {
+      setError('Network error. Check your connection and try again.');
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6 mt-6">
+      {error && <Alert variant="error" title="Error">{error}</Alert>}
+
+      <Card className="border-zinc-800 bg-zinc-900/70">
+        <CardHeader>
+          <CardTitle>Leaderboard</CardTitle>
+          <CardDescription>
+            When on, other players can see your display name and points. Your training details stay private.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-sm text-zinc-200">Show me on the leaderboard</span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={isPublic}
+              disabled={savingVisibility}
+              onChange={toggleVisibility}
+              className="h-5 w-5 accent-orange-500"
+            />
+          </label>
+        </CardContent>
+      </Card>
+
+      <Card className="border-red-900/50 bg-red-950/10">
+        <CardHeader>
+          <CardTitle>Delete account</CardTitle>
+          <CardDescription>
+            Permanently deletes your account, training history, AI reports, quiz results and uploaded videos. This
+            cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <label htmlFor="confirm-delete" className="block text-xs text-zinc-400">
+            Type DELETE to confirm
+          </label>
+          <input
+            id="confirm-delete"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            autoComplete="off"
+            className="w-full px-3.5 py-2 rounded-xl border border-zinc-700/80 bg-zinc-900/90 text-sm text-zinc-100 focus:border-red-500 focus:outline-none"
+          />
+          <Button
+            variant="danger"
+            className="w-full"
+            disabled={confirmText !== 'DELETE' || deleting}
+            isLoading={deleting}
+            onClick={deleteAccount}
+          >
+            Delete my account
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

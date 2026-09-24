@@ -64,7 +64,7 @@ export default function NewPerformanceTestPage() {
       });
 
       if (!result.success) {
-        setError('Invalid test data. Please check all fields.');
+        setError(result.error.issues[0].message);
         setIsLoading(false);
         return;
       }
@@ -79,6 +79,23 @@ export default function NewPerformanceTestPage() {
         return;
       }
 
+      // PR = best result so far for this test (lower is better for timed tests)
+      const unitValue = getUnit();
+      const lowerIsBetter = unitValue === 'seconds';
+      let previousQuery = supabase
+        .from('performance_tests')
+        .select('value')
+        .eq('user_id', user.id)
+        .eq('test_type', testType)
+        .eq('unit', unitValue)
+        .order('value', { ascending: lowerIsBetter })
+        .limit(1);
+      if (testType === 'custom') previousQuery = previousQuery.eq('custom_test_name', customTestName.trim());
+      const { data: previousBest } = await previousQuery;
+      const bestSoFar = previousBest?.[0]?.value;
+      const isPersonalRecord =
+        bestSoFar === undefined || (lowerIsBetter ? Number(value) < bestSoFar : Number(value) > bestSoFar);
+
       const insertResponse = await supabase
         .from('performance_tests')
         .insert({
@@ -87,7 +104,8 @@ export default function NewPerformanceTestPage() {
           test_type: testType,
           custom_test_name: testType === 'custom' ? customTestName.trim() : null,
           value: Number(value),
-          unit: getUnit(),
+          unit: unitValue,
+          is_personal_record: isPersonalRecord,
           notes: notes || null,
         });
 
@@ -171,14 +189,29 @@ export default function NewPerformanceTestPage() {
                 step="0.1"
                 required
               />
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
-                  Unit
-                </label>
-                <div className="h-11 px-3.5 py-2 rounded-xl border border-zinc-700/80 bg-zinc-900/90 flex items-center text-sm text-zinc-400">
-                  {getUnit()}
+              {testType === 'custom' ? (
+                <Select
+                  label="Unit"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                  options={[
+                    { value: 'inches', label: 'Inches' },
+                    { value: 'cm', label: 'Centimeters' },
+                    { value: 'seconds', label: 'Seconds' },
+                    { value: 'meters', label: 'Meters' },
+                    { value: 'reps', label: 'Reps' },
+                  ]}
+                />
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
+                    Unit
+                  </label>
+                  <div className="h-11 px-3.5 py-2 rounded-xl border border-zinc-700/80 bg-zinc-900/90 flex items-center text-sm text-zinc-400">
+                    {getUnit()}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div>

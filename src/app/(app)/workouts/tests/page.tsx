@@ -37,6 +37,8 @@ export default async function PerformanceTestsPage() {
       test_type: string;
       test_date: string;
       value: number;
+      unit: string;
+      custom_test_name: string | null;
       is_personal_record: boolean;
       notes: string | null;
     }>>();
@@ -55,6 +57,8 @@ export default async function PerformanceTestsPage() {
       test_type: string;
       test_date: string;
       value: number;
+      unit: string;
+      custom_test_name: string | null;
       is_personal_record: boolean;
       notes: string | null;
     }>>
@@ -74,10 +78,14 @@ export default async function PerformanceTestsPage() {
       ? typeTests.reduce((min, t) => (t.value < min.value ? t : min))
       : typeTests.reduce((max, t) => (t.value > max.value ? t : max));
 
+    // Improved = the latest result beats everything logged before it
     const recent = typeTests[0];
-    const improved = isTime
-      ? recent.value < best.value
-      : recent.value > best.value;
+    const earlier = typeTests.slice(1);
+    const improved =
+      earlier.length > 0 &&
+      (isTime
+        ? earlier.every((t) => recent.value < t.value)
+        : earlier.every((t) => recent.value > t.value));
 
     return { best, recent, improved, isTime, testDef };
   };
@@ -177,7 +185,9 @@ export default async function PerformanceTestsPage() {
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-white">{testDef?.label}</h4>
+                          <h4 className="font-semibold text-white">
+                            {testDef?.label || test.custom_test_name || 'Custom test'}
+                          </h4>
                           {isPR && (
                             <Badge variant="orange" className="text-xs">
                               <Award className="h-2.5 w-2.5 mr-1" />
@@ -186,7 +196,7 @@ export default async function PerformanceTestsPage() {
                           )}
                         </div>
                         <p className="text-xs text-zinc-400">
-                          {new Date(test.test_date).toLocaleDateString('en-US', {
+                          {new Date(`${test.test_date}T00:00:00`).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric',
@@ -195,7 +205,7 @@ export default async function PerformanceTestsPage() {
                       </div>
                       <div className="text-right">
                         <span className="text-lg font-bold text-orange-400">
-                          {test.value} {testDef?.unit}
+                          {test.value} {test.unit}
                         </span>
                         {test.notes && (
                           <p className="text-xs text-zinc-500 mt-0.5">{test.notes}</p>

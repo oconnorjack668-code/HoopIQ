@@ -1,12 +1,14 @@
 // src/app/(app)/ai-coach/page.tsx
 import React from 'react';
-import { requireUser } from '@/lib/auth';
+import { requireUser, getCurrentSubscription } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { CREDITS_PER_REPORT } from '@/lib/ai/service';
+import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Link as LinkIcon, Zap, TrendingUp, Lightbulb } from 'lucide-react';
+import { Link as LinkIcon, Zap, TrendingUp, Lightbulb, History } from 'lucide-react';
 import Link from 'next/link';
+import { GenerateFeedbackButton } from './GenerateFeedbackButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,31 +23,38 @@ export default async function AICoachPage() {
   // Fetch recent AI reports
   const { data: reports } = (await supabase
     .from('ai_reports')
-    .select('*')
+    .select('id, created_at, output_content, source_session_ids')
     .eq('user_id', user.id)
+    .eq('status', 'delivered')
     .order('created_at', { ascending: false })
     .limit(10)) as unknown as { data: any[] };
 
-  // Fetch subscription for credit info
-  const { data: subscription } = (await supabase
-    .from('subscriptions')
-    .select('*')
+  // Recent sessions that can get feedback
+  const { data: sessions } = (await supabase
+    .from('training_sessions')
+    .select('id, session_date, session_type, duration_minutes')
     .eq('user_id', user.id)
-    .single()) as unknown as { data: any };
+    .order('session_date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(5)) as unknown as { data: any[] };
 
-  // Calculate this month's usage
+  // Reports this month (each report costs CREDITS_PER_REPORT)
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const { data: monthReports } = (await supabase
+  const { count: monthReportCount } = (await supabase
     .from('ai_reports')
-    .select('credits_used')
+    .select('id', { count: 'exact', head: true })
     .eq('user_id', user.id)
-    .gte('created_at', monthStart.toISOString())) as unknown as { data: any[] };
+    .gte('created_at', monthStart.toISOString())) as unknown as { count: number | null };
 
-  const monthlyUsage = monthReports?.reduce((sum, r) => sum + (r.credits_used || 0), 0) || 0;
+  // Owner entitlement (role or OWNER_EMAIL) is resolved here
+  const subscription = await getCurrentSubscription();
   const isUnlimited = subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner';
-  const remainingCredits = isUnlimited ? '∞' : subscription?.ai_credits_remaining || 0;
+  const remainingCredits = subscription?.ai_credits_remaining ?? 0;
+  const outOfCredits = !isUnlimited && remainingCredits < CREDITS_PER_REPORT;
+  const monthlyUsage = (monthReportCount || 0) * CREDITS_PER_REPORT;
+
+  const reviewedSessionIds = new Set(reports?.flatMap((r) => r.source_session_ids || []) || []);
 
   return (
     <div className="flex-1 overflow-auto">
@@ -79,8 +88,10 @@ export default async function AICoachPage() {
             <CardContent className="p-5">
               <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">Remaining</div>
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-cyan-400">{remainingCredits}</span>
-                <span className="text-xs text-zinc-500">available</span>
+                <span className="text-2xl font-black text-cyan-400">{isUnlimited ? '∞' : remainingCredits}</span>
+                <span className="text-xs text-zinc-500">
+                  {CREDITS_PER_REPORT} credit per report
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -94,11 +105,46 @@ export default async function AICoachPage() {
                 </Badge>
               </div>
               <div className="text-xs text-zinc-500 mt-2">
-                {isUnlimited ? 'Unlimited access' : 'Monthly limit'}
+                {isUnlimited ? 'Unlimited access' : 'Free plan credits'}
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Sessions to review */}
+        {sessions && sessions.length > 0 && (
+          <div className="space-y-3 mb-8">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <History className="h-5 w-5 text-cyan-400" />
+              Recent Sessions
+            </h2>
+            {outOfCredits && (
+              <p className="text-sm text-amber-400">You&apos;ve used all your free AI credits.</p>
+            )}
+            {sessions.map((session) => (
+              <Card key={session.id} className="border-zinc-800 bg-zinc-900/70">
+                <CardContent className="p-4 flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-semibold text-white capitalize">{session.session_type.replace(/-/g, ' ')}</h3>
+                    <p className="text-xs text-zinc-400">
+                      {new Date(`${session.session_date}T00:00:00`).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      })}{' '}
+                      · {session.duration_minutes} min
+                    </p>
+                  </div>
+                  {reviewedSessionIds.has(session.id) ? (
+                    <Badge variant="success" className="text-xs">Feedback ready</Badge>
+                  ) : (
+                    <GenerateFeedbackButton sessionId={session.id} disabled={outOfCredits} />
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* Recent Reports */}
         {reports && reports.length > 0 ? (
@@ -108,12 +154,14 @@ export default async function AICoachPage() {
               Coaching Reports
             </h2>
 
-            {reports.map((report) => (
-              <Card key={report.id} className="border-zinc-800 bg-zinc-900/70 hover:bg-zinc-900/90 transition-all">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="space-y-1">
-                      <h3 className="font-bold text-white">{report.summary}</h3>
+            {reports.map((report) => {
+              const output = report.output_content || {};
+              const insights: string[] = output.keyInsights || [];
+              const recommendations: string[] = output.recommendations || [];
+              return (
+                <Card key={report.id} className="border-zinc-800 bg-zinc-900/70">
+                  <CardContent className="p-5">
+                    <div className="mb-3 space-y-1">
                       <p className="text-xs text-zinc-400">
                         {new Date(report.created_at).toLocaleDateString('en-US', {
                           month: 'short',
@@ -122,44 +170,45 @@ export default async function AICoachPage() {
                           minute: '2-digit',
                         })}
                       </p>
+                      <p className="font-semibold text-white">{output.summary}</p>
+                      {output.comparisonToPrevious && (
+                        <p className="text-sm text-zinc-400">{output.comparisonToPrevious}</p>
+                      )}
                     </div>
-                    <Badge variant="purple" className="text-xs">
-                      {report.credits_used} cr
-                    </Badge>
-                  </div>
 
-                  {/* Key Insights */}
-                  {report.key_insights && report.key_insights.length > 0 && (
-                    <div className="mb-3 space-y-1">
-                      <div className="text-xs font-semibold text-zinc-400 uppercase">Key Insights</div>
-                      <ul className="text-sm text-zinc-300 space-y-1">
-                        {report.key_insights.map((insight: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <Lightbulb className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
-                            <span>{insight}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                    {/* Key Insights */}
+                    {insights.length > 0 && (
+                      <div className="mb-3 space-y-1">
+                        <div className="text-xs font-semibold text-zinc-400 uppercase">Key Insights</div>
+                        <ul className="text-sm text-zinc-300 space-y-1">
+                          {insights.map((insight, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <Lightbulb className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
+                              <span>{insight}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                  {/* Recommendations */}
-                  {report.recommendations && report.recommendations.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="text-xs font-semibold text-zinc-400 uppercase">Recommendations</div>
-                      <ul className="text-sm text-zinc-300 space-y-1">
-                        {report.recommendations.map((rec: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <LinkIcon className="h-3.5 w-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
-                            <span>{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+                    {/* Recommendations */}
+                    {recommendations.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-zinc-400 uppercase">Recommendations</div>
+                        <ul className="text-sm text-zinc-300 space-y-1">
+                          {recommendations.map((rec, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <LinkIcon className="h-3.5 w-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                              <span>{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         ) : (
           <Card className="border-zinc-800 bg-zinc-900/50">
@@ -167,13 +216,17 @@ export default async function AICoachPage() {
               <Zap className="h-12 w-12 text-zinc-700 mx-auto mb-3" />
               <h3 className="text-lg font-bold text-zinc-300 mb-1">No coaching reports yet</h3>
               <p className="text-sm text-zinc-400 mb-6">
-                Log basketball sessions to get AI-powered coaching feedback on your performance.
+                {sessions && sessions.length > 0
+                  ? 'Tap "Get AI feedback" on a session above.'
+                  : 'Log a basketball session, then come back for AI coaching feedback.'}
               </p>
-              <Link href="/basketball/new">
-                <Button variant="primary" size="lg">
-                  Log First Session
-                </Button>
-              </Link>
+              {(!sessions || sessions.length === 0) && (
+                <Link href="/basketball/new">
+                  <Button variant="primary" size="lg">
+                    Log First Session
+                  </Button>
+                </Link>
+              )}
             </CardContent>
           </Card>
         )}
