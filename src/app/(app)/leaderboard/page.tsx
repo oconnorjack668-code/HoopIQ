@@ -12,11 +12,10 @@ export const metadata = {
   title: 'Leaderboard - HoopIQ',
 };
 
-// Leaderboard scoring formula:
-// Base points: 10 × (shooting % + consistency streak + test PRs)
-// Bonus: +5 for each completed training day (max +35/week)
-// Challenge: +50 per challenge completed
-// Quiz: +10 per quiz at 80%+ score
+// Leaderboard scoring formula (computed by the leaderboard_standings view, migration 00007):
+// Training: +10 per active training day (basketball session or workout, max 1 per day)
+// Quiz: +10 per study topic quiz passed at 80%+ (once per topic)
+// Challenge: points awarded for each verified challenge completion
 
 export default async function LeaderboardPage() {
   const user = await requireUser();
@@ -114,21 +113,20 @@ export default async function LeaderboardPage() {
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex items-start gap-2">
-              <span className="font-bold text-blue-400 min-w-fit">Base:</span>
-              <span className="text-zinc-300">10 × (shooting % + consistency streak + test PRs)</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="font-bold text-emerald-400 min-w-fit">Daily:</span>
-              <span className="text-zinc-300">+5 for each completed training day (max +35/week)</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="font-bold text-purple-400 min-w-fit">Challenge:</span>
-              <span className="text-zinc-300">+50 per challenge completed</span>
+              <span className="font-bold text-emerald-400 min-w-fit">Training:</span>
+              <span className="text-zinc-300">+10 for each day you log a basketball session or workout (max 1 per day)</span>
             </div>
             <div className="flex items-start gap-2">
               <span className="font-bold text-amber-400 min-w-fit">Quiz:</span>
-              <span className="text-zinc-300">+10 per quiz at 80%+ score</span>
+              <span className="text-zinc-300">+10 for each study topic quiz passed at 80%+ (once per topic)</span>
             </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-purple-400 min-w-fit">Challenge:</span>
+              <span className="text-zinc-300">Bonus points for each challenge completed</span>
+            </div>
+            <p className="text-xs text-zinc-500 pt-1">
+              Only players with a public profile appear to others. You always see yourself.
+            </p>
           </CardContent>
         </Card>
 

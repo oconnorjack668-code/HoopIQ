@@ -1,6 +1,6 @@
 // src/app/(app)/layout.tsx
 import React from 'react';
-import { requireUser } from '@/lib/auth';
+import { requireUser, checkIsOwner } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -24,13 +24,7 @@ export default async function AppLayout({
     .eq('id', user.id)
     .single();
 
-  const { data: roles } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('role', 'owner');
-
-  const isOwner = !!roles;
+  const isOwner = await checkIsOwner();
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">

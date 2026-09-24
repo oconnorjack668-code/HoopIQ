@@ -736,6 +736,7 @@ export interface Database {
           id: string;
           user_id: string;
           season_id: string | null;
+          challenge_id: string | null;
           challenge_type: string;
           title: string;
           points_earned: number;
@@ -748,6 +749,7 @@ export interface Database {
           id?: string;
           user_id: string;
           season_id?: string | null;
+          challenge_id?: string | null;
           challenge_type: string;
           title: string;
           points_earned?: number;
@@ -795,6 +797,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
+          title: string | null;
           storage_path: string;
           file_name: string;
           file_size_bytes: number;
@@ -813,6 +816,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
+          title?: string | null;
           storage_path: string;
           file_name: string;
           file_size_bytes: number;
@@ -913,6 +917,60 @@ export interface Database {
         Update: {
           shot_outcome?: string | null;
           player_confirmed?: boolean;
+        };
+      };
+      quiz_completions: {
+        Row: {
+          id: string;
+          user_id: string;
+          topic_id: string;
+          score: number;
+          total_questions: number;
+          percentage: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          topic_id: string;
+          score: number;
+          total_questions: number;
+          percentage: number;
+          created_at?: string;
+        };
+        Update: Record<string, never>;
+      };
+      challenges: {
+        Row: {
+          id: string;
+          season_id: string | null;
+          challenge_type: string;
+          title: string;
+          description: string;
+          points: number;
+          start_date: string;
+          end_date: string;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          season_id?: string | null;
+          challenge_type: string;
+          title: string;
+          description: string;
+          points?: number;
+          start_date?: string;
+          end_date: string;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string;
+          points?: number;
+          end_date?: string;
+          is_active?: boolean;
         };
       };
     };

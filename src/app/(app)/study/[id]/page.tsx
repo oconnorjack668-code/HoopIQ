@@ -42,25 +42,22 @@ export default async function StudyTopicPage({
     .eq('topic_id', id)
     .order('display_order', { ascending: true })) as unknown as { data: any[] };
 
-  // Fetch user's progress on this topic
-  const { data: progress } = (await supabase
-    .from('study_progress')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('topic_id', id)
-    .single()) as unknown as { data: any };
-
-  // Fetch completed items for this user
-  const { data: completedItems } = (await supabase
-    .from('study_item_completion')
-    .select('item_id')
-    .eq('user_id', user.id)
-    .eq('topic_id', id)) as unknown as { data: any[] };
+  // Fetch items this user has completed (quiz passed at 80%+)
+  const itemIds = items?.map((item) => item.id) || [];
+  const { data: completedItems } = (itemIds.length > 0
+    ? await supabase
+        .from('study_progress')
+        .select('item_id')
+        .eq('user_id', user.id)
+        .in('item_id', itemIds)
+        .not('completed_at', 'is', null)
+    : { data: [] }) as unknown as { data: any[] };
 
   const completedItemIds = new Set(completedItems?.map((c) => c.item_id) || []);
-  const completionPercentage = items
+  const completionPercentage = items && items.length > 0
     ? Math.round((completedItemIds.size / items.length) * 100)
     : 0;
+  const hasQuiz = items?.some((item) => Array.isArray(item.quiz_questions) && item.quiz_questions.length > 0);
 
   return (
     <div className="flex-1 overflow-auto">
@@ -106,8 +103,11 @@ export default async function StudyTopicPage({
           {items && items.length > 0 ? (
             items.map((item) => {
               const isCompleted = completedItemIds.has(item.id);
+              const videoSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
+                `${item.title} ${item.youtube_channel}`
+              )}`;
               return (
-                <Link key={item.id} href={`/study/${id}/item/${item.id}`}>
+                <a key={item.id} href={videoSearchUrl} target="_blank" rel="noopener noreferrer" className="block">
                   <Card className="border-zinc-800 bg-zinc-900/70 hover:bg-zinc-900/90 hover:border-blue-500/30 transition-all cursor-pointer">
                     <CardContent className="p-5 flex items-center justify-between">
                       <div className="flex items-start gap-3 flex-1">
@@ -121,12 +121,10 @@ export default async function StudyTopicPage({
                         <div>
                           <h3 className="font-semibold text-white">{item.title}</h3>
                           <p className="text-sm text-zinc-400 mt-1">{item.description}</p>
-                          {item.external_url && (
-                            <div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
-                              <Clock className="h-3 w-3" />
-                              Watch on YouTube
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
+                            <Clock className="h-3 w-3" />
+                            {item.duration_minutes ? `${item.duration_minutes} min · ` : ''}Find on YouTube ({item.youtube_channel})
+                          </div>
                         </div>
                       </div>
                       <div className="ml-4">
@@ -134,7 +132,7 @@ export default async function StudyTopicPage({
                       </div>
                     </CardContent>
                   </Card>
-                </Link>
+                </a>
               );
             })
           ) : (
@@ -147,7 +145,7 @@ export default async function StudyTopicPage({
         </div>
 
         {/* Quiz Section */}
-        {topic.quiz_config && (
+        {hasQuiz && (
           <div className="mt-8">
             <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
               <BookOpen className="h-5 w-5 text-purple-400" />

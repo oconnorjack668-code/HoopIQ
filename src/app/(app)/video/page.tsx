@@ -11,13 +11,40 @@ import { Upload, Play, Loader, CheckCircle2, Clock, AlertCircle } from 'lucide-r
 
 interface VideoAsset {
   id: string;
-  title: string;
-  session_id: string;
-  upload_status: 'pending' | 'processing' | 'ready' | 'failed';
-  analysis_status: 'pending' | 'processing' | 'complete' | 'failed';
-  file_size: number;
-  duration_seconds?: number;
+  title: string | null;
+  file_name: string;
+  file_size_bytes: number;
+  analysis_status: 'uploaded' | 'queued' | 'processing' | 'completed' | 'needs_review' | 'failed';
+  duration_seconds?: number | null;
+  correlation_id: string;
   created_at: string;
+}
+
+// Must match the storage bucket limit and the video_assets CHECK constraints
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const MIME_BY_EXTENSION: Record<string, string> = {
+  mp4: 'video/mp4',
+  mov: 'video/quicktime',
+  webm: 'video/webm',
+};
+const CAPTURE_ANGLES = [
+  { value: 'fixed_side_right', label: 'Side (right)' },
+  { value: 'fixed_side_left', label: 'Side (left)' },
+  { value: 'fixed_front', label: 'Front' },
+  { value: 'fixed_45_angle', label: '45° angle' },
+];
+const DRILL_TYPES = [
+  { value: 'catch_and_shoot', label: 'Catch and shoot' },
+  { value: 'free_throw', label: 'Free throw' },
+  { value: 'pull_up_jumper', label: 'Pull-up jumper' },
+  { value: 'form_shooting', label: 'Form shooting' },
+  { value: 'custom', label: 'Other' },
+];
+
+function resolveMimeType(file: File): string | null {
+  if (Object.values(MIME_BY_EXTENSION).includes(file.type)) return file.type;
+  const extension = file.name.split('.').pop()?.toLowerCase() || '';
+  return MIME_BY_EXTENSION[extension] || null;
 }
 
 export default function VideoPage() {
@@ -27,6 +54,8 @@ export default function VideoPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoTitle, setVideoTitle] = useState('');
+  const [captureAngle, setCaptureAngle] = useState(CAPTURE_ANGLES[0].value);
+  const [drillType, setDrillType] = useState(DRILL_TYPES[0].value);
 
   React.useEffect(() => {
     loadVideos();
@@ -61,6 +90,16 @@ export default function VideoPage() {
       return;
     }
 
+    const mimeType = resolveMimeType(selectedFile);
+    if (!mimeType) {
+      setError('Please choose an MP4, MOV, or WebM video');
+      return;
+    }
+    if (selectedFile.size > MAX_FILE_BYTES) {
+      setError('Video must be 50MB or smaller');
+      return;
+    }
+
     setUploading(true);
     setError(null);
 
@@ -73,8 +112,9 @@ export default function VideoPage() {
         return;
       }
 
-      // Generate signed URL for upload
-      const fileName = `${user.user.id}/${Date.now()}_${selectedFile.name}`;
+      // Storage keys reject some characters, so keep the name to a safe set
+      const safeName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fileName = `${user.user.id}/${Date.now()}_${safeName}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('videos')
         .upload(fileName, selectedFile, {
@@ -91,9 +131,11 @@ export default function VideoPage() {
           user_id: user.user.id,
           title: videoTitle.trim(),
           storage_path: uploadData.path,
-          file_size: selectedFile.size,
-          upload_status: 'ready',
-          analysis_status: 'pending',
+          file_name: selectedFile.name,
+          file_size_bytes: selectedFile.size,
+          mime_type: mimeType,
+          capture_angle: captureAngle,
+          drill_type: drillType,
         }] as any)
         .select()
         .single())) as unknown as { data: any; error: any };
@@ -106,7 +148,7 @@ export default function VideoPage() {
       setVideoTitle('');
 
       // Trigger analysis job (would be async background task)
-      triggerAnalysisJob(videoRecord.id);
+      triggerAnalysisJob(videoRecord.id, user.user.id, videoRecord.correlation_id);
     } catch (err: any) {
       console.error('Upload failed:', err);
       setError(err.message || 'Upload failed');
@@ -115,16 +157,19 @@ export default function VideoPage() {
     }
   }
 
-  async function triggerAnalysisJob(videoId: string) {
+  async function triggerAnalysisJob(videoId: string, userId: string, correlationId: string) {
     try {
       const supabase = createClient();
 
-      // Create analysis job record
-      await (supabase.from('video_analysis_jobs').insert([{
-        video_asset_id: videoId,
-        status: 'pending',
-        requested_at: new Date().toISOString(),
-      }] as any));
+      // Create analysis job record; the idempotency key stops duplicate jobs per video
+      const { error: jobError } = await (supabase.from('video_analysis_jobs').insert([{
+        video_id: videoId,
+        user_id: userId,
+        job_status: 'pending',
+        idempotency_key: `analysis:${videoId}`,
+        correlation_id: correlationId,
+      }] as any) as any);
+      if (jobError) throw jobError;
     } catch (err) {
       console.error('Failed to trigger analysis:', err);
     }
@@ -132,7 +177,7 @@ export default function VideoPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'ready':
+      case 'completed':
         return <CheckCircle2 className="h-5 w-5 text-emerald-400" />;
       case 'processing':
         return <Loader className="h-5 w-5 text-blue-400 animate-spin" />;
@@ -145,7 +190,7 @@ export default function VideoPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ready':
+      case 'completed':
         return 'success';
       case 'processing':
         return 'default';
@@ -196,7 +241,7 @@ export default function VideoPage() {
               <Upload className="h-5 w-5 text-red-400" />
               Upload Video
             </CardTitle>
-            <CardDescription>MP4, MOV, or WebM up to 500MB</CardDescription>
+            <CardDescription>MP4, MOV, or WebM up to 50MB</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -210,6 +255,43 @@ export default function VideoPage() {
                 onChange={(e) => setVideoTitle(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl border border-zinc-700/80 bg-zinc-900/90 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
               />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="capture-angle" className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-2">
+                  Camera Angle
+                </label>
+                <select
+                  id="capture-angle"
+                  value={captureAngle}
+                  onChange={(e) => setCaptureAngle(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-700/80 bg-zinc-900/90 text-sm text-zinc-100 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                >
+                  {CAPTURE_ANGLES.map((angle) => (
+                    <option key={angle.value} value={angle.value}>
+                      {angle.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="drill-type" className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-2">
+                  Drill Type
+                </label>
+                <select
+                  id="drill-type"
+                  value={drillType}
+                  onChange={(e) => setDrillType(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-zinc-700/80 bg-zinc-900/90 text-sm text-zinc-100 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                >
+                  {DRILL_TYPES.map((drill) => (
+                    <option key={drill.value} value={drill.value}>
+                      {drill.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>
@@ -267,11 +349,11 @@ export default function VideoPage() {
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-4 flex-1">
-                        <div className="pt-1">{getStatusIcon(video.upload_status)}</div>
+                        <div className="pt-1">{getStatusIcon(video.analysis_status)}</div>
                         <div>
-                          <h3 className="font-semibold text-white">{video.title}</h3>
+                          <h3 className="font-semibold text-white">{video.title || video.file_name}</h3>
                           <div className="flex items-center gap-2 mt-2 text-xs text-zinc-400">
-                            <span>{(video.file_size / 1024 / 1024).toFixed(1)} MB</span>
+                            <span>{(video.file_size_bytes / 1024 / 1024).toFixed(1)} MB</span>
                             {video.duration_seconds && (
                               <>
                                 <span>·</span>
@@ -285,14 +367,9 @@ export default function VideoPage() {
                         </div>
                       </div>
                       <div className="text-right space-y-2">
-                        <Badge variant={getStatusColor(video.upload_status) as any} className="text-xs block">
-                          {video.upload_status}
+                        <Badge variant={getStatusColor(video.analysis_status) as any} className="text-xs block">
+                          {video.analysis_status.replace('_', ' ')}
                         </Badge>
-                        {video.analysis_status !== 'pending' && (
-                          <Badge variant={video.analysis_status === 'complete' ? 'success' : 'default'} className="text-xs block">
-                            Analysis: {video.analysis_status}
-                          </Badge>
-                        )}
                       </div>
                     </div>
                   </CardContent>
