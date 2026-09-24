@@ -42,9 +42,18 @@ async function hasUnlimitedCredits(planType: string | undefined): Promise<boolea
  * The update only applies if the balance hasn't changed since it was read, so
  * two simultaneous requests can't both spend the last credit.
  */
+function adminClientOrThrow() {
+  try {
+    return createAdminClient() as any;
+  } catch {
+    throw new AICoachError('AI Coach is not configured (SUPABASE_SERVICE_ROLE_KEY is missing).', 503);
+  }
+}
+
 async function reserveCredit(userId: string): Promise<'unlimited' | 'reserved'> {
-  const admin = createAdminClient() as any;
-  const { data: sub, error } = await admin
+  // Players can read their own subscription, so owners/pro never need the service role
+  const supabase = (await createClient()) as any;
+  const { data: sub, error } = await supabase
     .from('subscriptions')
     .select('plan_type, ai_credits_remaining')
     .eq('user_id', userId)
@@ -58,6 +67,7 @@ async function reserveCredit(userId: string): Promise<'unlimited' | 'reserved'> 
     throw new AICoachError('You have no AI credits left.', 402);
   }
 
+  const admin = adminClientOrThrow();
   const { data: updated, error: updateError } = await admin
     .from('subscriptions')
     .update({ ai_credits_remaining: remaining - CREDITS_PER_REPORT, updated_at: new Date().toISOString() })
@@ -72,7 +82,7 @@ async function reserveCredit(userId: string): Promise<'unlimited' | 'reserved'> 
 }
 
 async function refundCredit(userId: string): Promise<void> {
-  const admin = createAdminClient() as any;
+  const admin = adminClientOrThrow();
   const { data: sub } = await admin
     .from('subscriptions')
     .select('ai_credits_remaining')
