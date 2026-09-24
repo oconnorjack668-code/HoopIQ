@@ -268,3 +268,6 @@ BEGIN
   RETURN true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Only callable from the SQL editor, never by players through the API
+REVOKE EXECUTE ON FUNCTION public.provision_owner(text) FROM PUBLIC, anon, authenticated;
