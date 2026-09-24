@@ -1,11 +1,37 @@
 import React from 'react';
 import { requireUser, getCurrentProfile } from '@/lib/auth';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { User } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { User, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { ProfileSettings } from './ProfileSettings';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = { title: 'Profile - HoopIQ' };
+
+const LEVEL_LABELS: Record<string, string> = {
+  beginner: 'Beginner',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+  elite: 'College / Pro Pipeline',
+  college_pro: 'College / Pro',
+};
+
+const HAND_LABELS: Record<string, string> = {
+  left: 'Left',
+  right: 'Right',
+  ambidextrous: 'Ambidextrous',
+};
+
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">{label}</div>
+      <div className="font-semibold text-white">{value || '-'}</div>
+    </div>
+  );
+}
 
 export default async function ProfilePage() {
   const user = await requireUser();
@@ -19,37 +45,45 @@ export default async function ProfilePage() {
         </div>
         <div>
           <h1 className="text-3xl font-black tracking-tight text-white">Player Profile</h1>
-          <p className="text-sm text-zinc-400 mt-1">Your player record and settings</p>
+          <p className="text-sm text-zinc-400 mt-1">{user.email}</p>
         </div>
       </div>
 
       <Card className="border-zinc-800 bg-zinc-900/70">
         <CardHeader>
-          <CardTitle>Profile Summary</CardTitle>
+          <div className="flex items-center justify-between gap-4">
+            <CardTitle>Player Info</CardTitle>
+            <Link href="/onboarding?edit=1">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Pencil className="h-3.5 w-3.5" /> Edit player info
+              </Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!profile?.onboarding_completed && (
+            <p className="text-sm text-amber-400">
+              Your player info isn&apos;t set up yet. Tap &ldquo;Edit player info&rdquo; to add it.
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Name</div>
-              <div className="font-semibold text-white">{profile?.display_name}</div>
-            </div>
-            <div>
-              <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Position</div>
-              <div className="font-semibold text-white">{profile?.position || '-'}</div>
-            </div>
-            <div>
-              <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Height</div>
-              <div className="font-semibold text-white">{profile?.height_cm ? `${profile.height_cm} cm` : '-'}</div>
-            </div>
-            <div>
-              <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Level</div>
-              <div className="font-semibold text-white capitalize">{profile?.playing_level || '-'}</div>
-            </div>
+            <Field label="Name" value={profile?.display_name} />
+            <Field label="Position" value={profile?.position} />
+            <Field label="Height" value={profile?.height_cm ? `${profile.height_cm} cm` : null} />
+            <Field label="Level" value={profile?.playing_level ? LEVEL_LABELS[profile.playing_level] : null} />
+            <Field label="Age" value={profile?.age_bracket} />
+            <Field label="Dominant hand" value={profile?.dominant_hand ? HAND_LABELS[profile.dominant_hand] : null} />
           </div>
+          {profile?.goals && profile.goals.length > 0 && (
+            <Field label="Goals" value={profile.goals.join(', ')} />
+          )}
+          {profile?.focus_areas && profile.focus_areas.length > 0 && (
+            <Field label="Focus areas" value={profile.focus_areas.join(', ')} />
+          )}
         </CardContent>
       </Card>
 
-      <ProfileSettings userId={user.id} initialIsPublic={profile?.is_public ?? false} />
+      <ProfileSettings initialIsPublic={profile?.is_public ?? false} />
 
       <p className="mt-8 text-center text-xs text-zinc-500">
         <Link href="/privacy" className="underline hover:text-zinc-300">Privacy policy</Link>

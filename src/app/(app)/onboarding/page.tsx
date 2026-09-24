@@ -70,9 +70,13 @@ export default function OnboardingPage() {
   const [goals, setGoals] = useState<string[]>(['Consistent Training Habit', '3-Point Shooting Consistency']);
   const [strengths, setStrengths] = useState<string[]>(['Catch & Shoot Accuracy']);
   const [focusAreas, setFocusAreas] = useState<string[]>(['Shooting Arc & Kinetic Dip']);
+  // /onboarding?edit=1 (from Profile) edits an existing player record
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     async function loadCurrent() {
+      const editing = new URLSearchParams(window.location.search).get('edit') === '1';
+      setIsEditing(editing);
       const supabase = createClient();
       const {
         data: { user },
@@ -103,7 +107,7 @@ export default function OnboardingPage() {
         };
 
       if (profile) {
-        if (profile.onboarding_completed) {
+        if (profile.onboarding_completed && !editing) {
           router.push('/dashboard');
           return;
         }
@@ -155,10 +159,13 @@ export default function OnboardingPage() {
         return;
       }
 
+      // Upsert so a player whose profile row was never created (signed up before
+      // the signup trigger existed) still gets one
       // @ts-ignore - Supabase client doesn't infer table schema on client side
       const updateResponse = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: user.id,
           display_name: displayName.trim() || 'Player',
           age_bracket: ageBracket,
           height_cm: heightCm === '' ? null : Number(heightCm),
@@ -170,8 +177,7 @@ export default function OnboardingPage() {
           focus_areas: focusAreas,
           onboarding_completed: true,
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
+        }, { onConflict: 'id' });
 
       const updateError = updateResponse.error;
 
@@ -181,23 +187,33 @@ export default function OnboardingPage() {
         return;
       }
 
-      // Also create a default weekly training goal of 4 days
-      // @ts-ignore - Supabase client doesn't infer table schema on client side
-      const goalsResponse = await supabase
+      // Create a default weekly training goal of 4 days, unless the player already has one
+      const { data: existingGoals } = await (supabase as any)
         .from('goals')
-        .insert({
-          user_id: user.id,
-          goal_type: 'weekly_training_days',
-          title: 'Weekly Training Consistency',
-          target_value: 4,
-          period: 'weekly',
-        });
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('goal_type', 'weekly_training_days')
+        .eq('is_active', true)
+        .limit(1);
 
-      if (goalsResponse.error) {
-        console.warn('Could not create default goal:', goalsResponse.error);
+      if (!existingGoals || existingGoals.length === 0) {
+        // @ts-ignore - Supabase client doesn't infer table schema on client side
+        const goalsResponse = await supabase
+          .from('goals')
+          .insert({
+            user_id: user.id,
+            goal_type: 'weekly_training_days',
+            title: 'Weekly Training Consistency',
+            target_value: 4,
+            period: 'weekly',
+          });
+
+        if (goalsResponse.error) {
+          console.warn('Could not create default goal:', goalsResponse.error);
+        }
       }
 
-      router.push('/dashboard');
+      router.push(isEditing ? '/profile' : '/dashboard');
       router.refresh();
     } catch {
       setError('Failed to save profile. Please try again.');
@@ -226,7 +242,9 @@ export default function OnboardingPage() {
               <Flame className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-black uppercase tracking-wider text-white">HoopIQ Setup</h2>
+              <h2 className="text-sm font-black uppercase tracking-wider text-white">
+                {isEditing ? 'Edit Player Info' : 'HoopIQ Setup'}
+              </h2>
               <p className="text-[11px] text-zinc-400">Step {step} of 3</p>
             </div>
           </div>
@@ -482,7 +500,7 @@ export default function OnboardingPage() {
                 isLoading={isLoading}
                 className="gap-2"
               >
-                <Sparkles className="h-4 w-4" /> Enter HoopIQ OS
+                <Sparkles className="h-4 w-4" /> {isEditing ? 'Save changes' : 'Enter HoopIQ OS'}
               </Button>
             </CardFooter>
           </Card>

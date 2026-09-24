@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 
-export function ProfileSettings({ userId, initialIsPublic }: { userId: string; initialIsPublic: boolean }) {
+export function ProfileSettings({ initialIsPublic }: { initialIsPublic: boolean }) {
   const router = useRouter();
   const [isPublic, setIsPublic] = useState(initialIsPublic);
   const [savingVisibility, setSavingVisibility] = useState(false);
@@ -20,18 +20,24 @@ export function ProfileSettings({ userId, initialIsPublic }: { userId: string; i
     const next = !isPublic;
     setSavingVisibility(true);
     setError(null);
-    const supabase = createClient() as any;
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ is_public: next, updated_at: new Date().toISOString() })
-      .eq('id', userId);
-    setSavingVisibility(false);
-    if (updateError) {
-      setError('Could not update leaderboard visibility.');
-      return;
+    try {
+      const res = await fetch('/api/profile/visibility', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublic: next }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; isPublic?: boolean };
+      if (!res.ok) {
+        setError(data.error || `Could not update leaderboard visibility (${res.status}).`);
+        return;
+      }
+      setIsPublic(Boolean(data.isPublic));
+      router.refresh();
+    } catch {
+      setError('Network error. Check your connection and try again.');
+    } finally {
+      setSavingVisibility(false);
     }
-    setIsPublic(next);
-    router.refresh();
   }
 
   async function deleteAccount() {

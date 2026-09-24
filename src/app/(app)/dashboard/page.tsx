@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { calculateDashboardMetrics, getSessionTrends, getShootingByZone } from '@/lib/dashboard';
 import { LayoutGrid, Zap, TrendingUp, Target, Award, Flame } from 'lucide-react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,13 @@ export const metadata = {
 export default async function DashboardPage() {
   const user = await requireUser();
   const profile = await getCurrentProfile();
+
+  // Players who never finished setup (e.g. the confirmation link didn't land them
+  // on /onboarding) are sent there from their landing page
+  if (!profile?.onboarding_completed) {
+    redirect('/onboarding');
+  }
+
   const subscription = await getCurrentSubscription();
   const metrics = await calculateDashboardMetrics(user.id);
   const trends = await getSessionTrends(user.id, 30);
