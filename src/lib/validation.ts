@@ -9,6 +9,8 @@ export const signUpSchema = z.object({
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
   displayName: z.string().min(2, 'Display name must be at least 2 characters').max(50),
+  // HoopIQ is for players aged 13 and over
+  ageConfirmed: z.boolean().refine((v) => v, 'You must be 13 or older to use HoopIQ'),
 });
 
 export const signInSchema = z.object({
@@ -34,7 +36,7 @@ export const updatePasswordSchema = z.object({
 
 export const onboardingSchema = z.object({
   displayName: z.string().min(2, 'Display name is required'),
-  ageBracket: z.enum(['under-14', '14-17', '18-22', '23-30', '30+'], {
+  ageBracket: z.enum(['13', '14-17', '18-22', '23-30', '30+'], {
     message: 'Please select an age bracket',
   }),
   heightCm: z.number().min(120, 'Height must be at least 120 cm').max(240, 'Height must be under 240 cm').nullable().optional(),

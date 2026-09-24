@@ -331,7 +331,7 @@ export default function OnboardingPage() {
                   value={ageBracket}
                   onChange={(e) => setAgeBracket(e.target.value as AgeBracket)}
                   options={[
-                    { value: 'under-14', label: 'Under 14' },
+                    { value: '13', label: '13' },
                     { value: '14-17', label: '14 - 17 (High School)' },
                     { value: '18-22', label: '18 - 22 (College / Academy)' },
                     { value: '23-30', label: '23 - 30 (Amateur / Adult)' },
