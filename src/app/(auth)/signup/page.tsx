@@ -17,6 +17,7 @@ export default function SignUpPage() {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,6 +31,7 @@ export default function SignUpPage() {
       displayName,
       email: email.trim(),
       password,
+      ageConfirmed,
     });
 
     if (!result.success) {
@@ -53,6 +55,7 @@ export default function SignUpPage() {
         options: {
           data: {
             display_name: displayName.trim(),
+            age_confirmed_13_plus: true,
           },
           emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
         },
@@ -139,6 +142,24 @@ export default function SignUpPage() {
                 required
                 autoComplete="new-password"
               />
+
+              <div>
+                <label className="flex items-start gap-2.5 text-sm text-zinc-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={ageConfirmed}
+                    onChange={(e) => setAgeConfirmed(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-orange-500"
+                  />
+                  <span>
+                    I am 13 or older and agree to the{' '}
+                    <Link href="/privacy" target="_blank" className="text-orange-400 underline hover:text-orange-300">
+                      privacy policy
+                    </Link>
+                  </span>
+                </label>
+                {errors.ageConfirmed && <p className="mt-1 text-xs text-red-400">{errors.ageConfirmed}</p>}
+              </div>
             </CardContent>
 
             <CardFooter className="flex flex-col space-y-3 pt-2">

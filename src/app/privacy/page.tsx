@@ -17,6 +17,14 @@ export default function PrivacyPage() {
         <p className="text-xs text-zinc-500">Last updated: {LAST_UPDATED}</p>
 
         <section className="space-y-2">
+          <h2 className="text-lg font-bold text-white">Who HoopIQ is for</h2>
+          <p>
+            HoopIQ is for players aged 13 and over. We do not knowingly collect information from children under 13.
+            If you believe a child under 13 has created an account, contact us and we will delete it.
+          </p>
+        </section>
+
+        <section className="space-y-2">
           <h2 className="text-lg font-bold text-white">What we collect</h2>
           <ul className="list-disc pl-5 space-y-1">
             <li>Account details: your email address and display name.</li>

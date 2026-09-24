@@ -11,7 +11,7 @@ export type Json =
 
 export type UserRole = 'player' | 'owner' | 'admin';
 export type PlanType = 'free' | 'pro' | 'owner';
-export type AgeBracket = 'under-14' | '14-17' | '18-22' | '23-30' | '30+';
+export type AgeBracket = '13' | '14-17' | '18-22' | '23-30' | '30+';
 export type BasketballPosition = 'PG' | 'SG' | 'SF' | 'PF' | 'C' | 'G' | 'F' | 'multi';
 export type DominantHand = 'left' | 'right' | 'ambidextrous';
 export type PlayingLevel = 'beginner' | 'intermediate' | 'advanced' | 'elite' | 'college_pro';
