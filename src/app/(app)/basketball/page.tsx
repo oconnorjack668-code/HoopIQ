@@ -123,8 +123,8 @@ export default async function BasketballPage() {
               Recent Sessions
             </h2>
             {sessions.map((session) => (
-              <Link key={session.id} href={`/basketball/${session.id}`}>
-                <Card className="border-zinc-800 bg-zinc-900/70 hover:bg-zinc-900/90 hover:border-orange-500/30 transition-all cursor-pointer">
+              <div key={session.id}>
+                <Card className="border-zinc-800 bg-zinc-900/70">
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="space-y-1">
                       <h3 className="font-semibold text-white capitalize">
@@ -148,7 +148,7 @@ export default async function BasketballPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
+              </div>
             ))}
           </div>
         ) : (

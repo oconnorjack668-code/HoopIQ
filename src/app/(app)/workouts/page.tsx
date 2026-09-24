@@ -52,14 +52,16 @@ export default async function WorkoutsPage() {
         {workouts && workouts.length > 0 ? (
           <div className="space-y-3">
             {workouts.map((w) => (
-              <Card key={w.id} className="border-zinc-800 bg-zinc-900/70 hover:bg-zinc-900/90 transition-all cursor-pointer">
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-white capitalize">{w.workout_type.replace(/_/g, ' ')}</h3>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    {new Date(w.workout_date).toLocaleDateString()} · {w.duration_minutes} min · RPE {w.rpe}/10
-                  </p>
-                </CardContent>
-              </Card>
+              <Link key={w.id} href={`/workouts/${w.id}`} className="block">
+                <Card className="border-zinc-800 bg-zinc-900/70 hover:bg-zinc-900/90 transition-all cursor-pointer">
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold text-white capitalize">{w.workout_type.replace(/_/g, ' ')}</h3>
+                    <p className="text-xs text-zinc-400 mt-1">
+                      {new Date(w.workout_date).toLocaleDateString()} · {w.duration_minutes} min · RPE {w.rpe}/10
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         ) : (
