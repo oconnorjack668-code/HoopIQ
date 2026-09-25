@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { CourtMap } from '@/components/basketball/CourtMap';
 import { classifyZone, ZONE_LABELS, ZONE_SPOTS, type CourtZone } from '@/lib/court';
+import { sessionCategoryForSkill } from '@/lib/drills';
 import { ArrowLeft, Plus, Timer, Undo2, X, Flame } from 'lucide-react';
 
 interface TrackedShot {
@@ -118,18 +119,49 @@ export default function NewBasketballSessionPage() {
   const shotsRef = useRef(0);
   const shotListRef = useRef<TrackedShot[]>([]);
 
-  // Restore an unfinished session
+  // Restore an unfinished session, then add a drill started from the drill library
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as Draft;
-        if (saved?.drills?.length) setDraft(saved);
+    (async () => {
+      let base: Draft | null = null;
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw) as Draft;
+          if (saved?.drills?.length) base = saved;
+        }
+      } catch {
+        // ignore unreadable draft
       }
-    } catch {
-      // ignore unreadable draft
-    }
-    setReady(true);
+
+      const slug = new URLSearchParams(window.location.search).get('drill');
+      if (slug) {
+        const { data: libraryDrill } = await (createClient() as any)
+          .from('drills')
+          .select('name, skill, duration_minutes, tracks_makes')
+          .eq('slug', slug)
+          .maybeSingle();
+        if (libraryDrill) {
+          const start = base || freshDraft();
+          const drill: Drill = libraryDrill.tracks_makes
+            ? newDrill(libraryDrill.name)
+            : { ...newDrill(libraryDrill.name, sessionCategoryForSkill(libraryDrill.skill)), minutes: libraryDrill.duration_minutes };
+          // A brand-new session replaces its empty default drill with the chosen one
+          const keep = base ? start.drills : start.drills.filter((d) => d.shots.length > 0);
+          base = {
+            ...start,
+            drills: [...keep, drill],
+            activeKey: drill.category === 'shooting' ? drill.key : keep[0]?.key || drill.key,
+          };
+          if (!libraryDrill.tracks_makes && base.drills.every((d) => d.category !== 'shooting')) {
+            const shooting = newDrill('Spot shooting');
+            base = { ...base, drills: [shooting, ...base.drills], activeKey: shooting.key };
+          }
+        }
+      }
+
+      if (base) setDraft(base);
+      setReady(true);
+    })();
   }, []);
 
   // Autosave on this device

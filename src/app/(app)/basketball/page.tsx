@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
-import { Plus, Target, TrendingUp } from 'lucide-react';
+import { Plus, Target, TrendingUp, ListChecks } from 'lucide-react';
 import { formatShootingPercentage } from '@/lib/stats';
 
 export const metadata = {
@@ -74,6 +74,15 @@ export default async function BasketballPage() {
               </Button>
             </Link>
           </div>
+          <Link
+            href="/drills"
+            className="flex items-center justify-between rounded-2xl border border-orange-600/30 bg-orange-600/10 px-4 py-3 hover:bg-orange-600/15"
+          >
+            <span className="flex items-center gap-2 font-semibold text-white">
+              <ListChecks className="h-5 w-5 text-orange-400" /> Drill Library
+            </span>
+            <span className="text-xs text-orange-300">Shooting, handles, finishing, defense and more →</span>
+          </Link>
         </div>
 
         {/* Summary Stats */}
