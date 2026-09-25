@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Target, Dumbbell, Sparkles, BookOpen, Trophy, CalendarCheck } from 'lucide-react';
 
 // Pages that live under the Train hub light up the Train tab
-const TRAIN_PATHS = ['/train', '/programs', '/drills', '/guides', '/style-match', '/video', '/ai-coach', '/leaderboard'];
+const TRAIN_PATHS = ['/train', '/programs', '/drills', '/guides', '/style-match', '/video', '/ai-coach', '/leaderboard', '/achievements', '/goals'];
 
 // Phones: five tabs (more than five gets cramped); everything else is in the Train hub
 export const NAV_ITEMS = [
