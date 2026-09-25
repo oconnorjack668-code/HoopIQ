@@ -2,6 +2,7 @@
 import React from 'react';
 import { requireUser, getCurrentProfile } from '@/lib/auth';
 import { VideoHub } from './VideoHub';
+import { asMeasurementSystem } from '@/lib/units';
 import { Video } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -21,13 +22,14 @@ export default async function VideoPage() {
           </div>
           <div>
             <h1 className="text-3xl font-black tracking-tight text-white">Video AI</h1>
-            <p className="text-sm text-zinc-400 mt-1">Shot tracking, form analysis and game film, all on your phone</p>
+            <p className="text-sm text-zinc-400 mt-1">Shot tracking, form analysis, jump test and game film, all on your phone</p>
           </div>
         </div>
         <VideoHub
           heightCm={profile?.height_cm ?? null}
           position={profile?.position ?? null}
           hand={profile?.dominant_hand === 'left' ? 'left' : 'right'}
+          units={asMeasurementSystem(profile?.measurement_system)}
         />
       </div>
     </div>

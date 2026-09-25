@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import path from 'path';
 import { ImageResponse } from 'next/og';
-import { CARD_HEIGHT, CARD_WIDTH, Frame, RankCard, SessionCard, WorkoutCard } from '@/lib/shareCards';
+import { CARD_HEIGHT, CARD_WIDTH, Frame, GameCard, RankCard, SessionCard, WorkoutCard } from '@/lib/shareCards';
 
 const icon = `data:image/png;base64,${readFileSync(path.join(__dirname, '../public/icon-192.png')).toString('base64')}`;
 const OUT = process.env.SHARE_CARD_OUT; // set to a folder to save the PNGs for a visual check
@@ -64,6 +64,27 @@ describe('share cards', () => {
           { exercise: 'Back Squat', weight: 100, reps: 5, pr: true },
           { exercise: 'Romanian Deadlift', weight: 80, reps: 8, pr: false },
           { exercise: 'Box Jump', weight: null, reps: 5, pr: false },
+        ]}
+      />
+    );
+    expect(isPng(png)).toBe(true);
+  }, 30_000);
+
+  it('game card', async () => {
+    const png = await render(
+      'game',
+      <GameCard
+        date="2026-09-26"
+        opponent="Dublin Lions"
+        result="win"
+        score="68-61"
+        points={24}
+        rebounds={9}
+        assists={5}
+        line={[
+          { label: 'Field goals', value: '9/16 (56%)' },
+          { label: 'Three-pointers', value: '3/7 (43%)' },
+          { label: 'Free throws', value: '3/4 (75%)' },
         ]}
       />
     );

@@ -75,6 +75,12 @@ export default async function BasketballPage() {
             </Link>
           </div>
           <Link
+            href="/games"
+            className="mb-3 flex items-center justify-between rounded-2xl border border-amber-600/30 bg-amber-600/10 px-4 py-3 hover:bg-amber-600/15"
+          >
+            <span className="text-sm font-semibold text-amber-200">Played a game? Log your stats →</span>
+          </Link>
+          <Link
             href="/drills"
             className="flex items-center justify-between rounded-2xl border border-orange-600/30 bg-orange-600/10 px-4 py-3 hover:bg-orange-600/15"
           >

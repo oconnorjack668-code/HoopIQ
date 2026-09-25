@@ -169,3 +169,43 @@ export function RankCard({ rank, xp, streak, sessions, badges, makes }: RankCard
     </div>
   );
 }
+
+export interface GameCardData {
+  date: string;
+  opponent: string | null;
+  result: string | null;
+  score: string | null;
+  points: number;
+  rebounds: number;
+  assists: number;
+  line: Array<{ label: string; value: string }>;
+}
+
+export function GameCard({ date, opponent, result, score, points, rebounds, assists, line }: GameCardData) {
+  const tag = result === 'win' ? 'WIN' : result === 'loss' ? 'LOSS' : result === 'draw' ? 'DRAW' : null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', fontSize: 36, color: '#d4d4d8' }}>
+        {`${opponent ? `vs ${opponent}` : 'Game day'} · ${niceDate(date)}`}
+      </div>
+      {tag && (
+        <div style={{ display: 'flex', marginTop: 16, fontSize: 34, fontWeight: 800, color: result === 'win' ? '#34d399' : '#a1a1aa' }}>
+          {`${tag}${score ? ` ${score}` : ''}`}
+        </div>
+      )}
+      <div style={{ display: 'flex', marginTop: 40 }}>
+        <Stat value={`${points}`} label="points" color={ORANGE} />
+        <Stat value={`${rebounds}`} label="rebounds" />
+        <Stat value={`${assists}`} label="assists" />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', marginTop: 48 }}>
+        {line.map((l) => (
+          <div key={l.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 34, marginTop: 14 }}>
+            <div style={{ display: 'flex', color: '#a1a1aa' }}>{l.label}</div>
+            <div style={{ display: 'flex' }}>{l.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

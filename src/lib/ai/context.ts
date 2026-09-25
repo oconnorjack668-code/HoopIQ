@@ -26,7 +26,7 @@ export async function buildPlayerContext(
   const since30 = day(new Date(now.getTime() - 29 * 86_400_000));
   const since7 = day(new Date(now.getTime() - 6 * 86_400_000));
 
-  const [profile, sessions, zones30, workouts, goals, enrollment, formCheck, style] = await Promise.all([
+  const [profile, sessions, zones30, workouts, goals, enrollment, formCheck, style, games] = await Promise.all([
     supabase
       .from('profiles')
       .select('display_name, age_bracket, height_cm, position, dominant_hand, playing_level, goals, strengths, focus_areas')
@@ -74,6 +74,13 @@ export async function buildPlayerContext(
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // Missing until migration 00022 runs: the query then just returns an error and is skipped
+    supabase
+      .from('games')
+      .select('game_date, opponent, result, minutes, points, fgm2, fga2, fgm3, fga3, ftm, fta, oreb, dreb, ast, stl, blk, tov')
+      .eq('user_id', userId)
+      .order('game_date', { ascending: false })
+      .limit(10),
   ]);
 
   const lines: string[] = [];
@@ -152,6 +159,20 @@ export async function buildPlayerContext(
     lines.push(`- ${w.workout_date} ${w.workout_type}, ${w.duration_minutes} min, RPE ${w.rpe}${top.length ? `: ${top.join(', ')}` : ''}`);
   }
   week.trainingDays = weekDays.size;
+
+  const gameRows = (games.data || []) as any[];
+  if (gameRows.length) {
+    const avg = (f: (g: any) => number) => Math.round((gameRows.reduce((n, g) => n + f(g), 0) / gameRows.length) * 10) / 10;
+    lines.push(
+      `
+Recent games (last ${gameRows.length}): ${avg((g) => g.points)} ppg, ${avg((g) => g.oreb + g.dreb)} rpg, ${avg((g) => g.ast)} apg, ${avg((g) => g.tov)} turnovers per game`
+    );
+    for (const g of gameRows.slice(0, 5)) {
+      lines.push(
+        `- ${g.game_date}${g.opponent ? ` vs ${g.opponent}` : ''}${g.result ? ` (${g.result})` : ''}: ${g.points} pts, FG ${g.fgm2 + g.fgm3}/${g.fga2 + g.fga3}, 3P ${g.fgm3}/${g.fga3}, FT ${g.ftm}/${g.fta}, ${g.oreb + g.dreb} reb, ${g.ast} ast, ${g.stl} stl, ${g.tov} TO`
+      );
+    }
+  }
 
   const goalRows = (goals.data || []) as any[];
   if (goalRows.length) lines.push(`\nActive goals: ${goalRows.map((g) => `${g.title} (${g.current_value}/${g.target_value} ${g.period})`).join('; ')}`);

@@ -26,7 +26,7 @@ function timeAgo(iso: string): string {
   return days === 1 ? 'yesterday' : `${days}d ago`;
 }
 
-const FEED_ICON = { hoops: Target, gym: Dumbbell, badge: Award } as const;
+const FEED_ICON = { hoops: Target, gym: Dumbbell, game: Trophy, badge: Award } as const;
 
 export function FriendsClient({ myId, myCode, rows, feed }: { myId: string; myCode: string; rows: FriendRow[]; feed: FeedItem[] }) {
   const router = useRouter();
@@ -229,7 +229,7 @@ export function FriendsClient({ myId, myCode, rows, feed }: { myId: string; myCo
               const Icon = FEED_ICON[f.kind] || Target;
               return (
                 <li key={`${f.user_id}-${f.created_at}-${i}`} className="flex items-start gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
-                  <Icon className={`h-5 w-5 mt-0.5 flex-shrink-0 ${f.kind === 'badge' ? 'text-amber-400' : f.kind === 'gym' ? 'text-emerald-400' : 'text-orange-400'}`} />
+                  <Icon className={`h-5 w-5 mt-0.5 flex-shrink-0 ${f.kind === 'badge' || f.kind === 'game' ? 'text-amber-400' : f.kind === 'gym' ? 'text-emerald-400' : 'text-orange-400'}`} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-zinc-200">
                       <span className="font-semibold text-white">{f.user_id === myId ? 'You' : f.display_name}</span> · {f.title}

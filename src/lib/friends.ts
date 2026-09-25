@@ -21,7 +21,7 @@ export interface FriendRow {
 export interface FeedItem {
   user_id: string;
   display_name: string;
-  kind: 'hoops' | 'gym' | 'badge';
+  kind: 'hoops' | 'gym' | 'game' | 'badge';
   happened_on: string;
   created_at: string;
   title: string;

@@ -82,7 +82,7 @@ For players aged 13+. HoopIQ Pro unlocks unlimited AI feedback and the AI develo
 | Ads | **No**, the app has no ads |
 | App access | "All or some functionality is restricted" → give a **test login** (create a spare account, e.g. reviewer@…, with some sessions logged) |
 | Target audience | **13–15, 16–17, 18+** (do **not** tick under 13) |
-| Content rating | Category **Reference/Utility/Sports**; no violence, sex, drugs, gambling. Users interact? **Yes** — players can add friends by code (requests must be accepted) and see each other's display names, training totals and badges. There is **no chat or messaging between players** and no user photos/videos are shared. Players can remove friends at any time |
+| Content rating | Category **Reference/Utility/Sports**; no violence, sex, drugs, gambling. Users interact? **Yes** — players can add friends by code (requests must be accepted) and see each other's display names, training totals and badges. Coaches can create teams that players join by code (roster shows training totals and game averages; coaches post assignments). There is **no chat or messaging between players** and no user photos/videos are shared. Players can remove friends at any time |
 | News app | No |
 | Health apps | Tick **"Fitness"** only; not a medical device |
 | Financial features | None |

@@ -10,6 +10,7 @@ import { ShotDetector, type DetectedShot, type Rim } from '@/lib/video/shotDetec
 import { getBallDetector } from '@/lib/video/mediapipe';
 import { ZONE_LABELS, ZONE_SPOTS, type CourtZone } from '@/lib/court';
 import type { ShootingSummary } from '@/components/video/VideoAIFeedback';
+import { HighlightReel } from '@/components/video/HighlightReel';
 import { Camera, FileVideo, Crosshair, Square, Trash2, Plus, Activity } from 'lucide-react';
 
 type Step = 'source' | 'calibrate' | 'tracking' | 'review';
@@ -433,6 +434,20 @@ export function ShotTracker({
             </select>
           </label>
 
+          {source === 'file' && fileRef.current ? (
+            <HighlightReel
+              file={fileRef.current}
+              makeTimesMs={shots.filter((s) => s.made).map((s) => s.t)}
+              makes={makes}
+              attempts={shots.length}
+            />
+          ) : (
+            makes > 0 && (
+              <p className="text-xs text-zinc-500">
+                Tip: film with your phone&apos;s camera app and choose &ldquo;Video from your phone&rdquo; to also get a highlight reel of your makes.
+              </p>
+            )
+          )}
           <Button variant="primary" size="lg" className="w-full" isLoading={saving} onClick={saveSession}>
             Save as a Hoops session
           </Button>

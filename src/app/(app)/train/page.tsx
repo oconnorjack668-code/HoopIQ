@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { CalendarCheck, Wand2, ListChecks, Sparkles, Video, Users, BookHeart, Trophy, ChevronRight, Medal, Crosshair, Crown } from 'lucide-react';
+import { CalendarCheck, Wand2, ListChecks, Sparkles, Video, Users, BookHeart, Trophy, ChevronRight, Medal, Crosshair, Crown, Shield, UserPlus, MessageCircle, ClipboardList } from 'lucide-react';
 
 export const metadata = { title: 'Train - HoopIQ' };
 
@@ -11,8 +11,12 @@ const SECTIONS = [
   { href: '/train/generate', icon: Wand2, title: 'Workout Builder', desc: 'Pick your time and focus, get a workout instantly', color: 'text-amber-400' },
   { href: '/drills', icon: ListChecks, title: 'Drill Library', desc: '150 drills with steps, cues and common mistakes', color: 'text-orange-300' },
   { href: '/style-match', icon: Users, title: 'Play Style Match', desc: 'Which NBA players you play like, and what to copy', color: 'text-cyan-400' },
+  { href: '/games', icon: ClipboardList, title: 'Game Stats', desc: 'Track points, rebounds and assists live; season averages', color: 'text-amber-400' },
+  { href: '/teams', icon: Shield, title: 'Teams', desc: 'Join your team or coach one: assignments and roster', color: 'text-blue-400' },
+  { href: '/friends', icon: UserPlus, title: 'Friends', desc: 'Weekly friends leaderboard and activity', color: 'text-cyan-400' },
   { href: '/ai-coach', icon: Sparkles, title: 'AI Coach', desc: 'Personal feedback on your sessions', color: 'text-purple-400' },
-  { href: '/video', icon: Video, title: 'Video AI', desc: 'Auto shot tracking, form check, game film', color: 'text-red-400' },
+  { href: '/ai-coach/chat', icon: MessageCircle, title: 'Ask Coach', desc: 'Chat with an AI coach that knows your numbers', color: 'text-purple-300' },
+  { href: '/video', icon: Video, title: 'Video AI', desc: 'Shot tracking, highlight reels, form check, jump test', color: 'text-red-400' },
   { href: '/guides', icon: BookHeart, title: 'Guides', desc: 'Mental game, recovery, nutrition, injury prevention', color: 'text-emerald-400' },
   { href: '/achievements', icon: Medal, title: 'Achievements', desc: 'Weekly challenges, badges and your rank', color: 'text-amber-400' },
   { href: '/goals', icon: Crosshair, title: 'Goals', desc: 'Set weekly targets and track them', color: 'text-orange-400' },

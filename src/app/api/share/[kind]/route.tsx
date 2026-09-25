@@ -3,6 +3,7 @@
 // Uses the player's own login (RLS), so only their own data can be drawn.
 //   /api/share/session?id=<training_session id>
 //   /api/share/workout?id=<workout id>
+//   /api/share/game?id=<game id>
 //   /api/share/rank
 import React from 'react';
 import { ImageResponse } from 'next/og';
@@ -11,7 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import { loadAchievements } from '@/lib/achievements-server';
 import { ZONE_LABELS } from '@/lib/court';
 import { asMeasurementSystem, displayWeight, weightUnitLabel } from '@/lib/units';
-import { CARD_HEIGHT, CARD_WIDTH, Frame, RankCard, SessionCard, WorkoutCard, titleCase } from '@/lib/shareCards';
+import { CARD_HEIGHT, CARD_WIDTH, Frame, GameCard, RankCard, SessionCard, WorkoutCard, titleCase } from '@/lib/shareCards';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +99,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
           reps: b.reps,
           pr: b.pr,
         }))}
+      />
+    );
+  } else if (kind === 'game') {
+    const { data: g } = await supabase.from('games').select('*').eq('id', id).eq('user_id', user.id).maybeSingle();
+    if (!g) return new Response('Not found', { status: 404 });
+    const shot = (m: number, a: number) => `${m}/${a}${a ? ` (${Math.round((m / a) * 100)}%)` : ''}`;
+    const line = [
+      { label: 'Field goals', value: shot(g.fgm2 + g.fgm3, g.fga2 + g.fga3) },
+      { label: 'Three-pointers', value: shot(g.fgm3, g.fga3) },
+      { label: 'Free throws', value: shot(g.ftm, g.fta) },
+      { label: 'Steals · Blocks', value: `${g.stl} · ${g.blk}` },
+    ];
+    if (g.minutes != null) line.push({ label: 'Minutes', value: `${g.minutes}` });
+    body = (
+      <GameCard
+        date={g.game_date}
+        opponent={g.opponent}
+        result={g.result}
+        score={g.team_score != null && g.opponent_score != null ? `${g.team_score}-${g.opponent_score}` : null}
+        points={g.points}
+        rebounds={g.oreb + g.dreb}
+        assists={g.ast}
+        line={line}
       />
     );
   } else if (kind === 'rank') {

@@ -5,7 +5,7 @@
 // to a static offline page. Public, versioned static assets are cached.
 const CACHE_NAME = 'hoopiq-v3';
 const PAGE_CACHE = 'hoopiq-pages-v1';
-const OFFLINE_PAGES = ['/basketball/new', '/workouts/new'];
+const OFFLINE_PAGES = ['/basketball/new', '/workouts/new', '/games/new'];
 
 const ASSETS_TO_CACHE = [
   '/offline.html',
