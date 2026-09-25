@@ -2,6 +2,7 @@
 'use client';
 
 import React, { Suspense, useState } from 'react';
+import { Logo } from '@/components/Logo';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -9,7 +10,6 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
-import { Flame } from 'lucide-react';
 
 function LoginContent() {
   const router = useRouter();
@@ -63,9 +63,7 @@ function LoginContent() {
       <div className="w-full max-w-md relative z-10">
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-600/30 mb-3">
-            <Flame className="h-8 w-8 text-white" />
-          </div>
+          <Logo size={56} className="mb-3" />
           <h1 className="text-2xl font-black tracking-tight text-white uppercase">HoopIQ</h1>
           <p className="text-xs text-zinc-400 mt-1">Player Development Operating System</p>
         </div>

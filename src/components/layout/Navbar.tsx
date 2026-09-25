@@ -2,10 +2,11 @@
 'use client';
 
 import React from 'react';
+import { Logo } from '@/components/Logo';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Flame, LogOut, User, ShieldAlert } from 'lucide-react';
+import { LogOut, User, ShieldAlert } from 'lucide-react';
 import type { Profile } from '@/lib/auth';
 import { NAV_ITEMS } from './BottomNav';
 
@@ -30,9 +31,7 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
       <div className="flex h-16 items-center justify-between px-4 md:px-8 max-w-7xl mx-auto">
         {/* Brand Logo */}
         <Link href="/dashboard" className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow-md shadow-orange-600/30">
-            <Flame className="h-5 w-5 text-white" />
-          </div>
+          <Logo size={36} />
           <div className="flex flex-col">
             <span className="text-base font-black tracking-tight text-white uppercase leading-none">
               HoopIQ
