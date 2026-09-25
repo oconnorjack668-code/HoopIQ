@@ -28,34 +28,31 @@ export default async function LeaderboardPage() {
     .eq('is_active', true)
     .single()) as unknown as { data: any };
 
-  // Fetch leaderboard standings
-  const { data: standings } = (await supabase
-    .from('leaderboard_standings')
-    .select('*')
-    .eq('season_id', currentSeason?.id)
-    .order('points', { ascending: false })
-    .limit(100)) as unknown as { data: any[] };
-
-  // Fetch user's current position
-  const { data: userStanding } = (await supabase
-    .from('leaderboard_standings')
-    .select('*')
-    .eq('season_id', currentSeason?.id)
-    .eq('user_id', user.id)
-    .single()) as unknown as { data: any };
-
-  // Fetch active challenges
-  const { data: challenges } = (await supabase
-    .from('challenges')
-    .select('*')
-    .eq('season_id', currentSeason?.id)
-    .eq('is_active', true)) as unknown as { data: any[] };
-
-  // Fetch user's challenge completions
-  const { data: userChallenges } = (await supabase
-    .from('challenge_completions')
-    .select('*')
-    .eq('user_id', user.id)) as unknown as { data: any[] };
+  // Standings, your position, challenges and your completions load in parallel
+  const [{ data: standings }, { data: userStanding }, { data: challenges }, { data: userChallenges }] =
+    (await Promise.all([
+      supabase
+        .from('leaderboard_standings')
+        .select('*')
+        .eq('season_id', currentSeason?.id)
+        .order('points', { ascending: false })
+        .limit(100),
+      supabase
+        .from('leaderboard_standings')
+        .select('*')
+        .eq('season_id', currentSeason?.id)
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('challenges')
+        .select('*')
+        .eq('season_id', currentSeason?.id)
+        .eq('is_active', true),
+      supabase
+        .from('challenge_completions')
+        .select('*')
+        .eq('user_id', user.id),
+    ])) as unknown as [{ data: any[] }, { data: any }, { data: any[] }, { data: any[] }];
 
   const userChallengeIds = new Set(userChallenges?.map((c) => c.challenge_id) || []);
 

@@ -22,6 +22,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { AgeBracket, BasketballPosition, DominantHand, PlayingLevel } from '@/lib/supabase/types';
+import { asMeasurementSystem, cmToFeetInches, feetInchesToCm, type MeasurementSystem } from '@/lib/units';
 
 const GOAL_OPTIONS = [
   'Consistent Training Habit',
@@ -63,7 +64,11 @@ export default function OnboardingPage() {
   // Form State
   const [displayName, setDisplayName] = useState('');
   const [ageBracket, setAgeBracket] = useState<AgeBracket>('18-22');
+  // Height is kept in cm (what's stored); imperial players type feet + inches
   const [heightCm, setHeightCm] = useState<number | ''>(185);
+  const [units, setUnits] = useState<MeasurementSystem>('imperial');
+  const [feet, setFeet] = useState<number | ''>(6);
+  const [inches, setInches] = useState<number | ''>(1);
   const [position, setPosition] = useState<BasketballPosition>('G');
   const [dominantHand, setDominantHand] = useState<DominantHand>('right');
   const [playingLevel, setPlayingLevel] = useState<PlayingLevel>('intermediate');
@@ -96,6 +101,7 @@ export default function OnboardingPage() {
             display_name: string | null;
             age_bracket: string | null;
             height_cm: number | null;
+            measurement_system: string | null;
             position: string | null;
             dominant_hand: string | null;
             playing_level: string | null;
@@ -113,7 +119,13 @@ export default function OnboardingPage() {
         }
         if (profile.display_name) setDisplayName(profile.display_name);
         if (profile.age_bracket) setAgeBracket(profile.age_bracket as AgeBracket);
-        if (profile.height_cm) setHeightCm(profile.height_cm);
+        if (profile.measurement_system) setUnits(asMeasurementSystem(profile.measurement_system));
+        if (profile.height_cm) {
+          setHeightCm(profile.height_cm);
+          const imperial = cmToFeetInches(profile.height_cm);
+          setFeet(imperial.feet);
+          setInches(imperial.inches);
+        }
         if (profile.position) setPosition(profile.position as BasketballPosition);
         if (profile.dominant_hand) setDominantHand(profile.dominant_hand as DominantHand);
         if (profile.playing_level) setPlayingLevel(profile.playing_level as PlayingLevel);
@@ -127,6 +139,21 @@ export default function OnboardingPage() {
 
     loadCurrent();
   }, [router]);
+
+  function updateImperialHeight(nextFeet: number | '', nextInches: number | '') {
+    setFeet(nextFeet);
+    setInches(nextInches);
+    setHeightCm(nextFeet === '' ? '' : feetInchesToCm(Number(nextFeet), Number(nextInches || 0)));
+  }
+
+  function switchUnits(next: MeasurementSystem) {
+    setUnits(next);
+    if (next === 'imperial' && heightCm !== '') {
+      const imperial = cmToFeetInches(Number(heightCm));
+      setFeet(imperial.feet);
+      setInches(imperial.inches);
+    }
+  }
 
   function toggleItem(list: string[], item: string, setter: (items: string[]) => void) {
     if (list.includes(item)) {
@@ -142,7 +169,15 @@ export default function OnboardingPage() {
 
     // Matches the profiles.height_cm CHECK (between 100 and 250 cm)
     if (heightCm !== '' && (Number(heightCm) <= 100 || Number(heightCm) >= 250)) {
-      setError('Height must be between 101 and 249 cm (for example, 6 ft 1 in is 185 cm).');
+      setError(
+        units === 'metric'
+          ? 'Height must be between 101 and 249 cm.'
+          : 'Height must be between 3\' 4" and 8\' 2".'
+      );
+      return;
+    }
+    if (units === 'imperial' && inches !== '' && (Number(inches) < 0 || Number(inches) > 11)) {
+      setError('Inches must be between 0 and 11.');
       return;
     }
 
@@ -169,6 +204,7 @@ export default function OnboardingPage() {
           display_name: displayName.trim() || 'Player',
           age_bracket: ageBracket,
           height_cm: heightCm === '' ? null : Number(heightCm),
+          measurement_system: units,
           position,
           dominant_hand: dominantHand,
           playing_level: playingLevel,
@@ -317,14 +353,56 @@ export default function OnboardingPage() {
                 />
               </div>
 
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">Units</span>
+                <div className="inline-flex rounded-xl border border-zinc-700/80 bg-zinc-900/90 p-1" role="radiogroup" aria-label="Units">
+                  {(['imperial', 'metric'] as const).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      role="radio"
+                      aria-checked={units === option}
+                      onClick={() => switchUnits(option)}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        units === option ? 'bg-orange-600 text-white' : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      {option === 'imperial' ? 'Imperial (ft, lbs)' : 'Metric (cm, kg)'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="Height (cm)"
-                  type="number"
-                  placeholder="188"
-                  value={heightCm}
-                  onChange={(e) => setHeightCm(e.target.value ? Number(e.target.value) : '')}
-                />
+                {units === 'metric' ? (
+                  <Input
+                    label="Height (cm)"
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="188"
+                    value={heightCm}
+                    onChange={(e) => setHeightCm(e.target.value ? Number(e.target.value) : '')}
+                  />
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      label="Height (ft)"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="6"
+                      value={feet}
+                      onChange={(e) => updateImperialHeight(e.target.value ? Number(e.target.value) : '', inches)}
+                    />
+                    <Input
+                      label="(in)"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="1"
+                      value={inches}
+                      onChange={(e) => updateImperialHeight(feet, e.target.value ? Number(e.target.value) : '')}
+                    />
+                  </div>
+                )}
 
                 <Select
                   label="Age Bracket"

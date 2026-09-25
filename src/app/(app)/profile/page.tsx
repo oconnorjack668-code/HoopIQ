@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { User, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { ProfileSettings } from './ProfileSettings';
+import { asMeasurementSystem, formatHeight } from '@/lib/units';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 export default async function ProfilePage() {
   const user = await requireUser();
   const profile = await getCurrentProfile();
+  const units = asMeasurementSystem(profile?.measurement_system);
 
   return (
     <div className="flex-1 overflow-auto p-4 md:p-8 max-w-2xl mx-auto">
@@ -69,10 +71,11 @@ export default async function ProfilePage() {
           <div className="grid grid-cols-2 gap-4">
             <Field label="Name" value={profile?.display_name} />
             <Field label="Position" value={profile?.position} />
-            <Field label="Height" value={profile?.height_cm ? `${profile.height_cm} cm` : null} />
+            <Field label="Height" value={formatHeight(profile?.height_cm, units)} />
             <Field label="Level" value={profile?.playing_level ? LEVEL_LABELS[profile.playing_level] : null} />
             <Field label="Age" value={profile?.age_bracket} />
             <Field label="Dominant hand" value={profile?.dominant_hand ? HAND_LABELS[profile.dominant_hand] : null} />
+            <Field label="Units" value={units === 'metric' ? 'Metric (cm, kg)' : 'Imperial (ft, lbs)'} />
           </div>
           {profile?.goals && profile.goals.length > 0 && (
             <Field label="Goals" value={profile.goals.join(', ')} />

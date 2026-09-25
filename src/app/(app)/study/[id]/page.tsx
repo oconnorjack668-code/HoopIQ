@@ -24,23 +24,15 @@ export default async function StudyTopicPage({
   const user = await requireUser();
   const supabase = await createClient();
 
-  // Fetch topic
-  const { data: topic } = (await supabase
-    .from('study_topics')
-    .select('*')
-    .eq('id', id)
-    .single()) as unknown as { data: any };
+  // Topic and its lessons load in parallel
+  const [{ data: topic }, { data: items }] = (await Promise.all([
+    supabase.from('study_topics').select('*').eq('id', id).maybeSingle(),
+    supabase.from('study_items').select('*').eq('topic_id', id).order('display_order', { ascending: true }),
+  ])) as unknown as [{ data: any }, { data: any[] }];
 
   if (!topic) {
     notFound();
   }
-
-  // Fetch study items for this topic
-  const { data: items } = (await supabase
-    .from('study_items')
-    .select('*')
-    .eq('topic_id', id)
-    .order('display_order', { ascending: true })) as unknown as { data: any[] };
 
   // Fetch items this user has completed (quiz passed at 80%+)
   const itemIds = items?.map((item) => item.id) || [];

@@ -16,38 +16,38 @@ export default async function BasketballPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  // Fetch recent sessions
-  const { data: sessions } = await supabase
-    .from('training_sessions')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('session_date', { ascending: false })
-    .limit(10)
-    .returns<Array<{
-      id: string;
-      session_type: string;
-      session_date: string;
-      duration_minutes: number;
-      intensity_rpe: number;
-      perceived_quality: number;
-      notes: string | null;
-    }>>();
-
-  // Total count (the list above only shows the latest 10)
-  const { count: totalSessions } = await supabase
-    .from('training_sessions')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id);
-
-  // Fetch all shooting data for summary stats
-  const { data: shootingData } = await supabase
-    .from('shooting_entries')
-    .select('makes, attempts')
-    .eq('user_id', user.id)
-    .returns<Array<{
-      makes: number;
-      attempts: number;
-    }>>();
+  const [{ data: sessions }, { count: totalSessions }, { data: shootingData }] = await Promise.all([
+    // Recent sessions
+    supabase
+      .from('training_sessions')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('session_date', { ascending: false })
+      .limit(10)
+      .returns<Array<{
+        id: string;
+        session_type: string;
+        session_date: string;
+        duration_minutes: number;
+        intensity_rpe: number;
+        perceived_quality: number;
+        notes: string | null;
+      }>>(),
+    // Total count (the list above only shows the latest 10)
+    supabase
+      .from('training_sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id),
+    // All shooting data for summary stats
+    supabase
+      .from('shooting_entries')
+      .select('makes, attempts')
+      .eq('user_id', user.id)
+      .returns<Array<{
+        makes: number;
+        attempts: number;
+      }>>(),
+  ]);
 
   const totalMakes = shootingData?.reduce((sum, s) => sum + s.makes, 0) || 0;
   const totalAttempts = shootingData?.reduce((sum, s) => sum + s.attempts, 0) || 0;

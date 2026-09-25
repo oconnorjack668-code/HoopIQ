@@ -17,8 +17,8 @@ describe('Auth & Entitlement Logic', () => {
     const { createClient } = await import('@/lib/supabase/server');
     (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-123', email: 'owner@hoopiq.app' } },
+        getClaims: vi.fn().mockResolvedValue({
+          data: { claims: { sub: 'user-123', email: 'owner@hoopiq.app' } },
           error: null,
         }),
       },
@@ -32,8 +32,8 @@ describe('Auth & Entitlement Logic', () => {
     const { createClient } = await import('@/lib/supabase/server');
     (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: { id: 'user-456', email: 'player@example.com' } },
+        getClaims: vi.fn().mockResolvedValue({
+          data: { claims: { sub: 'user-456', email: 'player@example.com' } },
           error: null,
         }),
       },
@@ -56,8 +56,8 @@ describe('Auth & Entitlement Logic', () => {
     const { createClient } = await import('@/lib/supabase/server');
     (createClient as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       auth: {
-        getUser: vi.fn().mockResolvedValue({
-          data: { user: null },
+        getClaims: vi.fn().mockResolvedValue({
+          data: null,
           error: null,
         }),
       },

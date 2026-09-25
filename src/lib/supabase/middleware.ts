@@ -30,11 +30,12 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // IMPORTANT: Avoid writing logic between createServerClient and supabase.auth.getUser().
+  // IMPORTANT: Avoid writing logic between createServerClient and supabase.auth.getClaims().
   // A simple mistake could make it very hard to debug issues with users being randomly logged out.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() refreshes an expiring session and verifies the JWT, locally when the project
+  // uses asymmetric signing keys, so most requests skip a round trip to Supabase Auth.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const user = claimsData?.claims?.sub ? { id: claimsData.claims.sub } : null;
 
   const pathname = request.nextUrl.pathname;
 

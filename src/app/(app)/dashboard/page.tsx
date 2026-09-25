@@ -25,10 +25,12 @@ export default async function DashboardPage() {
     redirect('/onboarding');
   }
 
-  const subscription = await getCurrentSubscription();
-  const metrics = await calculateDashboardMetrics(user.id);
-  const trends = await getSessionTrends(user.id, 30);
-  const shootingByZone = await getShootingByZone(user.id);
+  const [subscription, metrics, trends, shootingByZone] = await Promise.all([
+    getCurrentSubscription(),
+    calculateDashboardMetrics(user.id),
+    getSessionTrends(user.id, 30),
+    getShootingByZone(user.id),
+  ]);
 
   const weeklyGoalPercentage = Math.round((metrics.weeklyGoalProgress / metrics.weeklyGoalTarget) * 100);
 

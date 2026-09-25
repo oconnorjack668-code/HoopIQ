@@ -33,21 +33,52 @@ export async function calculateDashboardMetrics(userId: string): Promise<Dashboa
   const startOfWeek = addDays(today, -((today.getDay() + 6) % 7));
   const endOfWeek = addDays(startOfWeek, 6);
 
-  const { data: weekSessions } = await supabase
-    .from('training_sessions')
-    .select('session_date')
-    .eq('user_id', userId)
-    .gte('session_date', toDateString(startOfWeek))
-    .lte('session_date', toDateString(endOfWeek))
-    .returns<Array<{ session_date: string }>>();
+  // All independent queries run in parallel (one round trip instead of seven in a row)
+  const [
+    { data: allSessions },
+    { data: shootingData },
+    { count: prSetCount },
+    { count: prTestCount },
+    { data: weeklyGoal },
+  ] = await Promise.all([
+    // Every session date: gives the total, this week's sessions and the streak
+    supabase
+      .from('training_sessions')
+      .select('session_date')
+      .eq('user_id', userId)
+      .order('session_date', { ascending: false })
+      .returns<Array<{ session_date: string }>>(),
+    supabase
+      .from('shooting_entries')
+      .select('makes, attempts')
+      .eq('user_id', userId)
+      .returns<Array<{ makes: number; attempts: number }>>(),
+    // Personal records (workout sets + performance tests)
+    supabase
+      .from('workout_sets')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_personal_record', true),
+    supabase
+      .from('performance_tests')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_personal_record', true),
+    // Weekly goal (most recent if several are active)
+    supabase
+      .from('goals')
+      .select('target_value')
+      .eq('user_id', userId)
+      .eq('goal_type', 'weekly_training_days')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle() as unknown as Promise<{ data: { target_value: number } | null }>,
+  ]);
 
-  // Get all sessions for streak calculation
-  const { data: allSessions } = await supabase
-    .from('training_sessions')
-    .select('session_date')
-    .eq('user_id', userId)
-    .order('session_date', { ascending: false })
-    .returns<Array<{ session_date: string }>>();
+  const weekStart = toDateString(startOfWeek);
+  const weekEnd = toDateString(endOfWeek);
+  const weekSessions = (allSessions || []).filter((s) => s.session_date >= weekStart && s.session_date <= weekEnd);
 
   // Streak: consecutive training days ending today, or yesterday if today isn't logged yet
   // (same rule as the leaderboard_standings view)
@@ -59,56 +90,18 @@ export async function calculateDashboardMetrics(userId: string): Promise<Dashboa
     cursor = addDays(cursor, -1);
   }
 
-  // Get shooting percentage
-  const { data: shootingData } = await supabase
-    .from('shooting_entries')
-    .select('makes, attempts')
-    .eq('user_id', userId)
-    .returns<Array<{ makes: number; attempts: number }>>();
-
   const totalMakes = shootingData?.reduce((sum, s) => sum + s.makes, 0) || 0;
   const totalAttempts = shootingData?.reduce((sum, s) => sum + s.attempts, 0) || 0;
   const shootingPercentage = totalAttempts > 0 ? Math.round((totalMakes / totalAttempts) * 1000) / 10 : 0;
 
-  // Get total sessions
-  const { count: totalCount } = await supabase
-    .from('training_sessions')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId);
-
-  // Personal records (workout sets + performance tests)
-  const { count: prSetCount } = await supabase
-    .from('workout_sets')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('is_personal_record', true);
-  const { count: prTestCount } = await supabase
-    .from('performance_tests')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('is_personal_record', true);
-
-  // Get weekly goal (most recent if several are active)
-  const { data: weeklyGoal } = await supabase
-    .from('goals')
-    .select('target_value')
-    .eq('user_id', userId)
-    .eq('goal_type', 'weekly_training_days')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle() as unknown as {
-      data: { target_value: number } | null;
-    };
-
   // Weekly goal counts training days, not individual sessions
-  const weekTrainingDays = new Set((weekSessions || []).map((s) => s.session_date)).size;
+  const weekTrainingDays = new Set(weekSessions.map((s) => s.session_date)).size;
 
   return {
-    thisWeekSessions: weekSessions?.length || 0,
+    thisWeekSessions: weekSessions.length,
     shootingPercentage,
     currentStreak,
-    totalSessions: totalCount || 0,
+    totalSessions: allSessions?.length || 0,
     personalRecords: (prSetCount || 0) + (prTestCount || 0),
     weeklyGoalProgress: weekTrainingDays,
     weeklyGoalTarget: weeklyGoal?.target_value || 4,
