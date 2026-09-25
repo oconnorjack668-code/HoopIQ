@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Logo } from '@/components/Logo';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +13,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import {
-  Flame,
   User,
   Activity,
   Target,
@@ -274,9 +274,7 @@ export default function OnboardingPage() {
         {/* Top Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-xl bg-orange-600 flex items-center justify-center">
-              <Flame className="h-5 w-5 text-white" />
-            </div>
+            <Logo size={36} />
             <div>
               <h2 className="text-sm font-black uppercase tracking-wider text-white">
                 {isEditing ? 'Edit Player Info' : 'HoopIQ Setup'}

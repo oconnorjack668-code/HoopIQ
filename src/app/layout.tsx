@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HoopIQ - Player Development OS",
+  title: "HoopIQ AI Basketball Trainer",
   description: "Train with intent. See your progress. Improve every day.",
-  applicationName: "HoopIQ",
+  applicationName: "HoopIQ AI Basketball Trainer",
   manifest: "/manifest.json",
   icons: {
     icon: [

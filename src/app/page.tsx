@@ -1,9 +1,10 @@
 // src/app/page.tsx
 import React from 'react';
+import { Logo } from '@/components/Logo';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
-import { Flame, Target, Sparkles, Trophy } from 'lucide-react';
+import { Target, Sparkles, Trophy } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,10 +22,9 @@ export default async function Home() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center bg-zinc-950 px-6 py-16">
       <main className="w-full max-w-md text-center">
-        <div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-600/30">
-          <Flame className="h-8 w-8 text-white" />
-        </div>
+        <Logo size={64} className="mx-auto" />
         <h1 className="mt-6 text-4xl font-black tracking-tight text-white">HoopIQ</h1>
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-400">AI Basketball Trainer</p>
         <p className="mt-2 text-zinc-400">Train with intent. See your progress. Improve every day.</p>
 
         <ul className="mt-10 space-y-4 text-left">
