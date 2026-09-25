@@ -13,10 +13,8 @@ import {
   type ChallengeRules,
   type PlayerStats,
 } from '@/lib/achievements';
-
-function toDateString(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+import { calendarNow } from '@/lib/dates';
+import { getPersonalRecordCount, getShotTotals, getShotsSince, getTrainingDates } from '@/lib/player-activity';
 
 export interface ChallengeView {
   id: string;
@@ -30,21 +28,15 @@ export interface ChallengeView {
 
 export async function loadAchievements(userId: string) {
   const supabase = (await createClient()) as any;
-  const now = new Date();
-  const today = toDateString(now);
-  const weekStartDate = new Date(now);
-  weekStartDate.setHours(0, 0, 0, 0);
-  weekStartDate.setDate(weekStartDate.getDate() - ((weekStartDate.getDay() + 6) % 7));
-  const weekStart = toDateString(weekStartDate);
-  const weekStartIso = weekStartDate.toISOString();
+  // "Today" and "this week" (Monday to Sunday) on the players' calendar, not the server's (UTC)
+  const { today, weekStart, weekStartIso } = calendarNow();
 
   const [
-    { data: sessions },
-    { data: workouts },
-    { data: shots },
+    { sessions: sessionDays, workouts: workoutDays },
+    shotTotals,
+    weekShots,
     { data: lessons },
-    { count: prSets },
-    { count: prTests },
+    totalPRs,
     { data: programDays },
     { count: programsDone },
     { count: videoTracked },
@@ -53,12 +45,12 @@ export async function loadAchievements(userId: string) {
     { data: rewardRows },
     { data: season },
   ] = await Promise.all([
-    supabase.from('training_sessions').select('session_date').eq('user_id', userId),
-    supabase.from('workouts').select('workout_date').eq('user_id', userId),
-    supabase.from('shooting_entries').select('makes, created_at').eq('user_id', userId),
+    // Shared with the dashboard metrics (cached per request, so read once)
+    getTrainingDates(userId),
+    getShotTotals(userId),
+    getShotsSince(userId, weekStartIso),
     supabase.from('study_progress').select('completed_at, study_items(topic_id)').eq('user_id', userId).not('completed_at', 'is', null),
-    supabase.from('workout_sets').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('is_personal_record', true),
-    supabase.from('performance_tests').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('is_personal_record', true),
+    getPersonalRecordCount(userId),
     supabase.from('program_day_completions').select('completed_at').eq('user_id', userId).gte('completed_at', weekStartIso),
     supabase.from('program_enrollments').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'completed'),
     supabase.from('video_analyses').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('kind', 'shot_tracking'),
@@ -68,8 +60,6 @@ export async function loadAchievements(userId: string) {
     supabase.from('leaderboard_seasons').select('id').eq('is_active', true).limit(1).maybeSingle(),
   ]);
 
-  const sessionDays: string[] = (sessions || []).map((s: { session_date: string }) => s.session_date);
-  const workoutDays: string[] = (workouts || []).map((w: { workout_date: string }) => w.workout_date);
   const allDays = [...sessionDays, ...workoutDays];
   const { longest, current } = streaks(allDays, today);
   const lessonRows = (lessons || []) as Array<{ completed_at: string; study_items: { topic_id: string } | null }>;
@@ -77,17 +67,17 @@ export async function loadAchievements(userId: string) {
   const stats: PlayerStats = {
     totalSessions: sessionDays.length,
     totalWorkouts: workoutDays.length,
-    totalMakes: (shots || []).reduce((n: number, s: { makes: number }) => n + s.makes, 0),
+    totalMakes: shotTotals.reduce((n, z) => n + z.makes, 0),
     totalLessons: lessonRows.length,
     sectionsWithLesson: new Set(lessonRows.map((l) => l.study_items?.topic_id).filter(Boolean)).size,
-    totalPRs: (prSets || 0) + (prTests || 0),
+    totalPRs,
     programsCompleted: programsDone || 0,
     videoTracked: videoTracked || 0,
     longestStreak: longest,
     currentStreak: current,
     week: {
       trainingDays: new Set(allDays.filter((d) => d >= weekStart && d <= today)).size,
-      makes: (shots || []).filter((s: { created_at: string }) => s.created_at >= weekStartIso).reduce((n: number, s: { makes: number }) => n + s.makes, 0),
+      makes: weekShots.reduce((n, s) => n + s.makes, 0),
       lessons: lessonRows.filter((l) => l.completed_at >= weekStartIso).length,
       workouts: workoutDays.filter((d) => d >= weekStart && d <= today).length,
       sessions: sessionDays.filter((d) => d >= weekStart && d <= today).length,

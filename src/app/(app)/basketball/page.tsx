@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 import { Plus, Target, TrendingUp, ListChecks } from 'lucide-react';
 import { formatShootingPercentage } from '@/lib/stats';
+import { getShotTotals } from '@/lib/player-activity';
 
 export const metadata = {
   title: 'Basketball Sessions - HoopIQ',
@@ -16,7 +17,7 @@ export default async function BasketballPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const [{ data: sessions }, { count: totalSessions }, { data: shootingData }] = await Promise.all([
+  const [{ data: sessions }, { count: totalSessions }, shootingData] = await Promise.all([
     // Recent sessions
     supabase
       .from('training_sessions')
@@ -38,15 +39,8 @@ export default async function BasketballPage() {
       .from('training_sessions')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id),
-    // All shooting data for summary stats
-    supabase
-      .from('shooting_entries')
-      .select('makes, attempts')
-      .eq('user_id', user.id)
-      .returns<Array<{
-        makes: number;
-        attempts: number;
-      }>>(),
+    // Career shooting totals (per zone, added up in the database)
+    getShotTotals(user.id),
   ]);
 
   const totalMakes = shootingData?.reduce((sum, s) => sum + s.makes, 0) || 0;

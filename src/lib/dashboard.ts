@@ -1,5 +1,8 @@
 // src/lib/dashboard.ts
 import { createClient } from '@/lib/supabase/server';
+import { streaks } from '@/lib/achievements';
+import { addDays, calendarNow } from '@/lib/dates';
+import { getPersonalRecordCount, getShotTotals, getTrainingDates, type ZoneTotal } from '@/lib/player-activity';
 
 export interface DashboardMetrics {
   thisWeekSessions: number;
@@ -9,61 +12,62 @@ export interface DashboardMetrics {
   personalRecords: number;
   weeklyGoalProgress: number;
   weeklyGoalTarget: number;
+  /** % of the last 30 days (including today) with any training logged */
+  consistency: number;
 }
 
-// YYYY-MM-DD in the server's local calendar (session_date is a plain date column)
-function toDateString(d: Date): string {
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${month}-${day}`;
+export const CONSISTENCY_DAYS = 30;
+
+interface MetricsInput {
+  sessionDates: string[];
+  workoutDates: string[];
+  zones: ZoneTotal[];
+  personalRecords: number;
+  weeklyGoalTarget: number | null | undefined;
+  /** Today's date on the players' calendar ("YYYY-MM-DD") */
+  today: string;
+  /** Monday of this week ("YYYY-MM-DD") */
+  weekStart: string;
 }
 
-function addDays(d: Date, days: number): Date {
-  const copy = new Date(d);
-  copy.setDate(copy.getDate() + days);
-  return copy;
+/** Pure calculation, so it can be unit tested. */
+export function computeDashboardMetrics(input: MetricsInput): DashboardMetrics {
+  const { sessionDates, workoutDates, zones, today, weekStart } = input;
+  const weekEnd = addDays(weekStart, 6);
+  const trainingDays = [...sessionDates, ...workoutDates];
+
+  const totalMakes = zones.reduce((sum, z) => sum + z.makes, 0);
+  const totalAttempts = zones.reduce((sum, z) => sum + z.attempts, 0);
+
+  // Streak and weekly goal count every training day (hoops session or gym workout), the same
+  // rule as the leaderboard, rank card, friends list and Goals page
+  const { current } = streaks(trainingDays, today);
+  const weekTrainingDays = new Set(trainingDays.filter((d) => d >= weekStart && d <= today)).size;
+  const since = addDays(today, -(CONSISTENCY_DAYS - 1));
+  const activeDays = new Set(trainingDays.filter((d) => d >= since && d <= today)).size;
+
+  return {
+    thisWeekSessions: sessionDates.filter((d) => d >= weekStart && d <= weekEnd).length,
+    shootingPercentage: totalAttempts > 0 ? Math.round((totalMakes / totalAttempts) * 1000) / 10 : 0,
+    currentStreak: current,
+    totalSessions: sessionDates.length,
+    personalRecords: input.personalRecords,
+    weeklyGoalProgress: weekTrainingDays,
+    weeklyGoalTarget: input.weeklyGoalTarget || 4,
+    consistency: Math.round((activeDays / CONSISTENCY_DAYS) * 100),
+  };
 }
 
 export async function calculateDashboardMetrics(userId: string): Promise<DashboardMetrics> {
   const supabase = await createClient();
+  const { today, weekStart } = calendarNow();
 
-  // This week runs Monday-Sunday
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const startOfWeek = addDays(today, -((today.getDay() + 6) % 7));
-  const endOfWeek = addDays(startOfWeek, 6);
-
-  // All independent queries run in parallel (one round trip instead of seven in a row)
-  const [
-    { data: allSessions },
-    { data: shootingData },
-    { count: prSetCount },
-    { count: prTestCount },
-    { data: weeklyGoal },
-  ] = await Promise.all([
-    // Every session date: gives the total, this week's sessions and the streak
-    supabase
-      .from('training_sessions')
-      .select('session_date')
-      .eq('user_id', userId)
-      .order('session_date', { ascending: false })
-      .returns<Array<{ session_date: string }>>(),
-    supabase
-      .from('shooting_entries')
-      .select('makes, attempts')
-      .eq('user_id', userId)
-      .returns<Array<{ makes: number; attempts: number }>>(),
-    // Personal records (workout sets + performance tests)
-    supabase
-      .from('workout_sets')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('is_personal_record', true),
-    supabase
-      .from('performance_tests')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('is_personal_record', true),
+  // All independent reads run in parallel; the history loaders are shared with the
+  // achievements on the same page (cached per request)
+  const [{ sessions, workouts }, zones, personalRecords, { data: weeklyGoal }] = await Promise.all([
+    getTrainingDates(userId),
+    getShotTotals(userId),
+    getPersonalRecordCount(userId),
     // Weekly goal (most recent if several are active)
     supabase
       .from('goals')
@@ -76,111 +80,27 @@ export async function calculateDashboardMetrics(userId: string): Promise<Dashboa
       .maybeSingle() as unknown as Promise<{ data: { target_value: number } | null }>,
   ]);
 
-  const weekStart = toDateString(startOfWeek);
-  const weekEnd = toDateString(endOfWeek);
-  const weekSessions = (allSessions || []).filter((s) => s.session_date >= weekStart && s.session_date <= weekEnd);
-
-  // Streak: consecutive training days ending today, or yesterday if today isn't logged yet
-  // (same rule as the leaderboard_standings view)
-  const trainedDays = new Set((allSessions || []).map((s) => s.session_date));
-  let currentStreak = 0;
-  let cursor = trainedDays.has(toDateString(today)) ? today : addDays(today, -1);
-  while (trainedDays.has(toDateString(cursor))) {
-    currentStreak++;
-    cursor = addDays(cursor, -1);
-  }
-
-  const totalMakes = shootingData?.reduce((sum, s) => sum + s.makes, 0) || 0;
-  const totalAttempts = shootingData?.reduce((sum, s) => sum + s.attempts, 0) || 0;
-  const shootingPercentage = totalAttempts > 0 ? Math.round((totalMakes / totalAttempts) * 1000) / 10 : 0;
-
-  // Weekly goal counts training days, not individual sessions
-  const weekTrainingDays = new Set(weekSessions.map((s) => s.session_date)).size;
-
-  return {
-    thisWeekSessions: weekSessions.length,
-    shootingPercentage,
-    currentStreak,
-    totalSessions: allSessions?.length || 0,
-    personalRecords: (prSetCount || 0) + (prTestCount || 0),
-    weeklyGoalProgress: weekTrainingDays,
-    weeklyGoalTarget: weeklyGoal?.target_value || 4,
-  };
+  return computeDashboardMetrics({
+    sessionDates: sessions,
+    workoutDates: workouts,
+    zones,
+    personalRecords,
+    weeklyGoalTarget: weeklyGoal?.target_value,
+    today,
+    weekStart,
+  });
 }
 
-export async function getSessionTrends(userId: string, days: number = 30) {
-  const supabase = await createClient();
-
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
-  startDate.setHours(0, 0, 0, 0);
-
-  const { data: sessions } = await supabase
-    .from('training_sessions')
-    .select('session_date, intensity_rpe, perceived_quality')
-    .eq('user_id', userId)
-    .gte('session_date', toDateString(startDate))
-    .order('session_date', { ascending: true })
-    .returns<Array<{ session_date: string; intensity_rpe: number; perceived_quality: number }>>();
-
-  // Group by date
-  const trendsByDate = (sessions || []).reduce(
-    (acc, session) => {
-      const date = session.session_date;
-      if (!acc[date]) {
-        acc[date] = {
-          date,
-          count: 0,
-          avgRpe: 0,
-          avgQuality: 0,
-          totalRpe: 0,
-          totalQuality: 0,
-        };
-      }
-      acc[date].count++;
-      acc[date].totalRpe += session.intensity_rpe;
-      acc[date].totalQuality += session.perceived_quality;
-      return acc;
-    },
-    {} as Record<
-      string,
-      { date: string; count: number; avgRpe: number; avgQuality: number; totalRpe: number; totalQuality: number }
-    >
-  );
-
-  return Object.values(trendsByDate).map((trend) => ({
-    date: trend.date,
-    sessions: trend.count,
-    avgRpe: Math.round((trend.totalRpe / trend.count) * 10) / 10,
-    avgQuality: Math.round((trend.totalQuality / trend.count) * 10) / 10,
-  }));
-}
-
-export async function getShootingByZone(userId: string) {
-  const supabase = await createClient();
-
-  const { data: entries } = await supabase
-    .from('shooting_entries')
-    .select('shot_zone, makes, attempts')
-    .eq('user_id', userId)
-    .returns<Array<{ shot_zone: string; makes: number; attempts: number }>>();
-
-  const zoneData = (entries || []).reduce(
-    (acc, entry) => {
-      if (!acc[entry.shot_zone]) {
-        acc[entry.shot_zone] = { zone: entry.shot_zone, makes: 0, attempts: 0 };
-      }
-      acc[entry.shot_zone].makes += entry.makes;
-      acc[entry.shot_zone].attempts += entry.attempts;
-      return acc;
-    },
-    {} as Record<string, { zone: string; makes: number; attempts: number }>
-  );
-
-  return Object.values(zoneData)
+/** Career shooting per zone, best percentage first. */
+export function rankZones(zones: ZoneTotal[]) {
+  return zones
     .map((zone) => ({
       ...zone,
       percentage: zone.attempts > 0 ? Math.round((zone.makes / zone.attempts) * 1000) / 10 : 0,
     }))
     .sort((a, b) => b.percentage - a.percentage);
+}
+
+export async function getShootingByZone(userId: string) {
+  return rankZones(await getShotTotals(userId));
 }

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { shotProfileFromZones } from '@/lib/styleMatch';
 import { asMeasurementSystem } from '@/lib/units';
 import { StyleMatchClient } from './StyleMatchClient';
+import { getShotTotals } from '@/lib/player-activity';
 import { Users } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -14,10 +15,10 @@ export const metadata = { title: 'Play Style Match - HoopIQ' };
 export default async function StyleMatchPage() {
   const user = await requireUser();
   const supabase = (await createClient()) as any;
-  const [profile, subscription, { data: zones }, { data: last }] = await Promise.all([
+  const [profile, subscription, zoneTotals, { data: last }] = await Promise.all([
     getCurrentProfile(),
     getCurrentSubscription(),
-    supabase.from('shooting_entries').select('shot_zone, attempts').eq('user_id', user.id),
+    getShotTotals(user.id),
     supabase
       .from('style_match_results')
       .select('id, input, matches, report, created_at')
@@ -27,8 +28,8 @@ export default async function StyleMatchPage() {
       .maybeSingle(),
   ]);
 
-  const shotProfile = shotProfileFromZones((zones || []) as Array<{ shot_zone: string; attempts: number }>);
-  const totalShots = ((zones || []) as Array<{ attempts: number }>).reduce((n, z) => n + z.attempts, 0);
+  const shotProfile = shotProfileFromZones(zoneTotals.map((z) => ({ shot_zone: z.zone, attempts: z.attempts })));
+  const totalShots = zoneTotals.reduce((n, z) => n + z.attempts, 0);
   const canUseAi = subscription?.plan_type === 'owner' || subscription?.plan_type === 'pro';
 
   return (

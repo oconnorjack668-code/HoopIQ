@@ -3,7 +3,7 @@ import React from 'react';
 import { requireUser, getCurrentProfile, getCurrentSubscription } from '@/lib/auth';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { calculateDashboardMetrics, getSessionTrends, getShootingByZone } from '@/lib/dashboard';
+import { calculateDashboardMetrics, getShootingByZone } from '@/lib/dashboard';
 import { LayoutGrid, Zap, TrendingUp, Target, Award, Flame, Users, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -29,10 +29,9 @@ export default async function DashboardPage() {
   }
 
   const supabase = await createClient();
-  const [subscription, metrics, trends, shootingByZone, activeProgram, achievements] = await Promise.all([
+  const [subscription, metrics, shootingByZone, activeProgram, achievements] = await Promise.all([
     getCurrentSubscription(),
     calculateDashboardMetrics(user.id),
-    getSessionTrends(user.id, 30),
     getShootingByZone(user.id),
     getActiveProgram(supabase as any, user.id),
     // Also awards any weekly challenges / badges earned since the last visit
@@ -275,7 +274,7 @@ export default async function DashboardPage() {
                 <div>
                   <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Consistency</div>
                   <div className="text-2xl font-black text-emerald-400">
-                    {trends.length > 0 ? Math.round((trends.filter((t) => t.sessions > 0).length / trends.length) * 100) : 0}%
+                    {metrics.consistency}%
                   </div>
                 </div>
                 <Flame className="h-8 w-8 text-zinc-700" />
