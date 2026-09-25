@@ -3,7 +3,6 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 
 export function DeleteGameButton({ id }: { id: string }) {
   const router = useRouter();
@@ -12,6 +11,8 @@ export function DeleteGameButton({ id }: { id: string }) {
   async function remove() {
     if (!window.confirm('Delete this game? This cannot be undone.')) return;
     setBusy(true);
+    // Loaded on tap so the game page doesn't ship the Supabase library up front
+    const { createClient } = await import('@/lib/supabase/client');
     const { error } = await (createClient() as any).from('games').delete().eq('id', id);
     if (error) {
       setBusy(false);

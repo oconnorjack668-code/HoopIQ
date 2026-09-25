@@ -3,7 +3,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import {
   QUEUE_EVENT,
   getUserIdForSave,
@@ -36,23 +35,31 @@ export function OfflineSync() {
     if (pending.length === 0) return;
     running.current = true;
     setSyncing(true);
-    const supabase = createClient() as any;
-    const userId = await getUserIdForSave(supabase);
     let done = 0;
-    for (const item of pending) {
-      // Only the player who logged it can upload it (the database would refuse anyway)
-      if (!userId || item.userId !== userId) continue;
-      const result = await runQueuedSave(supabase, item);
-      if (result.network) break; // signal dropped again: try later
-      if (result.error) {
-        markQueueError(item.id, result.error);
-        continue;
+    try {
+      // Loaded only when there is something to upload, so every other page stays lighter
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient() as any;
+      const userId = await getUserIdForSave(supabase);
+      for (const item of pending) {
+        // Only the player who logged it can upload it (the database would refuse anyway)
+        if (!userId || item.userId !== userId) continue;
+        const result = await runQueuedSave(supabase, item);
+        if (result.network) break; // signal dropped again: try later
+        if (result.error) {
+          markQueueError(item.id, result.error);
+          continue;
+        }
+        removeFromQueue(item.id);
+        done += 1;
       }
-      removeFromQueue(item.id);
-      done += 1;
+    } catch {
+      // Unexpected failure (e.g. the connection dropped mid-request): the queue is kept and
+      // retried on the next "online" / app-open event instead of the pill spinning forever
+    } finally {
+      running.current = false;
+      setSyncing(false);
     }
-    running.current = false;
-    setSyncing(false);
     if (done > 0) {
       setUploaded(done);
       router.refresh();
