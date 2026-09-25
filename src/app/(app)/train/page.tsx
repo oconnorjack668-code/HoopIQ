@@ -12,7 +12,7 @@ const SECTIONS = [
   { href: '/drills', icon: ListChecks, title: 'Drill Library', desc: '150 drills with steps, cues and common mistakes', color: 'text-orange-300' },
   { href: '/style-match', icon: Users, title: 'Play Style Match', desc: 'Which NBA players you play like, and what to copy', color: 'text-cyan-400' },
   { href: '/ai-coach', icon: Sparkles, title: 'AI Coach', desc: 'Personal feedback on your sessions', color: 'text-purple-400' },
-  { href: '/video', icon: Video, title: 'Video', desc: 'Upload clips of your shot', color: 'text-red-400' },
+  { href: '/video', icon: Video, title: 'Video AI', desc: 'Auto shot tracking, form check, game film', color: 'text-red-400' },
   { href: '/guides', icon: BookHeart, title: 'Guides', desc: 'Mental game, recovery, nutrition, injury prevention', color: 'text-emerald-400' },
   { href: '/leaderboard', icon: Trophy, title: 'Leaderboard', desc: 'Season points and streaks', color: 'text-amber-300' },
 ];

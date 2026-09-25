@@ -50,7 +50,7 @@ function adminClientOrThrow() {
   }
 }
 
-async function reserveCredit(userId: string): Promise<'unlimited' | 'reserved'> {
+export async function reserveCredit(userId: string): Promise<'unlimited' | 'reserved'> {
   // Players can read their own subscription, so owners/pro never need the service role
   const supabase = (await createClient()) as any;
   const { data: sub, error } = await supabase
@@ -81,7 +81,7 @@ async function reserveCredit(userId: string): Promise<'unlimited' | 'reserved'> 
   return 'reserved';
 }
 
-async function refundCredit(userId: string): Promise<void> {
+export async function refundCredit(userId: string): Promise<void> {
   const admin = adminClientOrThrow();
   const { data: sub } = await admin
     .from('subscriptions')

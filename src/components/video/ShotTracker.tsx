@@ -9,6 +9,7 @@ import { Alert } from '@/components/ui/Alert';
 import { ShotDetector, type DetectedShot, type Rim } from '@/lib/video/shotDetector';
 import { getBallDetector } from '@/lib/video/mediapipe';
 import { ZONE_LABELS, ZONE_SPOTS, type CourtZone } from '@/lib/court';
+import type { ShootingSummary } from '@/components/video/VideoAIFeedback';
 import { Camera, FileVideo, Crosshair, Square, Trash2, Plus, Activity } from 'lucide-react';
 
 type Step = 'source' | 'calibrate' | 'tracking' | 'review';
@@ -23,7 +24,13 @@ function clock(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-export function ShotTracker({ onCheckForm }: { onCheckForm?: (file: File, shotTimeMs: number) => void }) {
+export function ShotTracker({
+  onCheckForm,
+  onSummary,
+}: {
+  onCheckForm?: (file: File, shotTimeMs: number) => void;
+  onSummary?: (summary: ShootingSummary | null) => void;
+}) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -54,6 +61,20 @@ export function ShotTracker({ onCheckForm }: { onCheckForm?: (file: File, shotTi
     },
     []
   );
+
+  // Share the reviewed shots with the AI feedback panel
+  useEffect(() => {
+    if (step !== 'review' || shots.length === 0) {
+      onSummary?.(null);
+      return;
+    }
+    onSummary?.({
+      makes: shots.filter((x) => x.made).length,
+      attempts: shots.length,
+      zone,
+      minutes: Math.round(elapsedMs / 60000),
+    });
+  }, [step, shots, zone, elapsedMs, onSummary]);
 
   async function openCamera() {
     setError(null);
