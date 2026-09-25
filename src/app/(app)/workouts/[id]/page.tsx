@@ -48,6 +48,7 @@ export default async function WorkoutDetailPage({
     .from('workout_sets')
     .select('*')
     .eq('workout_id', id)
+    .order('exercise_name', { ascending: true })
     .order('set_number', { ascending: true })
     .returns<Array<{
       id: string;
@@ -73,6 +74,14 @@ export default async function WorkoutDetailPage({
   }[workout.workout_type] || workout.workout_type;
 
   const prCount = sets?.filter((s) => s.is_personal_record).length || 0;
+
+  // Group sets under their exercise
+  const groups: Array<{ name: string; sets: NonNullable<typeof sets> }> = [];
+  for (const set of sets || []) {
+    const last = groups[groups.length - 1];
+    if (last && last.name === set.exercise_name) last.sets.push(set);
+    else groups.push({ name: set.exercise_name, sets: [set] });
+  }
 
   return (
     <div className="flex-1 overflow-auto">
@@ -119,14 +128,7 @@ export default async function WorkoutDetailPage({
           <Card className="border-zinc-800 bg-zinc-900/70">
             <CardContent className="p-4">
               <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Exercises</div>
-              <div className="text-2xl font-bold text-white">
-                {sets?.reduce((acc, s, i, arr) => {
-                  if (i === 0 || arr[i - 1].exercise_name !== s.exercise_name) {
-                    return acc + 1;
-                  }
-                  return acc;
-                }, 0) || 0}
-              </div>
+              <div className="text-2xl font-bold text-white">{groups.length}</div>
             </CardContent>
           </Card>
 
@@ -150,66 +152,31 @@ export default async function WorkoutDetailPage({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {sets && sets.length > 0 ? (
+            {groups.length > 0 ? (
               <div className="space-y-4">
-                {sets.map((set, idx) => (
-                  <div
-                    key={set.id}
-                    className="p-4 rounded-lg border border-zinc-800/60 bg-zinc-950/50 hover:border-emerald-500/30 transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-bold text-white">{set.exercise_name}</h3>
-                        <p className="text-xs text-zinc-500">Set {set.set_number}</p>
-                      </div>
-                      {set.is_personal_record && (
-                        <Badge variant="orange" className="gap-1">
-                          <Award className="h-3 w-3" />
-                          PR
-                        </Badge>
-                      )}
+                {groups.map((group) => (
+                  <div key={group.name} className="rounded-lg border border-zinc-800/60 bg-zinc-950/50 p-4">
+                    <h3 className="font-bold text-white mb-2">{group.name}</h3>
+                    <div className="space-y-1">
+                      {group.sets.map((set) => (
+                        <div key={set.id} className="flex items-center justify-between text-sm">
+                          <span className="text-zinc-500 w-12">Set {set.set_number}</span>
+                          <span className="flex-1 font-semibold text-white">
+                            {set.weight_kg !== null ? `${displayWeight(set.weight_kg, units)} ${weightUnitLabel(units)} × ` : ''}
+                            {set.reps ?? '—'} reps
+                            {set.duration_seconds !== null ? ` · ${set.duration_seconds}s` : ''}
+                            {set.distance_meters !== null ? ` · ${set.distance_meters} m` : ''}
+                            {set.rpe !== null ? ` · RPE ${set.rpe}` : ''}
+                          </span>
+                          {set.is_personal_record && (
+                            <Badge variant="orange" className="gap-1">
+                              <Award className="h-3 w-3" />
+                              PR
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
                     </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
-                      {set.reps !== null && (
-                        <div className="p-2 rounded bg-zinc-900/70 border border-zinc-800/40">
-                          <div className="text-xs text-zinc-400 font-semibold">Reps</div>
-                          <div className="font-bold text-white mt-0.5">{set.reps}</div>
-                        </div>
-                      )}
-                      {set.weight_kg !== null && (
-                        <div className="p-2 rounded bg-zinc-900/70 border border-zinc-800/40">
-                          <div className="text-xs text-zinc-400 font-semibold">Weight</div>
-                          <div className="font-bold text-white mt-0.5">
-                            {displayWeight(set.weight_kg, units)} {weightUnitLabel(units)}
-                          </div>
-                        </div>
-                      )}
-                      {set.duration_seconds !== null && (
-                        <div className="p-2 rounded bg-zinc-900/70 border border-zinc-800/40">
-                          <div className="text-xs text-zinc-400 font-semibold">Duration</div>
-                          <div className="font-bold text-white mt-0.5">{set.duration_seconds}s</div>
-                        </div>
-                      )}
-                      {set.distance_meters !== null && (
-                        <div className="p-2 rounded bg-zinc-900/70 border border-zinc-800/40">
-                          <div className="text-xs text-zinc-400 font-semibold">Distance</div>
-                          <div className="font-bold text-white mt-0.5">{set.distance_meters} m</div>
-                        </div>
-                      )}
-                      {set.rpe !== null && (
-                        <div className="p-2 rounded bg-zinc-900/70 border border-zinc-800/40">
-                          <div className="text-xs text-zinc-400 font-semibold">RPE</div>
-                          <div className="font-bold text-orange-400 mt-0.5">{set.rpe}/10</div>
-                        </div>
-                      )}
-                    </div>
-
-                    {set.notes && (
-                      <div className="mt-2 pt-2 border-t border-zinc-800/40">
-                        <p className="text-xs text-zinc-400 italic">{set.notes}</p>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
