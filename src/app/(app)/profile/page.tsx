@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { User, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { ProfileSettings } from './ProfileSettings';
+import { RemindersCard } from './RemindersCard';
 import { asMeasurementSystem, formatHeight } from '@/lib/units';
 
 export const dynamic = 'force-dynamic';
@@ -85,6 +86,10 @@ export default async function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="mt-6">
+        <RemindersCard />
+      </div>
 
       <ProfileSettings initialIsPublic={profile?.is_public ?? false} />
 

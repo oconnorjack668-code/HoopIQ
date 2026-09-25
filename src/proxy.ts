@@ -16,7 +16,8 @@ export const config = {
      * - public assets (.svg, .png, .jpg, .json, etc.)
      * - PWA files (sw.js, offline.html) and .well-known (app store domain verification)
      * - api/webhooks (Stripe webhook endpoint handles own signature auth)
+     * - api/cron (scheduled jobs; protected by CRON_SECRET)
      */
-    '/((?!_next/static|_next/image|favicon.ico|sw\\.js|offline\\.html|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|json)$|api/webhooks).*)',
+    '/((?!_next/static|_next/image|favicon.ico|sw\\.js|offline\\.html|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|json)$|api/webhooks|api/cron).*)',
   ],
 };

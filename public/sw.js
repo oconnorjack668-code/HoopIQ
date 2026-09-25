@@ -27,6 +27,39 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Training reminders (web push)
+self.addEventListener('push', (event) => {
+  let data = { title: 'HoopIQ', body: 'Time to train!', url: '/dashboard' };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch {
+    // plain-text payload
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/dashboard';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => 'focus' in w);
+      if (open) {
+        open.navigate(url);
+        return open.focus();
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
