@@ -48,7 +48,10 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/auth/callback');
 
   const isPublicMarketingPath =
-    pathname === '/' || pathname.startsWith('/about') || pathname.startsWith('/privacy');
+    pathname === '/' || pathname.startsWith('/about') || pathname.startsWith('/privacy') || pathname.startsWith('/terms') ||
+    pathname.startsWith('/.well-known') ||
+    pathname.startsWith('/account-deletion') ||
+    pathname === '/api/errors';
 
   // If user is not authenticated and trying to access protected routes
   if (!user && !isAuthPath && !isPublicMarketingPath) {

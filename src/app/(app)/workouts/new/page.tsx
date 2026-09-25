@@ -22,6 +22,16 @@ import {
   type MeasurementSystem,
 } from '@/lib/units';
 import { workoutSchema } from '@/lib/validation';
+import {
+  enqueue,
+  getUserIdForSave,
+  isNetworkError,
+  isOffline,
+  newId,
+  saveWorkout as saveWorkoutRecord,
+  type WorkoutSavePayload,
+} from '@/lib/offline';
+import { SavedOfflineCard } from '@/components/SavedOfflineCard';
 import { ArrowLeft, Check, Plus, Trash2, Timer, Trophy, X } from 'lucide-react';
 
 interface HistorySet {
@@ -55,6 +65,7 @@ interface Draft {
 
 const DRAFT_KEY = 'hoopiq-workout-draft-v1';
 const REST_KEY = 'hoopiq-rest-seconds';
+const LIBRARY_CACHE_KEY = 'hoopiq-exercise-cache-v1';
 
 const WORKOUT_TYPES = [
   { value: 'strength', label: 'Strength' },
@@ -106,6 +117,7 @@ export default function NewWorkoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savedOffline, setSavedOffline] = useState(false);
 
   // Finish panel
   const [durationMinutes, setDurationMinutes] = useState(45);
@@ -162,14 +174,13 @@ export default function NewWorkoutPage() {
   useEffect(() => {
     (async () => {
       const supabase = getSupabase();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      const uid = await getUserIdForSave(supabase);
+      if (!uid) {
         router.push('/login');
         return;
       }
-      setUserId(user.id);
+      const user = { id: uid };
+      setUserId(uid);
 
       try {
         const stored = Number(localStorage.getItem(REST_KEY));
@@ -178,7 +189,7 @@ export default function NewWorkoutPage() {
         // storage unavailable: keep default
       }
 
-      const [{ data: profile }, { data: lib }, { data: favs }, { data: recent }] = await Promise.all([
+      const results = await Promise.all([
         supabase.from('profiles').select('measurement_system').eq('id', user.id).maybeSingle(),
         supabase
           .from('exercise_library')
@@ -192,6 +203,23 @@ export default function NewWorkoutPage() {
           .order('created_at', { ascending: false })
           .limit(300),
       ]);
+
+      // Keep a copy on the phone so the logger still works with no signal
+      let [{ data: profile }, { data: lib }, { data: favs }, { data: recent }] = results as any[];
+      if (results.some((r: any) => r.error && isNetworkError(r.error.message))) {
+        try {
+          const cached = JSON.parse(localStorage.getItem(LIBRARY_CACHE_KEY) || 'null');
+          if (cached?.userId === user.id) ({ profile, lib, favs, recent } = cached);
+        } catch {
+          // no usable copy
+        }
+      } else if (lib?.length) {
+        try {
+          localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({ userId: user.id, profile, lib, favs, recent }));
+        } catch {
+          // storage full: the logger still works online
+        }
+      }
 
       setUnits(asMeasurementSystem(profile?.measurement_system));
       setLibrary((lib || []) as LibraryExercise[]);
@@ -440,71 +468,66 @@ export default function NewWorkoutPage() {
       return;
     }
 
+    if (!userId) {
+      setError('You are offline and not logged in on this phone. Your workout is kept here; save it once you are back online.');
+      return;
+    }
+
     setSaving(true);
     setError(null);
     const supabase = getSupabase();
 
-    const { data: workout, error: workoutError } = await supabase
-      .from('workouts')
-      .insert({
-        user_id: userId,
+    const payload: WorkoutSavePayload = {
+      id: newId(),
+      workout: {
         workout_date: draft.workoutDate,
         workout_type: draft.workoutType,
         duration_minutes: Number(durationMinutes),
         rpe: Number(rpe),
         notes: notes || null,
-      })
-      .select('id')
-      .single();
-
-    if (workoutError || !workout) {
-      setError(`Could not save the workout: ${workoutError?.message || 'unknown error'}`);
-      setSaving(false);
-      return;
-    }
-
-    const rows = draft.exercises.flatMap((e) =>
-      e.sets
-        .filter((s) => s.done)
-        .map((s, i) => ({
-          workout_id: workout.id,
-          user_id: userId,
-          exercise_id: e.exerciseId,
-          exercise_name: e.name,
-          exercise_category: e.primaryMuscle,
-          set_number: i + 1,
-          reps: Number(s.reps),
-          weight_kg: s.weight === '' ? null : inputWeightToKg(Number(s.weight), units),
-          is_personal_record: s.isPR,
-        }))
-    );
-
-    const { error: setsError } = await supabase.from('workout_sets').insert(rows);
-    if (setsError) {
-      await supabase.from('workouts').delete().eq('id', workout.id);
-      setError(`Could not save your sets, nothing was saved: ${setsError.message}`);
-      setSaving(false);
-      return;
-    }
-
-    if (saveAsRoutine && routineName.trim()) {
-      const { data: routine } = await supabase
-        .from('workout_routines')
-        .insert({ user_id: userId, name: routineName.trim().slice(0, 60) })
-        .select('id')
-        .single();
-      if (routine) {
-        await supabase.from('routine_exercises').insert(
-          draft.exercises.map((e, i) => ({
-            routine_id: routine.id,
-            user_id: userId,
+      },
+      sets: draft.exercises.flatMap((e) =>
+        e.sets
+          .filter((s) => s.done)
+          .map((s, i) => ({
             exercise_id: e.exerciseId,
             exercise_name: e.name,
-            target_sets: Math.min(20, Math.max(1, e.sets.filter((s) => s.done).length || e.sets.length)),
-            display_order: i,
+            exercise_category: e.primaryMuscle,
+            set_number: i + 1,
+            reps: Number(s.reps),
+            weight_kg: s.weight === '' ? null : inputWeightToKg(Number(s.weight), units),
+            is_personal_record: s.isPR,
           }))
-        );
-      }
+      ),
+      routine:
+        saveAsRoutine && routineName.trim()
+          ? {
+              name: routineName.trim().slice(0, 60),
+              exercises: draft.exercises.map((e, i) => ({
+                exercise_id: e.exerciseId,
+                exercise_name: e.name,
+                target_sets: Math.min(20, Math.max(1, e.sets.filter((s) => s.done).length || e.sets.length)),
+                display_order: i,
+              })),
+            }
+          : null,
+    };
+
+    const result = isOffline() ? { network: true, error: 'offline' } : await saveWorkoutRecord(supabase, userId, payload);
+    if (result.error && !result.network) {
+      setError(`${result.error}. Nothing was saved, please try again.`);
+      setSaving(false);
+      return;
+    }
+    if (result.network) {
+      enqueue({
+        id: payload.id,
+        kind: 'workout',
+        userId,
+        label: `${draft.workoutType.replace(/_/g, ' ')} workout · ${payload.sets.length} sets`,
+        createdAt: Date.now(),
+        payload,
+      });
     }
 
     try {
@@ -512,8 +535,22 @@ export default function NewWorkoutPage() {
     } catch {
       // ignore
     }
-    router.push(`/workouts/${workout.id}`);
+    if (result.network) {
+      setSaving(false);
+      setFinishOpen(false);
+      setSavedOffline(true);
+      return;
+    }
+    router.push(`/workouts/${payload.id}`);
     router.refresh();
+  }
+
+  function startAnother() {
+    setDraft({ startedAt: Date.now(), workoutDate: todayString(), workoutType: 'strength', exercises: [] });
+    setNotes('');
+    setSaveAsRoutine(false);
+    setRoutineName('');
+    setSavedOffline(false);
   }
 
   function adjustRest(delta: number) {
@@ -530,6 +567,10 @@ export default function NewWorkoutPage() {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+  if (savedOffline) {
+    return <SavedOfflineCard what="workout" backHref="/workouts" onAnother={startAnother} />;
+  }
+
   if (!ready) {
     return (
       <div className="flex-1 flex items-center justify-center">

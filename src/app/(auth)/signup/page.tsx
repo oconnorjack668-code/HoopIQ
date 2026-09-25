@@ -154,6 +154,10 @@ export default function SignUpPage() {
                     I am 13 or older and agree to the{' '}
                     <Link href="/privacy" target="_blank" className="text-orange-400 underline hover:text-orange-300">
                       privacy policy
+                    </Link>{' '}
+                    and{' '}
+                    <Link href="/terms" target="_blank" className="text-orange-400 underline hover:text-orange-300">
+                      terms of use
                     </Link>
                   </span>
                 </label>

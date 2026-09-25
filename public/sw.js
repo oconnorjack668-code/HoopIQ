@@ -1,8 +1,11 @@
 // public/sw.js
-// Pages hold private player data, so HTML and API responses are never cached:
-// navigations go to the network and fall back to a static offline page.
-// Only public, versioned static assets are cached.
-const CACHE_NAME = 'hoopiq-v2';
+// Pages hold private player data, so HTML and API responses are not cached, except the
+// session loggers: those are kept (network first) so players can log in a gym with no
+// signal. That page cache is wiped on sign out (see Navbar). Everything else falls back
+// to a static offline page. Public, versioned static assets are cached.
+const CACHE_NAME = 'hoopiq-v3';
+const PAGE_CACHE = 'hoopiq-pages-v1';
+const OFFLINE_PAGES = ['/basketball/new', '/workouts/new'];
 
 const ASSETS_TO_CACHE = [
   '/offline.html',
@@ -22,7 +25,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((names) => Promise.all(names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))))
+      .then((names) => Promise.all(names.filter((name) => name !== CACHE_NAME && name !== PAGE_CACHE).map((name) => caches.delete(name))))
   );
   self.clients.claim();
 });
@@ -43,6 +46,34 @@ self.addEventListener('push', (event) => {
       data: { url: data.url },
     })
   );
+});
+
+// The app asks for the loggers to be stored (with their scripts) while online,
+// so they open offline even if the player never visited them with signal.
+async function warmOfflinePages() {
+  const pages = await caches.open(PAGE_CACHE);
+  const assets = await caches.open(CACHE_NAME);
+  for (const path of OFFLINE_PAGES) {
+    try {
+      const response = await fetch(path, { credentials: 'same-origin' });
+      if (!response.ok || response.redirected) continue;
+      const html = await response.clone().text();
+      await pages.put(path, response);
+      const scripts = [...new Set(html.match(/\/_next\/static\/[^"'\s)\\]+/g) || [])];
+      for (const src of scripts) {
+        if (!(await assets.match(src))) {
+          const asset = await fetch(src);
+          if (asset.ok) await assets.put(src, asset);
+        }
+      }
+    } catch {
+      // offline or server error: try again next time
+    }
+  }
+}
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'warm-offline-pages') event.waitUntil(warmOfflinePages());
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -67,7 +98,24 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Page navigations: network only, offline page when there is no connection
+  // Session loggers: network first, keep the latest copy for offline use
+  if (request.mode === 'navigate' && OFFLINE_PAGES.includes(url.pathname)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Only cache the real page, not a redirect to /login
+          if (response.ok && !response.redirected) {
+            const copy = response.clone();
+            caches.open(PAGE_CACHE).then((cache) => cache.put(url.pathname, copy));
+          }
+          return response;
+        })
+        .catch(async () => (await caches.match(url.pathname)) || (await caches.match('/offline.html')) || Response.error())
+    );
+    return;
+  }
+
+  // Other page navigations: network only, offline page when there is no connection
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(async () => (await caches.match('/offline.html')) || Response.error())

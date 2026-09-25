@@ -13,9 +13,20 @@ export async function GET(request: Request) {
   if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const admin = createAdminClient() as any;
+
+  // Housekeeping: crash reports are kept for 90 days
+  await admin
+    .from('app_errors')
+    .delete()
+    .lt('created_at', new Date(Date.now() - 90 * 86_400_000).toISOString())
+    .then(
+      () => undefined,
+      () => undefined
+    );
+
   if (!pushConfigured()) return Response.json({ error: 'VAPID keys missing' }, { status: 503 });
 
-  const admin = createAdminClient() as any;
   const { data: prefs, error } = await admin
     .from('notification_preferences')
     .select('user_id, reminder_enabled, push_enabled, reminder_days, reminder_time, timezone, last_reminded_on')

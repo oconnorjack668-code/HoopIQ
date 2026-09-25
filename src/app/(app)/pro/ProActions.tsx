@@ -1,12 +1,26 @@
 // src/app/(app)/pro/ProActions.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/Button';
+import { isPlayStoreApp } from '@/lib/platform';
+
+const noSubscribe = () => () => undefined;
 
 export function ProActions({ isPro, hasYearly }: { isPro: boolean; hasYearly: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Server render: false; on the phone: read the flag set at launch
+  const playApp = useSyncExternalStore(noSubscribe, isPlayStoreApp, () => false);
+
+  // Google Play rules: no Stripe checkout inside the Play Store app
+  if (playApp && !isPro) {
+    return (
+      <p className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3 text-sm text-zinc-400">
+        Upgrading to Pro isn&apos;t available in this version of the app yet.
+      </p>
+    );
+  }
 
   async function go(path: string, body?: object, key = path) {
     setBusy(key);

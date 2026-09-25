@@ -93,7 +93,14 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
         ) : (
           <ProActions isPro={plan === 'pro'} hasYearly={!!yearly} />
         )}
-        <p className="text-xs text-zinc-500">Payments are handled securely by Stripe. Cancel any time from Manage subscription.</p>
+        <p className="text-xs text-zinc-500">
+          Payments are handled securely by Stripe. Pro renews automatically until you cancel; cancel any time from Manage
+          subscription. See the{' '}
+          <a href="/terms" className="underline">
+            Terms of Use
+          </a>
+          .
+        </p>
       </div>
     </div>
   );

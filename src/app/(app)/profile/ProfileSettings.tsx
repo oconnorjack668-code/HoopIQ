@@ -52,6 +52,13 @@ export function ProfileSettings({ initialIsPublic }: { initialIsPublic: boolean 
         return;
       }
       await createClient().auth.signOut().catch(() => undefined);
+      if (typeof caches !== 'undefined') await caches.delete('hoopiq-pages-v1').catch(() => false);
+      try {
+        localStorage.removeItem('hoopiq-offline-queue-v1');
+        localStorage.removeItem('hoopiq-exercise-cache-v1');
+      } catch {
+        // storage unavailable
+      }
       router.push('/');
       router.refresh();
     } catch {
@@ -83,6 +90,29 @@ export function ProfileSettings({ initialIsPublic }: { initialIsPublic: boolean 
               className="h-5 w-5 accent-orange-500"
             />
           </label>
+        </CardContent>
+      </Card>
+
+      <Card className="border-zinc-800 bg-zinc-900/70">
+        <CardHeader>
+          <CardTitle>Your data</CardTitle>
+          <CardDescription>
+            Download a copy of everything HoopIQ stores about you (profile, sessions, workouts, study, AI reports) as
+            a JSON file.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <a
+            href="/api/account/export"
+            download
+            className="inline-flex w-full items-center justify-center rounded-xl bg-zinc-800 px-4 py-2.5 text-sm font-semibold text-zinc-100 hover:bg-zinc-700"
+          >
+            Download my data
+          </a>
+          <p className="mt-2 text-xs text-zinc-500">
+            See the <a href="/privacy" className="underline">Privacy Policy</a> and{' '}
+            <a href="/terms" className="underline">Terms of Use</a>.
+          </p>
         </CardContent>
       </Card>
 
