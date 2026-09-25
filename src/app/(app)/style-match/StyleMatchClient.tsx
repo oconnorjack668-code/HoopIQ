@@ -281,7 +281,7 @@ export function StyleMatchClient({
             ) : (
               <p className="text-sm text-zinc-300 mt-1 flex items-start gap-2">
                 <Lock className="h-4 w-4 mt-0.5 text-zinc-400 flex-shrink-0" />
-                The AI development plan is part of HoopIQ Pro. Your matches above are free.
+                <span>The AI development plan is part of <Link href="/pro" className="underline">HoopIQ Pro</Link>. Your matches above are free.</span>
               </p>
             )}
           </div>

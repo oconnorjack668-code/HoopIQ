@@ -76,6 +76,7 @@ export default async function ProfilePage() {
             <Field label="Level" value={profile?.playing_level ? LEVEL_LABELS[profile.playing_level] : null} />
             <Field label="Age" value={profile?.age_bracket} />
             <Field label="Dominant hand" value={profile?.dominant_hand ? HAND_LABELS[profile.dominant_hand] : null} />
+            <Field label="Plan" value={<Link href="/pro" className="underline">See HoopIQ Pro</Link>} />
             <Field label="Units" value={units === 'metric' ? 'Metric (cm, kg)' : 'Imperial (ft, lbs)'} />
           </div>
           {profile?.goals && profile.goals.length > 0 && (

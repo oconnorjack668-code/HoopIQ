@@ -119,7 +119,7 @@ export default async function AICoachPage() {
               Recent Sessions
             </h2>
             {outOfCredits && (
-              <p className="text-sm text-amber-400">You&apos;ve used all your free AI credits.</p>
+              <p className="text-sm text-amber-400">You&apos;ve used all your free AI credits. <Link href="/pro" className="underline">Get unlimited with Pro</Link></p>
             )}
             {sessions.map((session) => (
               <Card key={session.id} className="border-zinc-800 bg-zinc-900/70">
