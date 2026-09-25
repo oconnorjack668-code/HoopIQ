@@ -20,35 +20,35 @@ export default async function AICoachPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  // Fetch recent AI reports
-  const { data: reports } = (await supabase
-    .from('ai_reports')
-    .select('id, created_at, output_content, source_session_ids')
-    .eq('user_id', user.id)
-    .eq('status', 'delivered')
-    .order('created_at', { ascending: false })
-    .limit(10)) as unknown as { data: any[] };
-
-  // Recent sessions that can get feedback
-  const { data: sessions } = (await supabase
-    .from('training_sessions')
-    .select('id, session_date, session_type, duration_minutes')
-    .eq('user_id', user.id)
-    .order('session_date', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(5)) as unknown as { data: any[] };
-
-  // Reports this month (each report costs CREDITS_PER_REPORT)
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const { count: monthReportCount } = (await supabase
-    .from('ai_reports')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .gte('created_at', monthStart.toISOString())) as unknown as { count: number | null };
 
-  // Owner entitlement (role or OWNER_EMAIL) is resolved here
-  const subscription = await getCurrentSubscription();
+  const [{ data: reports }, { data: sessions }, { count: monthReportCount }, subscription] = (await Promise.all([
+    // Recent AI reports
+    supabase
+      .from('ai_reports')
+      .select('id, created_at, output_content, source_session_ids')
+      .eq('user_id', user.id)
+      .eq('status', 'delivered')
+      .order('created_at', { ascending: false })
+      .limit(10),
+    // Recent sessions that can get feedback
+    supabase
+      .from('training_sessions')
+      .select('id, session_date, session_type, duration_minutes')
+      .eq('user_id', user.id)
+      .order('session_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(5),
+    // Reports this month (each report costs CREDITS_PER_REPORT)
+    supabase
+      .from('ai_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', monthStart.toISOString()),
+    // Owner entitlement (role or OWNER_EMAIL) is resolved here
+    getCurrentSubscription(),
+  ])) as unknown as [{ data: any[] }, { data: any[] }, { count: number | null }, Awaited<ReturnType<typeof getCurrentSubscription>>];
   const isUnlimited = subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner';
   const remainingCredits = subscription?.ai_credits_remaining ?? 0;
   const outOfCredits = !isUnlimited && remainingCredits < CREDITS_PER_REPORT;

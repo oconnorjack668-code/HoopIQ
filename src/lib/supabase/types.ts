@@ -148,6 +148,7 @@ export interface Database {
           onboarding_completed: boolean;
           avatar_url: string | null;
           is_public: boolean;
+          measurement_system: 'imperial' | 'metric';
           created_at: string;
           updated_at: string;
         };
@@ -165,6 +166,7 @@ export interface Database {
           onboarding_completed?: boolean;
           avatar_url?: string | null;
           is_public?: boolean;
+          measurement_system?: 'imperial' | 'metric';
           created_at?: string;
           updated_at?: string;
         };
@@ -182,6 +184,7 @@ export interface Database {
           onboarding_completed?: boolean;
           avatar_url?: string | null;
           is_public?: boolean;
+          measurement_system?: 'imperial' | 'metric';
           updated_at?: string;
         };
       };

@@ -1,28 +1,31 @@
 // src/lib/auth.ts
+// Each helper is wrapped in React cache(), so a page that calls them from the
+// layout, the page and several helpers only does the work once per request.
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from './supabase/server';
 import type { Database } from './supabase/types';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Subscription = Database['public']['Tables']['subscriptions']['Row'];
+export type AuthUser = { id: string; email: string | null };
 
 /**
- * Retrieves the current authenticated user session on the server.
- * Returns null if unauthenticated.
+ * Retrieves the current authenticated user on the server. Returns null if unauthenticated.
+ * getClaims() verifies the session JWT locally when the project uses asymmetric signing
+ * keys (no network round trip), and falls back to asking Supabase Auth otherwise.
  */
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async (): Promise<AuthUser | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims;
 
-  if (error || !user) {
+  if (error || !claims?.sub) {
     return null;
   }
 
-  return user;
-}
+  return { id: claims.sub, email: typeof claims.email === 'string' ? claims.email : null };
+});
 
 /**
  * Requires user to be authenticated. Redirects to /login if not.
@@ -38,7 +41,7 @@ export async function requireUser() {
 /**
  * Fetches the player's full profile from the profiles table.
  */
-export async function getCurrentProfile(): Promise<Profile | null> {
+export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -47,16 +50,16 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
   return profile;
-}
+});
 
 /**
  * Server check for owner entitlement.
  * Evaluates both the configured OWNER_EMAIL environment variable and database roles.
  */
-export async function checkIsOwner(): Promise<boolean> {
+export const checkIsOwner = cache(async (): Promise<boolean> => {
   const user = await getCurrentUser();
   if (!user || !user.email) return false;
 
@@ -74,12 +77,12 @@ export async function checkIsOwner(): Promise<boolean> {
     .maybeSingle();
 
   return !!roles;
-}
+});
 
 /**
  * Retrieves the player's subscription status and available credits.
  */
-export async function getCurrentSubscription(): Promise<Subscription | null> {
+export const getCurrentSubscription = cache(async (): Promise<Subscription | null> => {
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -111,4 +114,4 @@ export async function getCurrentSubscription(): Promise<Subscription | null> {
     .maybeSingle();
 
   return subscription;
-}
+});

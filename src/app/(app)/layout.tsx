@@ -1,7 +1,6 @@
 // src/app/(app)/layout.tsx
 import React from 'react';
-import { requireUser, checkIsOwner } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
+import { requireUser, checkIsOwner, getCurrentProfile } from '@/lib/auth';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
 
@@ -15,16 +14,10 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireUser();
+  await requireUser();
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-
-  const isOwner = await checkIsOwner();
+  // Both are cached per request, so pages that also need them don't query again
+  const [profile, isOwner] = await Promise.all([getCurrentProfile(), checkIsOwner()]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">

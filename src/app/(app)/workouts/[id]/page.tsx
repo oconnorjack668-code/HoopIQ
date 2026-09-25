@@ -1,6 +1,7 @@
 // src/app/(app)/workouts/[id]/page.tsx
 import React from 'react';
-import { requireUser } from '@/lib/auth';
+import { requireUser, getCurrentProfile } from '@/lib/auth';
+import { asMeasurementSystem, displayWeight, weightUnitLabel } from '@/lib/units';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -21,6 +22,7 @@ export default async function WorkoutDetailPage({
   const { id } = await params;
   const user = await requireUser();
   const supabase = await createClient();
+  const units = asMeasurementSystem((await getCurrentProfile())?.measurement_system);
 
   const { data: workout } = await supabase
     .from('workouts')
@@ -178,7 +180,9 @@ export default async function WorkoutDetailPage({
                       {set.weight_kg !== null && (
                         <div className="p-2 rounded bg-zinc-900/70 border border-zinc-800/40">
                           <div className="text-xs text-zinc-400 font-semibold">Weight</div>
-                          <div className="font-bold text-white mt-0.5">{set.weight_kg} kg</div>
+                          <div className="font-bold text-white mt-0.5">
+                            {displayWeight(set.weight_kg, units)} {weightUnitLabel(units)}
+                          </div>
                         </div>
                       )}
                       {set.duration_seconds !== null && (

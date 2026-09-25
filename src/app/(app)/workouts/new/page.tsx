@@ -2,7 +2,8 @@
 // @ts-nocheck
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { asMeasurementSystem, inputWeightToKg, weightUnitLabel, type MeasurementSystem } from '@/lib/units';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
@@ -29,6 +30,18 @@ export default function NewWorkoutPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Weights are typed in the player's unit and stored in kg
+  const [units, setUnits] = useState<MeasurementSystem>('imperial');
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient() as any;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from('profiles').select('measurement_system').eq('id', user.id).maybeSingle();
+      setUnits(asMeasurementSystem(data?.measurement_system));
+    })();
+  }, []);
 
   const [workoutDate, setWorkoutDate] = useState(new Date().toISOString().split('T')[0]);
   const [workoutType, setWorkoutType] = useState('strength');
@@ -139,7 +152,7 @@ export default function NewWorkoutPage() {
           exercise_name: set.exerciseName.trim(),
           set_number: idx + 1,
           reps: toNumber(set.reps),
-          weight_kg: toNumber(set.weight_kg),
+          weight_kg: set.weight_kg === '' ? null : inputWeightToKg(Number(set.weight_kg), units),
           duration_seconds: toNumber(set.duration_seconds),
           distance_meters: toNumber(set.distance_meters),
           rpe: toNumber(set.rpe),
@@ -281,7 +294,7 @@ export default function NewWorkoutPage() {
                       onChange={(e) => updateSet(idx, 'reps', e.target.value)}
                     />
                     <Input
-                      label="Weight (kg)"
+                      label={`Weight (${weightUnitLabel(units)})`}
                       type="number"
                       placeholder="Weight"
                       value={set.weight_kg}
