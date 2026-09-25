@@ -1,6 +1,6 @@
 {
   "id": "/",
-  "name": "HoopIQ - Player Development OS",
+  "name": "HoopIQ AI Basketball Trainer",
   "short_name": "HoopIQ",
   "description": "Train with intent. See your progress. Improve every day.",
   "start_url": "/dashboard",

@@ -5,7 +5,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
 
 export const metadata = {
-  title: 'HoopIQ - Player Development OS',
+  title: 'HoopIQ AI Basketball Trainer',
   description: 'Train with intent. See your progress. Improve every day.',
 };
 

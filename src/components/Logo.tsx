@@ -7,7 +7,7 @@ export function Logo({ size = 40, className = '' }: { size?: number; className?:
     // eslint-disable-next-line @next/next/no-img-element -- tiny static asset, no optimisation needed
     <img
       src="/logo.png"
-      alt="HoopIQ"
+      alt="HoopIQ AI Basketball Trainer logo"
       width={size}
       height={size}
       className={`rounded-full shadow-lg shadow-black/40 ${className}`}

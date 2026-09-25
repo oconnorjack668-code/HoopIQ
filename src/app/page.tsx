@@ -24,6 +24,7 @@ export default async function Home() {
       <main className="w-full max-w-md text-center">
         <Logo size={64} className="mx-auto" />
         <h1 className="mt-6 text-4xl font-black tracking-tight text-white">HoopIQ</h1>
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-400">AI Basketball Trainer</p>
         <p className="mt-2 text-zinc-400">Train with intent. See your progress. Improve every day.</p>
 
         <ul className="mt-10 space-y-4 text-left">

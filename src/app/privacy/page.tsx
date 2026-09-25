@@ -15,6 +15,7 @@ export default function PrivacyPage() {
         <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-300">← HoopIQ</Link>
         <h1 className="text-3xl font-black text-white">Privacy Policy</h1>
         <p className="text-xs text-zinc-500">Last updated: {LAST_UPDATED}</p>
+        <p>This policy covers HoopIQ AI Basketball Trainer (&ldquo;HoopIQ&rdquo;), the app and website.</p>
 
         <section className="space-y-2">
           <h2 className="text-lg font-bold text-white">Who HoopIQ is for</h2>

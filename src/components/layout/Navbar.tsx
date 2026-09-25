@@ -37,7 +37,7 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
               HoopIQ
             </span>
             <span className="text-[10px] font-semibold text-orange-400 tracking-wider uppercase leading-none mt-0.5">
-              Player OS
+              AI Basketball Trainer
             </span>
           </div>
         </Link>
