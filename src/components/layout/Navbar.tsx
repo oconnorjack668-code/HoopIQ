@@ -5,7 +5,6 @@ import React from 'react';
 import { Logo } from '@/components/Logo';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { LogOut, ShieldAlert } from 'lucide-react';
 import type { Profile } from '@/lib/auth';
 import { DESKTOP_NAV_ITEMS, isNavActive } from './BottomNav';
@@ -20,6 +19,8 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
   const pathname = usePathname();
 
   async function handleSignOut() {
+    // Loaded on tap: the Supabase library is large and most pages don't otherwise need it
+    const { createClient } = await import('@/lib/supabase/client');
     const supabase = createClient();
     await supabase.auth.signOut();
     // Pages kept for offline logging belong to this player

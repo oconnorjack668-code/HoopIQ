@@ -3,6 +3,8 @@ import React from 'react';
 import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { loadAchievements } from '@/lib/achievements-server';
+import { calendarNow } from '@/lib/dates';
+import { getShotsSince } from '@/lib/player-activity';
 import { GoalsEditor, type GoalRow } from './GoalsEditor';
 import { Crosshair } from 'lucide-react';
 
@@ -14,19 +16,18 @@ export default async function GoalsPage() {
   const user = await requireUser();
   const supabase = (await createClient()) as any;
 
-  const now = new Date();
-  const weekStart = new Date(now);
-  weekStart.setHours(0, 0, 0, 0);
-  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+  // Monday 00:00 on the players' calendar (same week as the achievements below)
+  const { weekStartIso } = calendarNow();
 
-  const [{ data: goals }, achievements, { data: weekShots }] = await Promise.all([
+  const [{ data: goals }, achievements, weekShots] = await Promise.all([
     supabase.from('goals').select('id, goal_type, title, target_value, current_value, period, is_active').eq('user_id', user.id).eq('is_active', true).order('created_at'),
     loadAchievements(user.id),
-    supabase.from('shooting_entries').select('makes, attempts').eq('user_id', user.id).gte('created_at', weekStart.toISOString()),
+    // Same read the achievements make, so it is only fetched once
+    getShotsSince(user.id, weekStartIso),
   ]);
 
   const w = achievements.stats.week;
-  const shotTotals = ((weekShots || []) as Array<{ makes: number; attempts: number }>).reduce(
+  const shotTotals = weekShots.reduce(
     (t, s) => ({ makes: t.makes + s.makes, attempts: t.attempts + s.attempts }),
     { makes: 0, attempts: 0 }
   );

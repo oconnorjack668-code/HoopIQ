@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { performanceTestSchema } from '@/lib/validation';
+import { localDateString } from '@/lib/dates';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -30,7 +31,8 @@ export default function NewPerformanceTestPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [testDate, setTestDate] = useState(new Date().toISOString().split('T')[0]);
+  // The phone's own date (toISOString() is UTC, which is still yesterday just after midnight in Ireland)
+  const [testDate, setTestDate] = useState(() => localDateString());
   const [testType, setTestType] = useState('standing_vertical');
 
   // ?type=<test_type> preselects the test (e.g. from a program day)

@@ -1,5 +1,6 @@
 // src/lib/ai/chat.ts
 // AI Coach chat rules shared by the API route and the chat page.
+import { calendarNow } from '@/lib/dates';
 
 export const FREE_CHAT_PER_DAY = 5;
 export const MAX_CHAT_MESSAGE = 1000;
@@ -21,8 +22,9 @@ Safety:
 - No extreme dieting, weight-cutting, supplements beyond basics, or performance-enhancing drugs. For under-18s keep nutrition advice general and suggest talking to a parent or coach.
 - Never ask for personal contact details, location or photos. Keep language positive and appropriate for teenagers.`;
 
+/** When "today" began for the daily free-question limit (midnight on the players' calendar). */
 export function todayStartIso(now = new Date()): string {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+  return calendarNow(now).todayStartIso;
 }
 
 export const CHAT_STARTERS = [

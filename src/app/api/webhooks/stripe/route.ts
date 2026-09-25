@@ -24,9 +24,15 @@ async function syncSubscription(subscription: Stripe.Subscription) {
     updated_at: new Date().toISOString(),
   };
   // Owners keep owner access whatever Stripe says
-  const query = admin.from('subscriptions').update(update).neq('plan_type', 'owner');
-  if (userId) await query.eq('user_id', userId);
-  else await query.eq('stripe_customer_id', customerId);
+  let query = admin.from('subscriptions').update(update).neq('plan_type', 'owner');
+  // An old subscription ending must not cancel a newer one the player has since started
+  if (update.plan_type === 'free') {
+    query = query.or(`stripe_subscription_id.is.null,stripe_subscription_id.eq.${subscription.id}`);
+  }
+  const { error } = userId ? await query.eq('user_id', userId) : await query.eq('stripe_customer_id', customerId);
+  // Throwing makes the webhook answer 500, so Stripe retries instead of the player paying
+  // for Pro and never getting it
+  if (error) throw new Error(`Could not update subscription ${subscription.id}: ${error.message}`);
 }
 
 export async function POST(request: Request) {
@@ -43,22 +49,31 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.Checkout.Session;
-      if (session.subscription) {
-        const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id;
-        await syncSubscription(await stripe.subscriptions.retrieve(subscriptionId));
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.subscription) {
+          const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id;
+          await syncSubscription(await stripe.subscriptions.retrieve(subscriptionId));
+        }
+        break;
       }
-      break;
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        // Stripe can deliver events out of order (and retries arrive late), so always store the
+        // subscription's current state rather than the snapshot inside this event
+        const snapshot = event.data.object as Stripe.Subscription;
+        await syncSubscription(await stripe.subscriptions.retrieve(snapshot.id));
+        break;
+      }
+      default:
+        break;
     }
-    case 'customer.subscription.created':
-    case 'customer.subscription.updated':
-    case 'customer.subscription.deleted':
-      await syncSubscription(event.data.object as Stripe.Subscription);
-      break;
-    default:
-      break;
+  } catch (err) {
+    console.error('Stripe webhook failed:', event.type, err instanceof Error ? err.message : err);
+    return Response.json({ error: 'Could not process the event, please retry' }, { status: 500 });
   }
   return Response.json({ received: true });
 }

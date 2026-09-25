@@ -1,45 +1,55 @@
 // src/lib/validation.ts
-import { z } from 'zod';
+// Form rules for the loggers and sign-up. Uses "zod/mini", the tree-shakable build of Zod:
+// the same checks and messages, but ~80 KB (gzipped) less JavaScript on the pages that load it.
+import * as z from 'zod/mini';
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+
+const newPassword = () =>
+  z.string().check(
+    z.minLength(8, 'Password must be at least 8 characters'),
+    z.regex(/[A-Z]/, 'Password must contain at least one uppercase letter'),
+    z.regex(/[0-9]/, 'Password must contain at least one number')
+  );
 
 export const signUpSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
-  displayName: z.string().min(2, 'Display name must be at least 2 characters').max(50),
+  email: z.email('Please enter a valid email address'),
+  password: newPassword(),
+  displayName: z.string().check(z.minLength(2, 'Display name must be at least 2 characters'), z.maxLength(50)),
   // HoopIQ is for players aged 13 and over
-  ageConfirmed: z.boolean().refine((v) => v, 'You must be 13 or older to use HoopIQ'),
+  ageConfirmed: z.boolean().check(z.refine((v) => v, 'You must be 13 or older to use HoopIQ')),
 });
 
 export const signInSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.email('Please enter a valid email address'),
+  password: z.string().check(z.minLength(1, 'Password is required')),
 });
 
 export const resetPasswordSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.email('Please enter a valid email address'),
 });
 
-export const updatePasswordSchema = z.object({
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-});
+export const updatePasswordSchema = z
+  .object({
+    password: newPassword(),
+    confirmPassword: z.string(),
+  })
+  .check(
+    z.refine((data) => data.password === data.confirmPassword, {
+      message: "Passwords don't match",
+      path: ['confirmPassword'],
+    })
+  );
 
 export const onboardingSchema = z.object({
-  displayName: z.string().min(2, 'Display name is required'),
+  displayName: z.string().check(z.minLength(2, 'Display name is required')),
   ageBracket: z.enum(['13', '14-17', '18-22', '23-30', '30+'], {
     message: 'Please select an age bracket',
   }),
-  heightCm: z.number().min(120, 'Height must be at least 120 cm').max(240, 'Height must be under 240 cm').nullable().optional(),
+  heightCm: z.optional(
+    z.nullable(z.number().check(z.gte(120, 'Height must be at least 120 cm'), z.lte(240, 'Height must be under 240 cm')))
+  ),
   position: z.enum(['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'multi'], {
     message: 'Please select your primary position',
   }),
@@ -49,69 +59,75 @@ export const onboardingSchema = z.object({
   playingLevel: z.enum(['beginner', 'intermediate', 'advanced', 'elite', 'college_pro'], {
     message: 'Please select your playing level',
   }),
-  goals: z.array(z.string()).min(1, 'Select at least one training goal'),
-  strengths: z.array(z.string()).default([]),
-  focusAreas: z.array(z.string()).min(1, 'Select at least one focus area'),
-  isPublic: z.boolean().default(false),
+  goals: z.array(z.string()).check(z.minLength(1, 'Select at least one training goal')),
+  strengths: z._default(z.array(z.string()), []),
+  focusAreas: z.array(z.string()).check(z.minLength(1, 'Select at least one focus area')),
+  isPublic: z._default(z.boolean(), false),
 });
 
 export const sessionSchema = z.object({
-  sessionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Valid date required (YYYY-MM-DD)'),
+  sessionDate: z.string().check(z.regex(DATE, 'Valid date required (YYYY-MM-DD)')),
   sessionType: z.enum(['shooting', 'ball-handling', 'footwork', 'scrimmage', 'pickup', 'skills', 'game', 'mixed']),
-  durationMinutes: z.number().int('Duration must be whole minutes').min(5, 'Minimum 5 minutes').max(360, 'Maximum 360 minutes'),
-  intensityRpe: z.number().int().min(1, 'RPE must be 1-10').max(10, 'RPE must be 1-10'),
-  perceivedQuality: z.number().min(1, 'Quality must be 1-5').max(5, 'Quality must be 1-5'),
-  notes: z.string().max(1000).optional().nullable(),
+  durationMinutes: z.int('Duration must be whole minutes').check(z.gte(5, 'Minimum 5 minutes'), z.lte(360, 'Maximum 360 minutes')),
+  intensityRpe: z.int().check(z.gte(1, 'RPE must be 1-10'), z.lte(10, 'RPE must be 1-10')),
+  perceivedQuality: z.number().check(z.gte(1, 'Quality must be 1-5'), z.lte(5, 'Quality must be 1-5')),
+  notes: z.nullable(z.optional(z.string().check(z.maxLength(1000)))),
 });
 
-export const shootingEntrySchema = z.object({
-  shotZone: z.enum([
-    'paint',
-    'free-throw',
-    'mid-left-corner',
-    'mid-left-wing',
-    'mid-center',
-    'mid-right-wing',
-    'mid-right-corner',
-    'three-left-corner',
-    'three-left-wing',
-    'three-top',
-    'three-right-wing',
-    'three-right-corner',
-    'deep-three',
-    'all-around',
-  ]),
-  shotType: z.enum(['catch-and-shoot', 'off-the-dribble', 'step-back', 'free-throw', 'floater', 'pull-up', 'spot-up']).optional().nullable(),
-  makes: z.number().int('Makes must be a whole number').min(0, 'Makes cannot be negative'),
-  attempts: z.number().int('Attempts must be a whole number').min(0, 'Attempts cannot be negative'),
-}).refine((data) => data.attempts >= data.makes, {
-  message: 'Attempts must be greater than or equal to makes',
-  path: ['attempts'],
-});
+export const shootingEntrySchema = z
+  .object({
+    shotZone: z.enum([
+      'paint',
+      'free-throw',
+      'mid-left-corner',
+      'mid-left-wing',
+      'mid-center',
+      'mid-right-wing',
+      'mid-right-corner',
+      'three-left-corner',
+      'three-left-wing',
+      'three-top',
+      'three-right-wing',
+      'three-right-corner',
+      'deep-three',
+      'all-around',
+    ]),
+    shotType: z.nullable(
+      z.optional(z.enum(['catch-and-shoot', 'off-the-dribble', 'step-back', 'free-throw', 'floater', 'pull-up', 'spot-up']))
+    ),
+    makes: z.int('Makes must be a whole number').check(z.gte(0, 'Makes cannot be negative')),
+    attempts: z.int('Attempts must be a whole number').check(z.gte(0, 'Attempts cannot be negative')),
+  })
+  .check(
+    z.refine((data) => data.attempts >= data.makes, {
+      message: 'Attempts must be greater than or equal to makes',
+      path: ['attempts'],
+    })
+  );
 
 export const workoutSchema = z.object({
-  workoutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Valid date required (YYYY-MM-DD)'),
+  workoutDate: z.string().check(z.regex(DATE, 'Valid date required (YYYY-MM-DD)')),
   workoutType: z.enum(['strength', 'power_plyos', 'mobility', 'recovery', 'conditioning', 'testing', 'mixed']),
-  durationMinutes: z.number().int('Duration must be whole minutes').min(5, 'Minimum 5 minutes').max(240, 'Maximum 240 minutes'),
-  rpe: z.number().int().min(1, 'RPE must be 1-10').max(10, 'RPE must be 1-10'),
-  notes: z.string().max(1000).optional().nullable(),
+  durationMinutes: z.int('Duration must be whole minutes').check(z.gte(5, 'Minimum 5 minutes'), z.lte(240, 'Maximum 240 minutes')),
+  rpe: z.int().check(z.gte(1, 'RPE must be 1-10'), z.lte(10, 'RPE must be 1-10')),
+  notes: z.nullable(z.optional(z.string().check(z.maxLength(1000)))),
 });
 
 export const workoutSetSchema = z.object({
-  exerciseName: z.string().min(1, 'Exercise name is required'),
-  exerciseCategory: z.string().optional().nullable(),
-  setNumber: z.number().int().min(1),
-  reps: z.number().int('Reps must be a whole number').min(0, 'Reps cannot be negative').optional().nullable(),
-  weightKg: z.number().min(0, 'Weight cannot be negative').optional().nullable(),
-  durationSeconds: z.number().int('Seconds must be a whole number').min(0, 'Seconds cannot be negative').optional().nullable(),
-  distanceMeters: z.number().min(0, 'Distance cannot be negative').optional().nullable(),
-  rpe: z.number().int('RPE must be a whole number').min(1, 'RPE must be 1-10').max(10, 'RPE must be 1-10').optional().nullable(),
-  isPersonalRecord: z.boolean().default(false),
-  notes: z.string().max(500).optional().nullable(),
+  exerciseName: z.string().check(z.minLength(1, 'Exercise name is required')),
+  exerciseCategory: z.nullable(z.optional(z.string())),
+  setNumber: z.int().check(z.gte(1)),
+  reps: z.nullable(z.optional(z.int('Reps must be a whole number').check(z.gte(0, 'Reps cannot be negative')))),
+  weightKg: z.nullable(z.optional(z.number().check(z.gte(0, 'Weight cannot be negative')))),
+  durationSeconds: z.nullable(z.optional(z.int('Seconds must be a whole number').check(z.gte(0, 'Seconds cannot be negative')))),
+  distanceMeters: z.nullable(z.optional(z.number().check(z.gte(0, 'Distance cannot be negative')))),
+  rpe: z.nullable(z.optional(z.int('RPE must be a whole number').check(z.gte(1, 'RPE must be 1-10'), z.lte(10, 'RPE must be 1-10')))),
+  isPersonalRecord: z._default(z.boolean(), false),
+  notes: z.nullable(z.optional(z.string().check(z.maxLength(500)))),
 });
 
 export const performanceTestSchema = z.object({
-  testDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Valid date required (YYYY-MM-DD)'),
+  testDate: z.string().check(z.regex(DATE, 'Valid date required (YYYY-MM-DD)')),
   testType: z.enum([
     'standing_vertical',
     'approach_vertical',
@@ -122,25 +138,25 @@ export const performanceTestSchema = z.object({
     'standing_broad_jump',
     'custom',
   ]),
-  customTestName: z.string().optional().nullable(),
-  value: z.number().positive('Value must be greater than zero'),
+  customTestName: z.nullable(z.optional(z.string())),
+  value: z.number().check(z.positive('Value must be greater than zero')),
   unit: z.enum(['inches', 'cm', 'seconds', 'meters', 'reps']),
-  notes: z.string().max(500).optional().nullable(),
+  notes: z.nullable(z.optional(z.string().check(z.maxLength(500)))),
 });
 
 export const goalSchema = z.object({
   goalType: z.enum(['weekly_training_days', 'weekly_makes', 'shooting_pct', 'strength_days', 'iq_study_items', 'custom']),
-  title: z.string().min(3, 'Title must be at least 3 characters'),
-  targetValue: z.number().positive('Target must be positive integer'),
-  period: z.enum(['weekly', 'monthly', 'season']).default('weekly'),
+  title: z.string().check(z.minLength(3, 'Title must be at least 3 characters')),
+  targetValue: z.number().check(z.positive('Target must be positive integer')),
+  period: z._default(z.enum(['weekly', 'monthly', 'season']), 'weekly'),
 });
 
 export const notificationPreferencesSchema = z.object({
   reminderEnabled: z.boolean(),
-  reminderDays: z.array(z.number().min(0).max(6)),
-  reminderTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Valid time format required (HH:MM)'),
-  quietHoursStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).nullable().optional(),
-  quietHoursEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).nullable().optional(),
+  reminderDays: z.array(z.number().check(z.gte(0), z.lte(6))),
+  reminderTime: z.string().check(z.regex(TIME, 'Valid time format required (HH:MM)')),
+  quietHoursStart: z.optional(z.nullable(z.string().check(z.regex(TIME)))),
+  quietHoursEnd: z.optional(z.nullable(z.string().check(z.regex(TIME)))),
   emailReminders: z.boolean(),
   pushEnabled: z.boolean(),
 });
