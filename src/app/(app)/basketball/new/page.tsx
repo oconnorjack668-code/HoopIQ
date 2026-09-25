@@ -133,26 +133,38 @@ export default function NewBasketballSessionPage() {
         // ignore unreadable draft
       }
 
-      const slug = new URLSearchParams(window.location.search).get('drill');
-      if (slug) {
-        const { data: libraryDrill } = await (createClient() as any)
+      // ?drill=<slug> (drill library) or ?drills=<slug>,<slug> (program day / generator)
+      const params = new URLSearchParams(window.location.search);
+      const slugs = [params.get('drill'), ...(params.get('drills') || '').split(',')]
+        .map((s) => (s || '').trim())
+        .filter(Boolean)
+        .slice(0, 20);
+      if (slugs.length) {
+        const { data: libraryDrills } = await (createClient() as any)
           .from('drills')
-          .select('name, skill, duration_minutes, tracks_makes')
-          .eq('slug', slug)
-          .maybeSingle();
-        if (libraryDrill) {
+          .select('slug, name, skill, duration_minutes, tracks_makes')
+          .in('slug', slugs);
+        const bySlug = new Map(
+          ((libraryDrills || []) as Array<{ slug: string; name: string; skill: string; duration_minutes: number; tracks_makes: boolean }>).map(
+            (d) => [d.slug, d]
+          )
+        );
+        const added: Drill[] = slugs
+          .map((s) => bySlug.get(s))
+          .filter((d): d is NonNullable<typeof d> => !!d)
+          .map((d) =>
+            d.tracks_makes
+              ? newDrill(d.name)
+              : { ...newDrill(d.name, sessionCategoryForSkill(d.skill)), minutes: d.duration_minutes }
+          );
+        if (added.length) {
           const start = base || freshDraft();
-          const drill: Drill = libraryDrill.tracks_makes
-            ? newDrill(libraryDrill.name)
-            : { ...newDrill(libraryDrill.name, sessionCategoryForSkill(libraryDrill.skill)), minutes: libraryDrill.duration_minutes };
-          // A brand-new session replaces its empty default drill with the chosen one
+          // A brand-new session replaces its empty default drill with the chosen ones
           const keep = base ? start.drills : start.drills.filter((d) => d.shots.length > 0);
-          base = {
-            ...start,
-            drills: [...keep, drill],
-            activeKey: drill.category === 'shooting' ? drill.key : keep[0]?.key || drill.key,
-          };
-          if (!libraryDrill.tracks_makes && base.drills.every((d) => d.category !== 'shooting')) {
+          const drills = [...keep, ...added];
+          const firstShooting = added.find((d) => d.category === 'shooting');
+          base = { ...start, drills, activeKey: firstShooting?.key || keep[0]?.key || drills[0].key };
+          if (drills.every((d) => d.category !== 'shooting')) {
             const shooting = newDrill('Spot shooting');
             base = { ...base, drills: [shooting, ...base.drills], activeKey: shooting.key };
           }

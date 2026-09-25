@@ -210,9 +210,33 @@ export default function NewWorkoutPage() {
 
       // Resume an unfinished workout, or start from a routine
       const saved = readDraft();
-      const routineId = new URLSearchParams(window.location.search).get('routine');
+      const params = new URLSearchParams(window.location.search);
+      const routineId = params.get('routine');
+      // ?exercises=Name~sets|Name~sets (program day / workout generator)
+      const exerciseParam = params.get('exercises');
       if (saved && saved.exercises.length > 0) {
         setDraft(saved);
+      } else if (exerciseParam) {
+        const byName = new Map(((lib || []) as LibraryExercise[]).map((e) => [e.name.toLowerCase(), e]));
+        const wanted = exerciseParam
+          .split('|')
+          .slice(0, 20)
+          .map((part) => {
+            const [name, sets] = part.split('~');
+            return { name: name.trim(), sets: Math.min(10, Math.max(1, Number(sets) || 3)) };
+          })
+          .filter((w) => w.name);
+        const built = await Promise.all(
+          wanted.map((w) => {
+            const match = byName.get(w.name.toLowerCase());
+            return buildExercise(
+              user.id,
+              { id: match?.id || null, name: match?.name || w.name, primary_muscle: match?.primary_muscle || null },
+              w.sets
+            );
+          })
+        );
+        setDraft((d) => ({ ...d, startedAt: Date.now(), exercises: built }));
       } else if (routineId) {
         const { data: routineRows } = await supabase
           .from('routine_exercises')

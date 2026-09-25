@@ -8,7 +8,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { LogOut, User, ShieldAlert } from 'lucide-react';
 import type { Profile } from '@/lib/auth';
-import { NAV_ITEMS } from './BottomNav';
+import { DESKTOP_NAV_ITEMS, isNavActive } from './BottomNav';
 
 interface NavbarProps {
   profile: Profile | null;
@@ -44,9 +44,9 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
 
         {/* Desktop section links (phones use BottomNav) */}
         <nav className="hidden md:flex items-center gap-1">
-          {NAV_ITEMS.map((item) => {
+          {DESKTOP_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname.startsWith(item.href);
+            const isActive = isNavActive(pathname, item.match);
             return (
               <Link
                 key={item.href}

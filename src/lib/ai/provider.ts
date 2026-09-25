@@ -134,6 +134,35 @@ export class OpenAIProvider extends AIProvider {
   }
 }
 
+/** Sends one system + user prompt to OpenAI in JSON mode and returns the parsed object. */
+export async function openAIJson(system: string, user: string, config: AIProviderConfig): Promise<Record<string, unknown>> {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: config.model,
+      max_tokens: config.maxTokens,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+    throw new Error(`OpenAI API error (${response.status}): ${body?.error?.message || response.statusText}`);
+  }
+  const data = (await response.json()) as { choices: Array<{ message: { content: string | null } }> };
+  const content = data.choices[0]?.message.content;
+  if (!content) throw new Error('No response from OpenAI');
+  try {
+    return JSON.parse(content) as Record<string, unknown>;
+  } catch {
+    throw new Error('OpenAI returned a response in an unexpected format');
+  }
+}
+
 export function getAIProvider(provider: string): AIProvider {
   switch (provider.toLowerCase()) {
     case 'openai':

@@ -32,6 +32,12 @@ export default function NewPerformanceTestPage() {
 
   const [testDate, setTestDate] = useState(new Date().toISOString().split('T')[0]);
   const [testType, setTestType] = useState('standing_vertical');
+
+  // ?type=<test_type> preselects the test (e.g. from a program day)
+  React.useEffect(() => {
+    const type = new URLSearchParams(window.location.search).get('type');
+    if (type && TESTS.some((t) => t.value === type)) setTestType(type);
+  }, []);
   const [customTestName, setCustomTestName] = useState('');
   const [value, setValue] = useState('');
   const [unit, setUnit] = useState('inches');
