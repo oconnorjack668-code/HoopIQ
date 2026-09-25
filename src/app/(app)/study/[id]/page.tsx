@@ -98,33 +98,66 @@ export default async function StudyTopicPage({
               const videoSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
                 `${item.title} basketball`
               )}`;
+              const questionCount = Array.isArray(item.quiz_questions) ? item.quiz_questions.length : 0;
               return (
-                <a key={item.id} href={videoSearchUrl} target="_blank" rel="noopener noreferrer" className="block">
-                  <Card className="border-zinc-800 bg-zinc-900/70 hover:bg-zinc-900/90 hover:border-blue-500/30 transition-all cursor-pointer">
-                    <CardContent className="p-5 flex items-center justify-between">
-                      <div className="flex items-start gap-3 flex-1">
-                        <div className="mt-1">
-                          {isCompleted ? (
-                            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                          ) : (
-                            <Play className="h-5 w-5 text-zinc-500" />
-                          )}
-                        </div>
-                        <div>
+                <Card key={item.id} className="border-zinc-800 bg-zinc-900/70">
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1">
+                        {isCompleted ? (
+                          <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                        ) : (
+                          <Play className="h-5 w-5 text-zinc-500" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between gap-2">
                           <h3 className="font-semibold text-white">{item.title}</h3>
-                          <p className="text-sm text-zinc-400 mt-1">{item.description}</p>
-                          <div className="flex items-center gap-1 mt-2 text-xs text-blue-400">
-                            <Clock className="h-3 w-3" />
-                            {item.duration_minutes ? `${item.duration_minutes} min · ` : ''}Find videos on YouTube
-                          </div>
+                          {isCompleted && <Badge variant="success" className="text-xs flex-shrink-0">Completed</Badge>}
                         </div>
+                        <p className="text-sm text-zinc-400 mt-1">{item.description}</p>
                       </div>
-                      <div className="ml-4">
-                        {isCompleted && <Badge variant="success" className="text-xs">Completed</Badge>}
+                    </div>
+
+                    {Array.isArray(item.key_takeaways) && item.key_takeaways.length > 0 && (
+                      <div className="rounded-lg bg-zinc-950/60 p-3">
+                        <div className="text-xs font-semibold uppercase text-zinc-500 mb-1">Key takeaways</div>
+                        <ul className="space-y-1 text-sm text-zinc-300">
+                          {item.key_takeaways.map((t: string) => (
+                            <li key={t}>• {t}</li>
+                          ))}
+                        </ul>
                       </div>
-                    </CardContent>
-                  </Card>
-                </a>
+                    )}
+
+                    {item.reflection_prompt && (
+                      <p className="text-sm text-zinc-400 italic">
+                        <span className="not-italic font-semibold text-zinc-300">Reflect: </span>
+                        {item.reflection_prompt}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={videoSearchUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800"
+                      >
+                        <Clock className="h-3.5 w-3.5" />
+                        {item.duration_minutes ? `${item.duration_minutes} min · ` : ''}Watch videos
+                      </a>
+                      {questionCount > 0 && (
+                        <Link
+                          href={`/study/${id}/quiz?item=${item.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-500"
+                        >
+                          Quiz this lesson ({questionCount})
+                        </Link>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               );
             })
           ) : (
@@ -145,7 +178,7 @@ export default async function StudyTopicPage({
             </h2>
             <Link href={`/study/${id}/quiz`}>
               <Button variant="primary" size="lg" className="w-full">
-                Take Quiz
+                Take the full section quiz
               </Button>
             </Link>
           </div>

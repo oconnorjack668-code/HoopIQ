@@ -1,479 +1,696 @@
-// @ts-nocheck
 // src/app/(app)/basketball/new/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { sessionSchema, shootingEntrySchema } from '@/lib/validation';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
-import { Alert } from '@/components/ui/Alert';
-import { Badge } from '@/components/ui/Badge';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { SHOT_ZONES } from '@/lib/stats';
+import { createClient } from '@/lib/supabase/client';
+import { sessionSchema } from '@/lib/validation';
+import { Button } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Alert';
+import { CourtMap } from '@/components/basketball/CourtMap';
+import { classifyZone, ZONE_LABELS, ZONE_SPOTS, type CourtZone } from '@/lib/court';
+import { sessionCategoryForSkill } from '@/lib/drills';
+import { ArrowLeft, Plus, Timer, Undo2, X, Flame } from 'lucide-react';
 
-interface DrillEntry {
-  drillName: string;
-  drillCategory: string;
-  durationMinutes: number | '';
-  shots: { shotZone: string; makes: number; attempts: number }[];
+interface TrackedShot {
+  zone: CourtZone;
+  made: boolean;
+  x: number;
+  y: number;
+}
+
+interface Drill {
+  key: string;
+  name: string;
+  category: string;
+  minutes: number | '';
+  shots: TrackedShot[];
+}
+
+interface Draft {
+  startedAt: number;
+  sessionDate: string;
+  sessionType: string;
+  drills: Drill[];
+  activeKey: string;
+}
+
+const DRAFT_KEY = 'hoopiq-hoops-draft-v1';
+
+const SHOOTING_PRESETS = ['Spot shooting', '5-spot 3s', 'Free throws', 'Mid-range pull-ups', 'Catch & shoot', 'Game shots'];
+const OTHER_CATEGORIES = [
+  { value: 'ball-handling', label: 'Ball handling' },
+  { value: 'finishing', label: 'Finishing' },
+  { value: 'footwork', label: 'Footwork' },
+  { value: 'defense', label: 'Defense' },
+  { value: 'passing', label: 'Passing' },
+  { value: 'conditioning', label: 'Conditioning' },
+  { value: 'other', label: 'Other' },
+];
+const SESSION_TYPES = [
+  { value: 'shooting', label: 'Shooting' },
+  { value: 'skills', label: 'Skills' },
+  { value: 'ball-handling', label: 'Ball handling' },
+  { value: 'footwork', label: 'Footwork' },
+  { value: 'scrimmage', label: 'Scrimmage' },
+  { value: 'pickup', label: 'Pickup' },
+  { value: 'game', label: 'Game' },
+  { value: 'mixed', label: 'Mixed' },
+];
+const CHALLENGE_MINUTES = [1, 3, 5, 10];
+
+function todayString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function newDrill(name: string, category = 'shooting'): Drill {
+  return { key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, category, minutes: '', shots: [] };
+}
+
+function pct(makes: number, attempts: number): string {
+  return attempts > 0 ? `${Math.round((makes / attempts) * 100)}%` : '–';
+}
+
+function formatClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.ceil(totalSeconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function freshDraft(): Draft {
+  const first = newDrill('Spot shooting');
+  return { startedAt: Date.now(), sessionDate: todayString(), sessionType: 'shooting', drills: [first], activeKey: first.key };
 }
 
 export default function NewBasketballSessionPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const [draft, setDraft] = useState<Draft>(freshDraft);
+  const [ready, setReady] = useState(false);
+  const [mode, setMode] = useState<'track' | 'totals'>('track');
+  const [spot, setSpot] = useState<{ x: number; y: number; zone: CourtZone } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'session' | 'drills'>('session');
 
-  // Session-level form
-  const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
-  const [sessionType, setSessionType] = useState('shooting');
-  const [durationMinutes, setDurationMinutes] = useState(60);
+  // Manual totals entry
+  const [totalsZone, setTotalsZone] = useState<CourtZone>('three-top');
+  const [totalsMakes, setTotalsMakes] = useState('');
+  const [totalsAttempts, setTotalsAttempts] = useState('');
+
+  // Timed challenge
+  const [challengeEndsAt, setChallengeEndsAt] = useState<number | null>(null);
+  const [challengeStartShots, setChallengeStartShots] = useState(0);
+  const [challengeResult, setChallengeResult] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  // Finish
+  const [finishOpen, setFinishOpen] = useState(false);
+  const [durationMinutes, setDurationMinutes] = useState(45);
   const [intensityRpe, setIntensityRpe] = useState(6);
-  const [perceivedQuality, setPerceivedQuality] = useState(3);
+  const [quality, setQuality] = useState(3);
   const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  // Drill entries
-  const [drills, setDrills] = useState<DrillEntry[]>([
-    { drillName: '', drillCategory: 'shooting', durationMinutes: '', shots: [] },
-  ]);
+  // Other (non-shooting) drill form
+  const [otherOpen, setOtherOpen] = useState(false);
+  const [otherName, setOtherName] = useState('');
+  const [otherCategory, setOtherCategory] = useState('ball-handling');
+  const [otherMinutes, setOtherMinutes] = useState('10');
 
-  function addDrill() {
-    setDrills([
-      ...drills,
-      { drillName: '', drillCategory: 'shooting', durationMinutes: '', shots: [] },
-    ]);
-  }
+  const shotsRef = useRef(0);
+  const shotListRef = useRef<TrackedShot[]>([]);
 
-  function removeDrill(index: number) {
-    setDrills(drills.filter((_, i) => i !== index));
-  }
+  // Restore an unfinished session, then add a drill started from the drill library
+  useEffect(() => {
+    (async () => {
+      let base: Draft | null = null;
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw) as Draft;
+          if (saved?.drills?.length) base = saved;
+        }
+      } catch {
+        // ignore unreadable draft
+      }
 
-  function addShot(drillIndex: number) {
-    const newDrills = [...drills];
-    newDrills[drillIndex].shots.push({
-      shotZone: 'paint',
-      makes: 0,
-      attempts: 0,
-    });
-    setDrills(newDrills);
-  }
+      const slug = new URLSearchParams(window.location.search).get('drill');
+      if (slug) {
+        const { data: libraryDrill } = await (createClient() as any)
+          .from('drills')
+          .select('name, skill, duration_minutes, tracks_makes')
+          .eq('slug', slug)
+          .maybeSingle();
+        if (libraryDrill) {
+          const start = base || freshDraft();
+          const drill: Drill = libraryDrill.tracks_makes
+            ? newDrill(libraryDrill.name)
+            : { ...newDrill(libraryDrill.name, sessionCategoryForSkill(libraryDrill.skill)), minutes: libraryDrill.duration_minutes };
+          // A brand-new session replaces its empty default drill with the chosen one
+          const keep = base ? start.drills : start.drills.filter((d) => d.shots.length > 0);
+          base = {
+            ...start,
+            drills: [...keep, drill],
+            activeKey: drill.category === 'shooting' ? drill.key : keep[0]?.key || drill.key,
+          };
+          if (!libraryDrill.tracks_makes && base.drills.every((d) => d.category !== 'shooting')) {
+            const shooting = newDrill('Spot shooting');
+            base = { ...base, drills: [shooting, ...base.drills], activeKey: shooting.key };
+          }
+        }
+      }
 
-  function removeShot(drillIndex: number, shotIndex: number) {
-    const newDrills = [...drills];
-    newDrills[drillIndex].shots = newDrills[drillIndex].shots.filter((_, i) => i !== shotIndex);
-    setDrills(newDrills);
-  }
+      if (base) setDraft(base);
+      setReady(true);
+    })();
+  }, []);
 
-  function updateShot(
-    drillIndex: number,
-    shotIndex: number,
-    field: 'shotZone' | 'makes' | 'attempts',
-    value: string | number
-  ) {
-    const newDrills = [...drills];
-    if (field === 'makes' || field === 'attempts') {
-      newDrills[drillIndex].shots[shotIndex][field] = Number(value);
-    } else {
-      newDrills[drillIndex].shots[shotIndex][field] = String(value);
-    }
-    setDrills(newDrills);
-  }
-
-  // @ts-ignore
-  async function handleSave() {
-    setError(null);
-    setIsLoading(true);
-
+  // Autosave on this device
+  useEffect(() => {
+    if (!ready) return;
     try {
-      // Validate session
-      const sessionResult = sessionSchema.safeParse({
-        sessionDate,
-        sessionType,
-        durationMinutes: Number(durationMinutes),
-        intensityRpe: Number(intensityRpe),
-        perceivedQuality: Number(perceivedQuality),
+      const hasContent = draft.drills.some((d) => d.shots.length > 0 || d.category !== 'shooting');
+      if (hasContent) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      else localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // storage unavailable
+    }
+  }, [draft, ready]);
+
+  // Keep the screen awake while tracking
+  useEffect(() => {
+    let lock: { release: () => Promise<void> } | null = null;
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
+    nav.wakeLock?.request('screen').then((l) => (lock = l)).catch(() => undefined);
+    return () => {
+      lock?.release().catch(() => undefined);
+    };
+  }, []);
+
+  const active = draft.drills.find((d) => d.key === draft.activeKey) || draft.drills[0];
+  const allShots = useMemo(() => draft.drills.flatMap((d) => d.shots), [draft.drills]);
+  shotsRef.current = allShots.length;
+  shotListRef.current = allShots;
+
+  // Challenge countdown
+  useEffect(() => {
+    if (!challengeEndsAt) return;
+    const id = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= challengeEndsAt) {
+        setChallengeEndsAt(null);
+        navigator.vibrate?.([300, 100, 300]);
+        const shots = shotListRef.current.slice(challengeStartShots);
+        const makes = shots.filter((s) => s.made).length;
+        setChallengeResult(`Time! ${makes}/${shots.length} (${pct(makes, shots.length)})`);
+      }
+    }, 200);
+    return () => clearInterval(id);
+  }, [challengeEndsAt, challengeStartShots]);
+
+  function updateActive(change: (d: Drill) => Drill) {
+    setDraft((d) => ({ ...d, drills: d.drills.map((x) => (x.key === d.activeKey ? change(x) : x)) }));
+  }
+
+  function handleTap(x: number, y: number) {
+    setSpot({ x, y, zone: classifyZone(x, y) });
+  }
+
+  function record(made: boolean) {
+    if (!spot) {
+      setError('Tap the court where you are shooting from first.');
+      return;
+    }
+    setError(null);
+    // Small jitter so repeated shots from one spot stay visible on the chart
+    const jitter = () => (Math.random() - 0.5) * 0.8;
+    updateActive((d) => ({
+      ...d,
+      shots: [...d.shots, { zone: spot.zone, made, x: spot.x + jitter(), y: spot.y + jitter() }],
+    }));
+    navigator.vibrate?.(made ? 25 : [15, 40, 15]);
+  }
+
+  function undo() {
+    updateActive((d) => ({ ...d, shots: d.shots.slice(0, -1) }));
+  }
+
+  function addShootingDrill(name: string) {
+    const drill = newDrill(name);
+    setDraft((d) => ({ ...d, drills: [...d.drills, drill], activeKey: drill.key }));
+  }
+
+  function addTotals() {
+    const makes = Number(totalsMakes);
+    const attempts = Number(totalsAttempts);
+    if (!Number.isInteger(makes) || !Number.isInteger(attempts) || makes < 0 || attempts < 1 || makes > attempts || attempts > 1000) {
+      setError('Enter whole numbers, with makes no more than attempts.');
+      return;
+    }
+    setError(null);
+    const s = ZONE_SPOTS[totalsZone];
+    const added: TrackedShot[] = Array.from({ length: attempts }, (_, i) => ({
+      zone: totalsZone,
+      made: i < makes,
+      x: s.x + (Math.random() - 0.5) * 2,
+      y: s.y + (Math.random() - 0.5) * 2,
+    }));
+    updateActive((d) => ({ ...d, shots: [...d.shots, ...added] }));
+    setTotalsMakes('');
+    setTotalsAttempts('');
+  }
+
+  function addOtherDrill() {
+    const minutes = Number(otherMinutes);
+    if (!otherName.trim()) {
+      setError('Give the drill a name.');
+      return;
+    }
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 600) {
+      setError('Minutes must be a whole number between 1 and 600.');
+      return;
+    }
+    setError(null);
+    const drill: Drill = { ...newDrill(otherName.trim(), otherCategory), minutes };
+    setDraft((d) => ({ ...d, drills: [...d.drills, drill] }));
+    setOtherOpen(false);
+    setOtherName('');
+  }
+
+  function startChallenge(minutes: number) {
+    setChallengeResult(null);
+    setChallengeStartShots(shotsRef.current);
+    setChallengeEndsAt(Date.now() + minutes * 60_000);
+    setNow(Date.now());
+  }
+
+  function discard() {
+    if (!window.confirm('Discard this session? Tracked shots will be lost.')) return;
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+    router.push('/basketball');
+  }
+
+  function openFinish() {
+    const hasContent = draft.drills.some((d) => d.shots.length > 0 || (d.category !== 'shooting' && d.minutes !== ''));
+    if (!hasContent) {
+      setError('Track at least one shot or add a drill before finishing.');
+      return;
+    }
+    setError(null);
+    const elapsed = Math.round((Date.now() - draft.startedAt) / 60000);
+    setDurationMinutes(Math.min(360, Math.max(5, elapsed)));
+    setFinishOpen(true);
+  }
+
+  async function save() {
+    const parsed = sessionSchema.safeParse({
+      sessionDate: draft.sessionDate,
+      sessionType: draft.sessionType,
+      durationMinutes: Number(durationMinutes),
+      intensityRpe: Number(intensityRpe),
+      perceivedQuality: Number(quality),
+      notes: notes || null,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0].message);
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    const supabase = createClient() as any;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const { data: session, error: sessionError } = await supabase
+      .from('training_sessions')
+      .insert({
+        user_id: user.id,
+        session_date: draft.sessionDate,
+        session_type: draft.sessionType,
+        duration_minutes: Number(durationMinutes),
+        intensity_rpe: Number(intensityRpe),
+        perceived_quality: Number(quality),
         notes: notes || null,
-      });
+      })
+      .select('id')
+      .single();
 
-      if (!sessionResult.success) {
-        setError(sessionResult.error.issues[0].message);
-        setIsLoading(false);
-        return;
-      }
+    if (sessionError || !session) {
+      setError(`Could not save the session: ${sessionError?.message || 'unknown error'}`);
+      setSaving(false);
+      return;
+    }
 
-      // Validate every drill and shot before saving anything
-      const drillsToSave = drills.filter((drill) => drill.drillName.trim());
-      for (const [drillIdx, drill] of drillsToSave.entries()) {
-        const label = drill.drillName.trim() || `Drill ${drillIdx + 1}`;
-        if (drill.durationMinutes !== '') {
-          const minutes = Number(drill.durationMinutes);
-          if (!Number.isInteger(minutes) || minutes < 0 || minutes > 600) {
-            setError(`${label}: duration must be a whole number of minutes (0-600).`);
-            setIsLoading(false);
-            return;
-          }
-        }
-        for (const shot of drill.shots) {
-          const shotResult = shootingEntrySchema.safeParse({
-            shotZone: shot.shotZone,
-            makes: shot.makes,
-            attempts: shot.attempts,
-          });
-          if (!shotResult.success) {
-            setError(`${label}: ${shotResult.error.issues[0].message}`);
-            setIsLoading(false);
-            return;
-          }
-        }
-      }
-
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-
-      // Create session
-      const sessionResponse = await supabase
-        .from('training_sessions')
+    const drillsToSave = draft.drills.filter((d) => d.shots.length > 0 || d.category !== 'shooting');
+    for (const [i, drill] of drillsToSave.entries()) {
+      const { data: savedDrill, error: drillError } = await supabase
+        .from('session_drills')
         .insert({
+          session_id: session.id,
           user_id: user.id,
-          session_date: sessionDate,
-          session_type: sessionType,
-          duration_minutes: Number(durationMinutes),
-          intensity_rpe: Number(intensityRpe),
-          perceived_quality: Number(perceivedQuality),
-          notes: notes || null,
+          drill_name: drill.name.slice(0, 120),
+          drill_category: drill.category,
+          duration_minutes: drill.minutes === '' ? null : Number(drill.minutes),
+          display_order: i,
         })
-        .select()
+        .select('id')
         .single();
 
-      const newSession = sessionResponse.data as any;
-      const sessionError = sessionResponse.error;
+      let failed = !!drillError || !savedDrill;
+      if (!failed && drill.shots.length > 0) {
+        // One row per zone with the drill's makes and attempts
+        const byZone = new Map<CourtZone, { makes: number; attempts: number }>();
+        for (const s of drill.shots) {
+          const z = byZone.get(s.zone) || { makes: 0, attempts: 0 };
+          z.attempts += 1;
+          if (s.made) z.makes += 1;
+          byZone.set(s.zone, z);
+        }
+        const { error: shotsError } = await supabase.from('shooting_entries').insert(
+          [...byZone.entries()].map(([zone, t]) => ({
+            drill_id: savedDrill.id,
+            user_id: user.id,
+            shot_zone: zone,
+            makes: t.makes,
+            attempts: t.attempts,
+          }))
+        );
+        failed = !!shotsError;
+      }
 
-      if (sessionError || !newSession) {
-        setError('Failed to create session.');
-        setIsLoading(false);
+      if (failed) {
+        await supabase.from('training_sessions').delete().eq('id', session.id);
+        setError(`Could not save "${drill.name}". Nothing was saved, please try again.`);
+        setSaving(false);
         return;
       }
-
-      // Create drills and shooting entries; undo the whole session if any part fails
-      for (const [drillIdx, drill] of drillsToSave.entries()) {
-        const drillResponse = await supabase
-          .from('session_drills')
-          .insert({
-            session_id: newSession.id,
-            user_id: user.id,
-            drill_name: drill.drillName.trim(),
-            drill_category: drill.drillCategory,
-            duration_minutes: drill.durationMinutes === '' ? null : Number(drill.durationMinutes),
-            display_order: drillIdx,
-          })
-          .select()
-          .single();
-
-        const newDrill = drillResponse.data as any;
-        let saveError = drillResponse.error || (!newDrill ? new Error('missing drill') : null);
-
-        if (!saveError && drill.shots.length > 0) {
-          const { error: shotsError } = await supabase.from('shooting_entries').insert(
-            drill.shots.map((shot) => ({
-              drill_id: newDrill.id,
-              user_id: user.id,
-              shot_zone: shot.shotZone,
-              makes: shot.makes,
-              attempts: shot.attempts,
-            }))
-          );
-          saveError = shotsError;
-        }
-
-        if (saveError) {
-          // Deleting the session cascades to its drills and shots
-          await supabase.from('training_sessions').delete().eq('id', newSession.id);
-          setError(`Could not save "${drill.drillName.trim()}". Nothing was saved, please try again.`);
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      router.push('/basketball');
-      router.refresh();
-    } catch {
-      setError('An unexpected error occurred.');
-      setIsLoading(false);
     }
+
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+    router.push('/basketball');
+    router.refresh();
   }
 
+  // ---------------------------------------------------------------------------
+  const activeMakes = active.shots.filter((s) => s.made).length;
+  const totalMakes = allShots.filter((s) => s.made).length;
+  let streak = 0;
+  for (let i = active.shots.length - 1; i >= 0 && active.shots[i].made; i--) streak++;
+
+  const zoneTotals = new Map<CourtZone, { makes: number; attempts: number }>();
+  for (const s of allShots) {
+    const z = zoneTotals.get(s.zone) || { makes: 0, attempts: 0 };
+    z.attempts += 1;
+    if (s.made) z.makes += 1;
+    zoneTotals.set(s.zone, z);
+  }
+
+  const challengeRemaining = challengeEndsAt ? (challengeEndsAt - now) / 1000 : 0;
+  const shootingDrills = draft.drills.filter((d) => d.category === 'shooting');
+
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-4 md:p-8 max-w-2xl mx-auto">
+    <div className="flex-1 overflow-auto pb-24">
+      <div className="p-4 md:p-8 max-w-xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-white">New Basketball Session</h1>
-            <p className="text-sm text-zinc-400 mt-1">
-              {step === 'session' ? 'Session details and drills' : 'Review and save'}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <Link href="/basketball" aria-label="Back" className="h-10 w-10 flex items-center justify-center rounded-xl border border-zinc-800 text-zinc-400">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div className="text-center">
+            <h1 className="text-lg font-black text-white">Hoops Session</h1>
+            <p className="text-xs text-zinc-500">
+              {totalMakes}/{allShots.length} · {pct(totalMakes, allShots.length)}
             </p>
           </div>
-          <Link href="/basketball">
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
+          <Button variant="primary" size="sm" onClick={openFinish}>
+            Finish
+          </Button>
         </div>
 
         {error && (
-          <Alert variant="error" title="Error">
+          <Alert variant="error" title="Check this" className="mb-3">
             {error}
           </Alert>
         )}
 
-        {step === 'session' && (
-          <div className="space-y-6">
-            {/* Session Details */}
-            <Card className="border-zinc-800 bg-zinc-900/70">
-              <CardHeader>
-                <CardTitle>Session Details</CardTitle>
-                <CardDescription>Basic info about this basketball session</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Session Date"
-                    type="date"
-                    value={sessionDate}
-                    onChange={(e) => setSessionDate(e.target.value)}
-                    required
-                  />
-                  <Select
-                    label="Session Type"
-                    value={sessionType}
-                    onChange={(e) => setSessionType(e.target.value)}
-                    options={[
-                      { value: 'shooting', label: 'Shooting Drills' },
-                      { value: 'ball-handling', label: 'Ball Handling' },
-                      { value: 'footwork', label: 'Footwork' },
-                      { value: 'scrimmage', label: 'Scrimmage' },
-                      { value: 'pickup', label: 'Pickup Game' },
-                      { value: 'skills', label: 'Skills' },
-                      { value: 'game', label: 'Game' },
-                      { value: 'mixed', label: 'Mixed' },
-                    ]}
-                  />
-                </div>
+        {/* Drill tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-2 [scrollbar-width:none]">
+          {shootingDrills.map((d) => (
+            <button
+              key={d.key}
+              type="button"
+              onClick={() => setDraft((x) => ({ ...x, activeKey: d.key }))}
+              className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold ${
+                d.key === active.key ? 'bg-orange-600 text-white' : 'bg-zinc-900 text-zinc-400'
+              }`}
+            >
+              {d.name} {d.shots.length > 0 && `· ${d.shots.filter((s) => s.made).length}/${d.shots.length}`}
+            </button>
+          ))}
+          <select
+            value=""
+            onChange={(e) => e.target.value && addShootingDrill(e.target.value)}
+            aria-label="Add a shooting drill"
+            className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-orange-400"
+          >
+            <option value="">+ Drill</option>
+            {SHOOTING_PRESETS.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <Input
-                    label="Duration (min)"
-                    type="number"
-                    value={durationMinutes}
-                    onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                  />
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
-                      Intensity RPE
-                    </label>
-                    <input
-                      type="range"
-                      min="1"
-                      max="10"
-                      value={intensityRpe}
-                      onChange={(e) => setIntensityRpe(Number(e.target.value))}
-                      className="w-full"
-                    />
-                    <div className="text-xs text-zinc-400 mt-1 text-center">{intensityRpe}/10</div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
-                      Quality
-                    </label>
-                    <input
-                      type="range"
-                      min="1"
-                      max="5"
-                      value={perceivedQuality}
-                      onChange={(e) => setPerceivedQuality(Number(e.target.value))}
-                      className="w-full"
-                    />
-                    <div className="text-xs text-zinc-400 mt-1 text-center">{perceivedQuality}/5</div>
-                  </div>
-                </div>
+        {/* Mode switch */}
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-900 p-1 mb-3">
+          {(['track', 'totals'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`rounded-lg py-2 text-xs font-semibold ${mode === m ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}
+            >
+              {m === 'track' ? 'Track every shot' : 'Enter totals'}
+            </button>
+          ))}
+        </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
-                    Session Notes (Optional)
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="How did you feel? Any observations?"
-                    className="w-full h-20 rounded-xl border border-zinc-700/80 bg-zinc-900/90 px-3.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+        <CourtMap shots={active.shots} selected={mode === 'track' ? spot : null} onTap={handleTap} />
 
-            {/* Drills */}
-            <Card className="border-zinc-800 bg-zinc-900/70">
-              <CardHeader>
+        {mode === 'track' ? (
+          <>
+            <div className="flex items-center justify-between text-xs text-zinc-400 mt-2 mb-3">
+              <span>{spot ? `Spot: ${ZONE_LABELS[spot.zone]}` : 'Tap the court where you are shooting from'}</span>
+              <span className="flex items-center gap-1">
+                {streak >= 3 && <Flame className="h-3.5 w-3.5 text-orange-400" />}
+                {active.name}: {activeMakes}/{active.shots.length} ({pct(activeMakes, active.shots.length)})
+              </span>
+            </div>
+
+            <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+              <button
+                type="button"
+                onClick={() => record(true)}
+                className="h-24 rounded-2xl bg-emerald-600 text-2xl font-black text-white active:scale-95 transition-transform"
+              >
+                MAKE
+              </button>
+              <button
+                type="button"
+                onClick={() => record(false)}
+                className="h-24 rounded-2xl bg-red-600/90 text-2xl font-black text-white active:scale-95 transition-transform"
+              >
+                MISS
+              </button>
+              <button
+                type="button"
+                onClick={undo}
+                disabled={active.shots.length === 0}
+                aria-label="Undo last shot"
+                className="h-24 w-14 flex items-center justify-center rounded-2xl bg-zinc-800 text-zinc-300 disabled:opacity-40"
+              >
+                <Undo2 className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Timed challenge */}
+            <div className="mt-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
+              {challengeEndsAt && challengeRemaining > 0 ? (
                 <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Drills & Shooting</CardTitle>
-                    <CardDescription>Track what you worked on and your shooting results</CardDescription>
-                  </div>
-                  <Button variant="secondary" size="sm" onClick={addDrill} className="gap-1">
-                    <Plus className="h-3.5 w-3.5" /> Add Drill
-                  </Button>
+                  <span className="flex items-center gap-2 text-orange-400 font-black text-2xl tabular-nums">
+                    <Timer className="h-5 w-5" /> {formatClock(challengeRemaining)}
+                  </span>
+                  <span className="text-sm text-zinc-300">
+                    {allShots.slice(challengeStartShots).filter((s) => s.made).length}/{allShots.length - challengeStartShots} made
+                  </span>
+                  <button type="button" onClick={() => setChallengeEndsAt(null)} className="text-xs text-zinc-500">
+                    Stop
+                  </button>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {drills.map((drill, drillIdx) => (
-                  <div key={drillIdx} className="space-y-3 p-4 rounded-lg border border-zinc-800 bg-zinc-950/50">
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1 space-y-2">
-                        <Input
-                          label="Drill Name"
-                          placeholder="e.g., Catch & Shoot 3pt Right Wing"
-                          value={drill.drillName}
-                          onChange={(e) => {
-                            const newDrills = [...drills];
-                            newDrills[drillIdx].drillName = e.target.value;
-                            setDrills(newDrills);
-                          }}
-                        />
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeDrill(drillIdx)}
-                        className="text-red-400 hover:bg-red-950/20"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <Select
-                        label="Category"
-                        value={drill.drillCategory}
-                        onChange={(e) => {
-                          const newDrills = [...drills];
-                          newDrills[drillIdx].drillCategory = e.target.value;
-                          setDrills(newDrills);
-                        }}
-                        options={[
-                          { value: 'shooting', label: 'Shooting' },
-                          { value: 'ball-handling', label: 'Ball Handling' },
-                          { value: 'finishing', label: 'Finishing' },
-                          { value: 'footwork', label: 'Footwork' },
-                          { value: 'defense', label: 'Defense' },
-                          { value: 'conditioning', label: 'Conditioning' },
-                          { value: 'passing', label: 'Passing' },
-                          { value: 'other', label: 'Other' },
-                        ]}
-                      />
-                      <Input
-                        label="Duration (min)"
-                        type="number"
-                        placeholder="Optional"
-                        value={drill.durationMinutes}
-                        onChange={(e) => {
-                          const newDrills = [...drills];
-                          newDrills[drillIdx].durationMinutes = e.target.value
-                            ? Number(e.target.value)
-                            : '';
-                          setDrills(newDrills);
-                        }}
-                      />
-                    </div>
-
-                    {/* Shooting zones for this drill */}
-                    {drill.drillCategory === 'shooting' && (
-                      <div className="space-y-2 border-t border-zinc-800 pt-3">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
-                            Shot Results
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => addShot(drillIdx)}
-                            className="text-xs text-orange-400 hover:text-orange-300 font-semibold"
-                          >
-                            + Add Zone
-                          </button>
-                        </div>
-
-                        {drill.shots.map((shot, shotIdx) => (
-                          <div key={shotIdx} className="flex gap-2 items-end">
-                            <Select
-                              label=""
-                              value={shot.shotZone}
-                              onChange={(e) => updateShot(drillIdx, shotIdx, 'shotZone', e.target.value)}
-                              options={SHOT_ZONES.map((z) => ({ value: z.id, label: z.label }))}
-                              className="text-xs"
-                            />
-                            <Input
-                              label=""
-                              type="number"
-                              placeholder="Makes"
-                              value={shot.makes}
-                              onChange={(e) =>
-                                updateShot(drillIdx, shotIdx, 'makes', e.target.value)
-                              }
-                              className="w-20 h-11"
-                            />
-                            <span className="text-xs text-zinc-500">/</span>
-                            <Input
-                              label=""
-                              type="number"
-                              placeholder="Attempts"
-                              value={shot.attempts}
-                              onChange={(e) =>
-                                updateShot(drillIdx, shotIdx, 'attempts', e.target.value)
-                              }
-                              className="w-20 h-11"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeShot(drillIdx, shotIdx)}
-                              className="text-red-400 hover:text-red-300 p-2"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-zinc-400">Timed challenge</span>
+                  <div className="flex gap-1.5">
+                    {CHALLENGE_MINUTES.map((m) => (
+                      <button key={m} type="button" onClick={() => startChallenge(m)} className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-200">
+                        {m} min
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </CardContent>
-              <CardFooter className="flex justify-between pt-4">
-                <Button variant="secondary" onClick={() => router.back()}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleSave}
-                  isLoading={isLoading}
-                  disabled={!sessionDate || drills.every((d) => !d.drillName.trim())}
-                >
-                  Save Session
-                </Button>
-              </CardFooter>
-            </Card>
+                </div>
+              )}
+              {challengeResult && <p className="mt-2 text-sm font-bold text-emerald-400">{challengeResult}</p>}
+            </div>
+          </>
+        ) : (
+          <div className="mt-3 space-y-2 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
+            <p className="text-xs text-zinc-400">Counted in your head? Add your totals for a spot.</p>
+            <select
+              value={totalsZone}
+              onChange={(e) => setTotalsZone(e.target.value as CourtZone)}
+              aria-label="Zone"
+              className="w-full rounded-xl bg-zinc-800 px-3 py-2 text-sm text-white"
+            >
+              {(Object.keys(ZONE_SPOTS) as CourtZone[]).map((z) => (
+                <option key={z} value={z}>
+                  {ZONE_LABELS[z]}
+                </option>
+              ))}
+            </select>
+            <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+              <input inputMode="numeric" value={totalsMakes} onChange={(e) => setTotalsMakes(e.target.value)} placeholder="Makes" aria-label="Makes" className="rounded-xl bg-zinc-800 px-3 py-2 text-sm text-white" />
+              <input inputMode="numeric" value={totalsAttempts} onChange={(e) => setTotalsAttempts(e.target.value)} placeholder="Attempts" aria-label="Attempts" className="rounded-xl bg-zinc-800 px-3 py-2 text-sm text-white" />
+              <Button variant="primary" size="sm" onClick={addTotals}>
+                Add
+              </Button>
+            </div>
           </div>
         )}
+
+        {/* Zone breakdown */}
+        {zoneTotals.size > 0 && (
+          <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
+            <h2 className="text-xs font-semibold uppercase text-zinc-400 mb-2">By zone (whole session)</h2>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+              {[...zoneTotals.entries()].map(([zone, t]) => (
+                <div key={zone} className="flex justify-between">
+                  <span className="text-zinc-300">{ZONE_LABELS[zone]}</span>
+                  <span className="font-semibold text-white">
+                    {t.makes}/{t.attempts} <span className="text-zinc-500">{pct(t.makes, t.attempts)}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Other drills */}
+        <div className="mt-4 space-y-2">
+          {draft.drills
+            .filter((d) => d.category !== 'shooting')
+            .map((d) => (
+              <div key={d.key} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-sm">
+                <span className="text-white">
+                  {d.name} <span className="text-zinc-500">· {OTHER_CATEGORIES.find((c) => c.value === d.category)?.label} · {d.minutes} min</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDraft((x) => ({ ...x, drills: x.drills.filter((y) => y.key !== d.key) }))}
+                  aria-label={`Remove ${d.name}`}
+                  className="text-zinc-500 hover:text-red-400"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          {otherOpen ? (
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 space-y-2">
+              <input value={otherName} onChange={(e) => setOtherName(e.target.value)} placeholder="Drill name, e.g. Two-ball dribbling" aria-label="Drill name" className="w-full rounded-xl bg-zinc-800 px-3 py-2 text-sm text-white" />
+              <div className="grid grid-cols-[1fr_6rem_auto] gap-2">
+                <select value={otherCategory} onChange={(e) => setOtherCategory(e.target.value)} aria-label="Drill type" className="rounded-xl bg-zinc-800 px-3 py-2 text-sm text-white">
+                  {OTHER_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+                <input inputMode="numeric" value={otherMinutes} onChange={(e) => setOtherMinutes(e.target.value)} aria-label="Minutes" placeholder="Min" className="rounded-xl bg-zinc-800 px-3 py-2 text-sm text-white" />
+                <Button variant="primary" size="sm" onClick={addOtherDrill}>
+                  Add
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setOtherOpen(true)} className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-700 py-3 text-sm font-semibold text-zinc-400">
+              <Plus className="h-4 w-4" /> Add a non-shooting drill (handles, finishing, defense…)
+            </button>
+          )}
+        </div>
+
+        <button type="button" onClick={discard} className="mt-6 w-full text-center text-xs text-zinc-500 hover:text-red-400">
+          Discard session
+        </button>
       </div>
+
+      {/* Finish panel */}
+      {finishOpen && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60">
+          <div className="w-full max-w-md rounded-t-2xl md:rounded-2xl border border-zinc-800 bg-zinc-950 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-white">Finish session</h2>
+              <button type="button" onClick={() => setFinishOpen(false)} aria-label="Close" className="text-zinc-400">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {error && <Alert variant="error" title="Check this">{error}</Alert>}
+            <p className="text-sm text-zinc-300">
+              {totalMakes}/{allShots.length} shots ({pct(totalMakes, allShots.length)}) across {draft.drills.length} drill
+              {draft.drills.length === 1 ? '' : 's'}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="date" value={draft.sessionDate} onChange={(e) => setDraft((d) => ({ ...d, sessionDate: e.target.value }))} aria-label="Session date" className="rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-white" />
+              <select value={draft.sessionType} onChange={(e) => setDraft((d) => ({ ...d, sessionType: e.target.value }))} aria-label="Session type" className="rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-white">
+                {SESSION_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase text-zinc-400">Duration (minutes)</span>
+              <input inputMode="numeric" value={durationMinutes} onChange={(e) => setDurationMinutes(Number(e.target.value) || 0)} className="mt-1 w-full rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2 text-white" />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase text-zinc-400">Intensity RPE {intensityRpe}/10</span>
+              <input type="range" min={1} max={10} value={intensityRpe} onChange={(e) => setIntensityRpe(Number(e.target.value))} className="mt-2 w-full accent-orange-500" />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase text-zinc-400">How good was the session? {quality}/5</span>
+              <input type="range" min={1} max={5} value={quality} onChange={(e) => setQuality(Number(e.target.value))} className="mt-2 w-full accent-orange-500" />
+            </label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" className="w-full h-16 rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-white" />
+            <Button variant="primary" size="lg" className="w-full" isLoading={saving} onClick={save}>
+              Save session
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

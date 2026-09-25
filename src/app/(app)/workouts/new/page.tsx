@@ -1,355 +1,776 @@
 // src/app/(app)/workouts/new/page.tsx
-// @ts-nocheck
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { asMeasurementSystem, inputWeightToKg, weightUnitLabel, type MeasurementSystem } from '@/lib/units';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
-import Link from 'next/link';
-import { workoutSchema, workoutSetSchema } from '@/lib/validation';
+import { ExercisePicker } from '@/components/workouts/ExercisePicker';
+import {
+  categoryForMuscle,
+  isPersonalRecord,
+  muscleLabel,
+  type LibraryExercise,
+} from '@/lib/exercises';
+import {
+  asMeasurementSystem,
+  displayWeight,
+  inputWeightToKg,
+  weightUnitLabel,
+  type MeasurementSystem,
+} from '@/lib/units';
+import { workoutSchema } from '@/lib/validation';
+import { ArrowLeft, Check, Plus, Trash2, Timer, Trophy, X } from 'lucide-react';
 
-interface WorkoutSet {
-  exerciseName: string;
-  setNumber: number;
-  reps: number | '';
-  weight_kg: number | '';
-  duration_seconds: number | '';
-  distance_meters: number | '';
-  rpe: number | '';
-  isPersonalRecord: boolean;
+interface HistorySet {
+  weight_kg: number | null;
+  reps: number | null;
+}
+
+interface LoggedSet {
+  weight: string; // in the player's unit
+  reps: string;
+  done: boolean;
+  isPR: boolean;
+}
+
+interface LoggedExercise {
+  key: string;
+  exerciseId: string | null;
+  name: string;
+  primaryMuscle: string | null;
+  previous: HistorySet[]; // sets from the last workout with this exercise
+  history: HistorySet[]; // all earlier sets (for PR detection)
+  sets: LoggedSet[];
+}
+
+interface Draft {
+  startedAt: number;
+  workoutDate: string;
+  workoutType: string;
+  exercises: LoggedExercise[];
+}
+
+const DRAFT_KEY = 'hoopiq-workout-draft-v1';
+const REST_KEY = 'hoopiq-rest-seconds';
+
+const WORKOUT_TYPES = [
+  { value: 'strength', label: 'Strength' },
+  { value: 'power_plyos', label: 'Power & Plyos' },
+  { value: 'conditioning', label: 'Conditioning' },
+  { value: 'mobility', label: 'Mobility' },
+  { value: 'recovery', label: 'Recovery' },
+  { value: 'testing', label: 'Testing' },
+  { value: 'mixed', label: 'Mixed' },
+];
+
+function todayString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.round(totalSeconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function readDraft(): Draft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as Draft) : null;
+  } catch {
+    return null;
+  }
 }
 
 export default function NewWorkoutPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Weights are typed in the player's unit and stored in kg
+  const [ready, setReady] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [units, setUnits] = useState<MeasurementSystem>('imperial');
-  useEffect(() => {
-    (async () => {
-      const supabase = createClient() as any;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase.from('profiles').select('measurement_system').eq('id', user.id).maybeSingle();
-      setUnits(asMeasurementSystem(data?.measurement_system));
-    })();
+  const [library, setLibrary] = useState<LibraryExercise[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [recentNames, setRecentNames] = useState<string[]>([]);
+
+  const [draft, setDraft] = useState<Draft>({
+    startedAt: Date.now(),
+    workoutDate: todayString(),
+    workoutType: 'strength',
+    exercises: [],
+  });
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [finishOpen, setFinishOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Finish panel
+  const [durationMinutes, setDurationMinutes] = useState(45);
+  const [rpe, setRpe] = useState(7);
+  const [notes, setNotes] = useState('');
+  const [saveAsRoutine, setSaveAsRoutine] = useState(false);
+  const [routineName, setRoutineName] = useState('');
+
+  // Rest timer
+  const [restSeconds, setRestSeconds] = useState(90);
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  const supabaseRef = useRef<any>(null);
+  const getSupabase = () => (supabaseRef.current ??= createClient() as any);
+
+  // ---------------------------------------------------------------------------
+  // Loading
+  // ---------------------------------------------------------------------------
+  const loadExerciseHistory = useCallback(async (uid: string, name: string) => {
+    const { data } = await getSupabase()
+      .from('workout_sets')
+      .select('workout_id, weight_kg, reps, set_number, created_at')
+      .eq('user_id', uid)
+      .eq('exercise_name', name)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    const rows = (data || []) as Array<HistorySet & { workout_id: string; set_number: number }>;
+    const lastWorkoutId = rows[0]?.workout_id;
+    const previous = rows
+      .filter((r) => r.workout_id === lastWorkoutId)
+      .sort((a, b) => a.set_number - b.set_number)
+      .map((r) => ({ weight_kg: r.weight_kg, reps: r.reps }));
+    return { previous, history: rows.map((r) => ({ weight_kg: r.weight_kg, reps: r.reps })) };
   }, []);
 
-  const [workoutDate, setWorkoutDate] = useState(new Date().toISOString().split('T')[0]);
-  const [workoutType, setWorkoutType] = useState('strength');
-  const [durationMinutes, setDurationMinutes] = useState(60);
-  const [rpe, setRpe] = useState(6);
-  const [notes, setNotes] = useState('');
-  const [sets, setSets] = useState<WorkoutSet[]>([
-    { exerciseName: '', setNumber: 1, reps: '', weight_kg: '', duration_seconds: '', distance_meters: '', rpe: '', isPersonalRecord: false },
-  ]);
+  const buildExercise = useCallback(
+    async (uid: string, exercise: { id: string | null; name: string; primary_muscle: string | null }, targetSets?: number) => {
+      const { previous, history } = await loadExerciseHistory(uid, exercise.name);
+      const count = Math.max(1, targetSets || previous.length || 3);
+      return {
+        key: `${exercise.name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        exerciseId: exercise.id,
+        name: exercise.name,
+        primaryMuscle: exercise.primary_muscle,
+        previous,
+        history,
+        sets: Array.from({ length: count }, () => ({ weight: '', reps: '', done: false, isPR: false })),
+      } as LoggedExercise;
+    },
+    [loadExerciseHistory]
+  );
 
-  function addSet() {
-    setSets([...sets, {
-      exerciseName: '',
-      setNumber: sets.length + 1,
-      reps: '',
-      weight_kg: '',
-      duration_seconds: '',
-      distance_meters: '',
-      rpe: '',
-      isPersonalRecord: false,
-    }]);
-  }
-
-  function removeSet(index: number) {
-    setSets(sets.filter((_, i) => i !== index));
-  }
-
-  function updateSet(index: number, field: string, value: any) {
-    const newSets = [...sets];
-    (newSets[index] as any)[field] = value;
-    setSets(newSets);
-  }
-
-  // @ts-ignore
-  async function handleSave() {
-    setError(null);
-    setIsLoading(true);
-
-    // Validate everything before saving anything
-    const workoutResult = workoutSchema.safeParse({
-      workoutDate,
-      workoutType,
-      durationMinutes: Number(durationMinutes),
-      rpe: Number(rpe),
-      notes: notes || null,
-    });
-    if (!workoutResult.success) {
-      setError(workoutResult.error.issues[0].message);
-      setIsLoading(false);
-      return;
-    }
-
-    const toNumber = (v: number | '') => (v === '' ? null : Number(v));
-    const setsToSave = sets.filter((s) => s.exerciseName.trim());
-    for (const [idx, set] of setsToSave.entries()) {
-      const setResult = workoutSetSchema.safeParse({
-        exerciseName: set.exerciseName.trim(),
-        setNumber: idx + 1,
-        reps: toNumber(set.reps),
-        weightKg: toNumber(set.weight_kg),
-        durationSeconds: toNumber(set.duration_seconds),
-        distanceMeters: toNumber(set.distance_meters),
-        rpe: toNumber(set.rpe),
-        isPersonalRecord: set.isPersonalRecord,
-      });
-      if (!setResult.success) {
-        setError(`${set.exerciseName.trim()} (set ${idx + 1}): ${setResult.error.issues[0].message}`);
-        setIsLoading(false);
-        return;
-      }
-    }
-
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
+  useEffect(() => {
+    (async () => {
+      const supabase = getSupabase();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         router.push('/login');
         return;
       }
+      setUserId(user.id);
 
-      const workoutResponse = await supabase
-        .from('workouts')
-        .insert({
-          user_id: user.id,
-          workout_date: workoutDate,
-          workout_type: workoutType,
-          duration_minutes: Number(durationMinutes),
-          rpe: Number(rpe),
-          notes: notes || null,
-        })
-        .select()
-        .single();
-
-      const workout = workoutResponse.data as any;
-      const wError = workoutResponse.error;
-
-      if (wError || !workout) {
-        setError('Failed to create workout.');
-        setIsLoading(false);
-        return;
+      try {
+        const stored = Number(localStorage.getItem(REST_KEY));
+        if (stored >= 15 && stored <= 600) setRestSeconds(stored);
+      } catch {
+        // storage unavailable: keep default
       }
 
-      const { error: setsError } = await supabase.from('workout_sets').insert(
-        setsToSave.map((set, idx) => ({
-          workout_id: workout.id,
-          user_id: user.id,
-          exercise_name: set.exerciseName.trim(),
-          set_number: idx + 1,
-          reps: toNumber(set.reps),
-          weight_kg: set.weight_kg === '' ? null : inputWeightToKg(Number(set.weight_kg), units),
-          duration_seconds: toNumber(set.duration_seconds),
-          distance_meters: toNumber(set.distance_meters),
-          rpe: toNumber(set.rpe),
-          is_personal_record: set.isPersonalRecord,
-        }))
-      );
+      const [{ data: profile }, { data: lib }, { data: favs }, { data: recent }] = await Promise.all([
+        supabase.from('profiles').select('measurement_system').eq('id', user.id).maybeSingle(),
+        supabase
+          .from('exercise_library')
+          .select('id, name, primary_muscle, equipment, description, cues, is_basketball_specific, is_system')
+          .order('name'),
+        supabase.from('exercise_favorites').select('exercise_id'),
+        supabase
+          .from('workout_sets')
+          .select('exercise_name')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(300),
+      ]);
 
-      if (setsError) {
-        // Deleting the workout cascades to any sets that were saved
-        await supabase.from('workouts').delete().eq('id', workout.id);
-        setError('Could not save your sets. Nothing was saved, please try again.');
-        setIsLoading(false);
-        return;
+      setUnits(asMeasurementSystem(profile?.measurement_system));
+      setLibrary((lib || []) as LibraryExercise[]);
+      setFavoriteIds(new Set((favs || []).map((f: { exercise_id: string }) => f.exercise_id)));
+      const seen = new Set<string>();
+      const names: string[] = [];
+      for (const r of (recent || []) as Array<{ exercise_name: string }>) {
+        const key = r.exercise_name.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          names.push(r.exercise_name);
+        }
+        if (names.length >= 20) break;
       }
+      setRecentNames(names);
 
-      router.push('/workouts');
-      router.refresh();
+      // Resume an unfinished workout, or start from a routine
+      const saved = readDraft();
+      const routineId = new URLSearchParams(window.location.search).get('routine');
+      if (saved && saved.exercises.length > 0) {
+        setDraft(saved);
+      } else if (routineId) {
+        const { data: routineRows } = await supabase
+          .from('routine_exercises')
+          .select('exercise_id, exercise_name, target_sets, display_order')
+          .eq('routine_id', routineId)
+          .order('display_order');
+        const byId = new Map(((lib || []) as LibraryExercise[]).map((e) => [e.id, e]));
+        const built = await Promise.all(
+          ((routineRows || []) as Array<{ exercise_id: string | null; exercise_name: string; target_sets: number }>).map((r) =>
+            buildExercise(
+              user.id,
+              {
+                id: r.exercise_id,
+                name: r.exercise_name,
+                primary_muscle: (r.exercise_id && byId.get(r.exercise_id)?.primary_muscle) || null,
+              },
+              r.target_sets
+            )
+          )
+        );
+        setDraft((d) => ({ ...d, startedAt: Date.now(), exercises: built }));
+      }
+      setReady(true);
+    })();
+  }, [router, buildExercise]);
+
+  // Autosave the workout on this device so nothing is lost if the app closes
+  useEffect(() => {
+    if (!ready) return;
+    try {
+      if (draft.exercises.length > 0) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      else localStorage.removeItem(DRAFT_KEY);
     } catch {
-      setError('An unexpected error occurred.');
-      setIsLoading(false);
+      // storage unavailable: logging still works, just without autosave
+    }
+  }, [draft, ready]);
+
+  // Keep the screen awake while logging
+  useEffect(() => {
+    let lock: { release: () => Promise<void> } | null = null;
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
+    nav.wakeLock?.request('screen').then((l) => (lock = l)).catch(() => undefined);
+    return () => {
+      lock?.release().catch(() => undefined);
+    };
+  }, []);
+
+  // Rest timer tick
+  useEffect(() => {
+    if (!restEndsAt) return;
+    const id = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= restEndsAt) {
+        navigator.vibrate?.([200, 100, 200]);
+        setRestEndsAt(null);
+      }
+    }, 250);
+    return () => clearInterval(id);
+  }, [restEndsAt]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  // ---------------------------------------------------------------------------
+  // Editing
+  // ---------------------------------------------------------------------------
+  function updateExercise(key: string, change: (e: LoggedExercise) => LoggedExercise) {
+    setDraft((d) => ({ ...d, exercises: d.exercises.map((e) => (e.key === key ? change(e) : e)) }));
+  }
+
+  function updateSet(key: string, index: number, change: Partial<LoggedSet>) {
+    updateExercise(key, (e) => ({ ...e, sets: e.sets.map((s, i) => (i === index ? { ...s, ...change } : s)) }));
+  }
+
+  function previousFor(e: LoggedExercise, index: number): HistorySet | undefined {
+    return e.previous[index] ?? e.previous[e.previous.length - 1];
+  }
+
+  function toggleSetDone(e: LoggedExercise, index: number) {
+    const set = e.sets[index];
+    if (set.done) {
+      updateSet(e.key, index, { done: false, isPR: false });
+      return;
+    }
+    // Empty inputs repeat last time's numbers (one tap for a repeated set)
+    const prev = previousFor(e, index);
+    const weightText = set.weight || (prev?.weight_kg ? String(displayWeight(prev.weight_kg, units)) : '');
+    const repsText = set.reps || (prev?.reps ? String(prev.reps) : '');
+    const reps = Number(repsText);
+    const weight = weightText === '' ? null : Number(weightText);
+
+    if (!Number.isInteger(reps) || reps < 1 || reps > 500) {
+      setError(`${e.name}: enter the reps for set ${index + 1} (a whole number).`);
+      return;
+    }
+    if (weight !== null && (!Number.isFinite(weight) || weight < 0 || weight > 2000)) {
+      setError(`${e.name}: weight for set ${index + 1} must be a positive number.`);
+      return;
+    }
+    setError(null);
+
+    const weightKg = weight === null ? null : inputWeightToKg(weight, units);
+    const pr = isPersonalRecord(weightKg, reps, e.history);
+    updateSet(e.key, index, { weight: weightText, reps: repsText, done: true, isPR: pr });
+    if (pr) {
+      setToast(
+        `New PR! ${e.name}: ${weight !== null ? `${weight} ${weightUnitLabel(units)} × ` : ''}${reps} reps`
+      );
+    }
+    setRestEndsAt(Date.now() + restSeconds * 1000);
+    setNow(Date.now());
+  }
+
+  function addSet(e: LoggedExercise) {
+    const last = e.sets[e.sets.length - 1];
+    updateExercise(e.key, (x) => ({
+      ...x,
+      sets: [...x.sets, { weight: last?.weight || '', reps: last?.reps || '', done: false, isPR: false }],
+    }));
+  }
+
+  async function pickExercise(exercise: LibraryExercise) {
+    setPickerOpen(false);
+    if (!userId) return;
+    const built = await buildExercise(userId, exercise);
+    setDraft((d) => ({ ...d, exercises: [...d.exercises, built] }));
+  }
+
+  async function toggleFavorite(exercise: LibraryExercise) {
+    const supabase = getSupabase();
+    const isFav = favoriteIds.has(exercise.id);
+    const next = new Set(favoriteIds);
+    if (isFav) next.delete(exercise.id);
+    else next.add(exercise.id);
+    setFavoriteIds(next);
+    const { error: favError } = isFav
+      ? await supabase.from('exercise_favorites').delete().eq('exercise_id', exercise.id).eq('user_id', userId)
+      : await supabase.from('exercise_favorites').insert({ user_id: userId, exercise_id: exercise.id });
+    if (favError) {
+      setFavoriteIds(favoriteIds); // roll back
+      setError('Could not update favorites.');
     }
   }
 
-  return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-4 md:p-8 max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-black tracking-tight text-white">New Workout</h1>
-          <Link href="/workouts">
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
+  async function createCustomExercise(name: string, primaryMuscle: string) {
+    const { data, error: createError } = await getSupabase()
+      .from('exercise_library')
+      .insert({
+        user_id: userId,
+        name,
+        category: categoryForMuscle(primaryMuscle),
+        primary_muscle: primaryMuscle,
+        is_system: false,
+      })
+      .select('id, name, primary_muscle, equipment, description, cues, is_basketball_specific, is_system')
+      .single();
+    if (createError || !data) {
+      setError(`Could not create exercise: ${createError?.message || 'unknown error'}`);
+      return;
+    }
+    setLibrary((l) => [...l, data as LibraryExercise].sort((a, b) => a.name.localeCompare(b.name)));
+    await pickExercise(data as LibraryExercise);
+  }
 
-        {error && <Alert variant="error" title="Error">{error}</Alert>}
+  function discardWorkout() {
+    if (!window.confirm('Discard this workout? Logged sets will be lost.')) return;
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+    router.push('/workouts');
+  }
 
-        <div className="space-y-6">
-          <Card className="border-zinc-800 bg-zinc-900/70">
-            <CardHeader>
-              <CardTitle>Workout Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Date"
-                  type="date"
-                  value={workoutDate}
-                  onChange={(e) => setWorkoutDate(e.target.value)}
-                />
-                <Select
-                  label="Workout Type"
-                  value={workoutType}
-                  onChange={(e) => setWorkoutType(e.target.value)}
-                  options={[
-                    { value: 'strength', label: 'Strength' },
-                    { value: 'power_plyos', label: 'Power & Plyometrics' },
-                    { value: 'mobility', label: 'Mobility' },
-                    { value: 'recovery', label: 'Recovery' },
-                    { value: 'conditioning', label: 'Conditioning' },
-                    { value: 'testing', label: 'Testing' },
-                    { value: 'mixed', label: 'Mixed' },
-                  ]}
-                />
-              </div>
+  function openFinish() {
+    const completed = draft.exercises.some((e) => e.sets.some((s) => s.done));
+    if (!completed) {
+      setError('Tick ✓ on at least one set before finishing.');
+      return;
+    }
+    setError(null);
+    const elapsed = Math.round((Date.now() - draft.startedAt) / 60000);
+    setDurationMinutes(Math.min(240, Math.max(5, elapsed)));
+    setFinishOpen(true);
+  }
 
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Duration (min)"
-                  type="number"
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                />
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
-                    RPE (Perceived Exertion)
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={rpe}
-                    onChange={(e) => setRpe(Number(e.target.value))}
-                    className="w-full"
-                  />
-                  <div className="text-xs text-zinc-400 mt-1 text-center">{rpe}/10</div>
-                </div>
-              </div>
+  async function saveWorkout() {
+    const parsed = workoutSchema.safeParse({
+      workoutDate: draft.workoutDate,
+      workoutType: draft.workoutType,
+      durationMinutes: Number(durationMinutes),
+      rpe: Number(rpe),
+      notes: notes || null,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0].message);
+      return;
+    }
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-300 mb-1.5">
-                  Notes
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="How did the workout go?"
-                  className="w-full h-16 rounded-xl border border-zinc-700/80 bg-zinc-900/90 px-3.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-500"
-                />
-              </div>
-            </CardContent>
-          </Card>
+    setSaving(true);
+    setError(null);
+    const supabase = getSupabase();
 
-          <Card className="border-zinc-800 bg-zinc-900/70">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Exercises</CardTitle>
-                <Button variant="secondary" size="sm" onClick={addSet} className="gap-1">
-                  <Plus className="h-3.5 w-3.5" /> Add Set
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {sets.map((set, idx) => (
-                <div key={idx} className="p-4 rounded-lg border border-zinc-800 bg-zinc-950/50 space-y-3">
-                  <div className="flex gap-2">
-                    <Input
-                      label="Exercise"
-                      placeholder="e.g., Barbell Back Squat"
-                      value={set.exerciseName}
-                      onChange={(e) => updateSet(idx, 'exerciseName', e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeSet(idx)}
-                      className="text-red-400 hover:bg-red-950/20 self-end"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    <Input
-                      label="Reps"
-                      type="number"
-                      placeholder="Reps"
-                      value={set.reps}
-                      onChange={(e) => updateSet(idx, 'reps', e.target.value)}
-                    />
-                    <Input
-                      label={`Weight (${weightUnitLabel(units)})`}
-                      type="number"
-                      placeholder="Weight"
-                      value={set.weight_kg}
-                      onChange={(e) => updateSet(idx, 'weight_kg', e.target.value)}
-                    />
-                    <Input
-                      label="Seconds"
-                      type="number"
-                      placeholder="Duration"
-                      value={set.duration_seconds}
-                      onChange={(e) => updateSet(idx, 'duration_seconds', e.target.value)}
-                    />
-                    <Input
-                      label="Distance (m)"
-                      type="number"
-                      placeholder="Distance"
-                      value={set.distance_meters}
-                      onChange={(e) => updateSet(idx, 'distance_meters', e.target.value)}
-                    />
-                    <Input
-                      label="RPE"
-                      type="number"
-                      placeholder="1-10"
-                      value={set.rpe}
-                      onChange={(e) => updateSet(idx, 'rpe', e.target.value)}
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={set.isPersonalRecord}
-                      onChange={(e) => updateSet(idx, 'isPersonalRecord', e.target.checked)}
-                      className="rounded"
-                    />
-                    Personal record
-                  </label>
-                </div>
-              ))}
-            </CardContent>
-            <CardFooter className="flex justify-between pt-4">
-              <Button variant="secondary" onClick={() => router.back()}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleSave}
-                isLoading={isLoading}
-                disabled={sets.every((s) => !s.exerciseName.trim())}
-              >
-                Save Workout
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
+    const { data: workout, error: workoutError } = await supabase
+      .from('workouts')
+      .insert({
+        user_id: userId,
+        workout_date: draft.workoutDate,
+        workout_type: draft.workoutType,
+        duration_minutes: Number(durationMinutes),
+        rpe: Number(rpe),
+        notes: notes || null,
+      })
+      .select('id')
+      .single();
+
+    if (workoutError || !workout) {
+      setError(`Could not save the workout: ${workoutError?.message || 'unknown error'}`);
+      setSaving(false);
+      return;
+    }
+
+    const rows = draft.exercises.flatMap((e) =>
+      e.sets
+        .filter((s) => s.done)
+        .map((s, i) => ({
+          workout_id: workout.id,
+          user_id: userId,
+          exercise_id: e.exerciseId,
+          exercise_name: e.name,
+          exercise_category: e.primaryMuscle,
+          set_number: i + 1,
+          reps: Number(s.reps),
+          weight_kg: s.weight === '' ? null : inputWeightToKg(Number(s.weight), units),
+          is_personal_record: s.isPR,
+        }))
+    );
+
+    const { error: setsError } = await supabase.from('workout_sets').insert(rows);
+    if (setsError) {
+      await supabase.from('workouts').delete().eq('id', workout.id);
+      setError(`Could not save your sets, nothing was saved: ${setsError.message}`);
+      setSaving(false);
+      return;
+    }
+
+    if (saveAsRoutine && routineName.trim()) {
+      const { data: routine } = await supabase
+        .from('workout_routines')
+        .insert({ user_id: userId, name: routineName.trim().slice(0, 60) })
+        .select('id')
+        .single();
+      if (routine) {
+        await supabase.from('routine_exercises').insert(
+          draft.exercises.map((e, i) => ({
+            routine_id: routine.id,
+            user_id: userId,
+            exercise_id: e.exerciseId,
+            exercise_name: e.name,
+            target_sets: Math.min(20, Math.max(1, e.sets.filter((s) => s.done).length || e.sets.length)),
+            display_order: i,
+          }))
+        );
+      }
+    }
+
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+    router.push(`/workouts/${workout.id}`);
+    router.refresh();
+  }
+
+  function adjustRest(delta: number) {
+    const next = Math.min(600, Math.max(15, restSeconds + delta));
+    setRestSeconds(next);
+    try {
+      localStorage.setItem(REST_KEY, String(next));
+    } catch {
+      // ignore
+    }
+    if (restEndsAt) setRestEndsAt(restEndsAt + delta * 1000);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+  if (!ready) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="h-10 w-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
       </div>
+    );
+  }
+
+  const unit = weightUnitLabel(units);
+  const doneSets = draft.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
+  const restRemaining = restEndsAt ? (restEndsAt - now) / 1000 : 0;
+
+  return (
+    <div className="flex-1 overflow-auto pb-28">
+      <div className="p-4 md:p-8 max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <Link href="/workouts" aria-label="Back to workouts" className="h-10 w-10 flex items-center justify-center rounded-xl border border-zinc-800 text-zinc-400">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div className="text-center">
+            <h1 className="text-lg font-black text-white">Log Workout</h1>
+            <p className="text-xs text-zinc-500">{doneSets} sets done</p>
+          </div>
+          <Button variant="primary" size="sm" onClick={openFinish}>
+            Finish
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <input
+            type="date"
+            value={draft.workoutDate}
+            onChange={(e) => setDraft((d) => ({ ...d, workoutDate: e.target.value }))}
+            aria-label="Workout date"
+            className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+          />
+          <select
+            value={draft.workoutType}
+            onChange={(e) => setDraft((d) => ({ ...d, workoutType: e.target.value }))}
+            aria-label="Workout type"
+            className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+          >
+            {WORKOUT_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {error && (
+          <Alert variant="error" title="Check this" className="mb-4">
+            {error}
+          </Alert>
+        )}
+
+        {/* Exercises */}
+        <div className="space-y-4">
+          {draft.exercises.map((e) => (
+            <div key={e.key} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <h3 className="font-bold text-white">{e.name}</h3>
+                  <p className="text-xs text-zinc-500">{muscleLabel(e.primaryMuscle)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDraft((d) => ({ ...d, exercises: d.exercises.filter((x) => x.key !== e.key) }))}
+                  aria-label={`Remove ${e.name}`}
+                  className="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-500 hover:text-red-400"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-[2rem_1fr_4.5rem_4rem_2.75rem] gap-2 px-1 pb-1 text-[11px] font-semibold uppercase text-zinc-500">
+                <span>Set</span>
+                <span>Previous</span>
+                <span className="text-center">{unit}</span>
+                <span className="text-center">Reps</span>
+                <span />
+              </div>
+
+              {e.sets.map((s, i) => {
+                const prev = previousFor(e, i);
+                const prevText = prev
+                  ? `${prev.weight_kg ? `${displayWeight(prev.weight_kg, units)}×` : ''}${prev.reps ?? '—'}`
+                  : '—';
+                return (
+                  <div
+                    key={i}
+                    className={`grid grid-cols-[2rem_1fr_4.5rem_4rem_2.75rem] items-center gap-2 rounded-lg px-1 py-1 ${
+                      s.done ? 'bg-emerald-500/10' : ''
+                    }`}
+                  >
+                    <span className="text-sm font-bold text-zinc-400 flex items-center gap-0.5">
+                      {i + 1}
+                      {s.isPR && <Trophy className="h-3 w-3 text-amber-400" aria-label="Personal record" />}
+                    </span>
+                    <span className="text-xs text-zinc-500 truncate">{prevText}</span>
+                    <input
+                      inputMode="decimal"
+                      value={s.weight}
+                      placeholder={prev?.weight_kg ? String(displayWeight(prev.weight_kg, units)) : '—'}
+                      onChange={(ev) => updateSet(e.key, i, { weight: ev.target.value, done: false, isPR: false })}
+                      aria-label={`${e.name} set ${i + 1} weight in ${unit}`}
+                      className="w-full rounded-lg bg-zinc-800 px-2 py-2 text-center text-sm text-white placeholder:text-zinc-600"
+                    />
+                    <input
+                      inputMode="numeric"
+                      value={s.reps}
+                      placeholder={prev?.reps ? String(prev.reps) : '0'}
+                      onChange={(ev) => updateSet(e.key, i, { reps: ev.target.value, done: false, isPR: false })}
+                      aria-label={`${e.name} set ${i + 1} reps`}
+                      className="w-full rounded-lg bg-zinc-800 px-2 py-2 text-center text-sm text-white placeholder:text-zinc-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleSetDone(e, i)}
+                      aria-label={s.done ? `Undo set ${i + 1}` : `Complete set ${i + 1}`}
+                      aria-pressed={s.done}
+                      className={`h-9 w-full flex items-center justify-center rounded-lg ${
+                        s.done ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-500'
+                      }`}
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
+                  </div>
+                );
+              })}
+
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => addSet(e)}
+                  className="flex-1 rounded-lg bg-zinc-800/70 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800"
+                >
+                  + Add set
+                </button>
+                {e.sets.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => updateExercise(e.key, (x) => ({ ...x, sets: x.sets.slice(0, -1) }))}
+                    className="rounded-lg bg-zinc-800/70 px-3 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-800"
+                  >
+                    − Remove set
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-600/50 py-4 font-semibold text-emerald-400 hover:bg-emerald-500/5"
+        >
+          <Plus className="h-5 w-5" /> Add exercise
+        </button>
+
+        {draft.exercises.length > 0 && (
+          <button type="button" onClick={discardWorkout} className="mt-6 w-full text-center text-xs text-zinc-500 hover:text-red-400">
+            Discard workout
+          </button>
+        )}
+      </div>
+
+      {/* Rest timer bar */}
+      {restEndsAt && restRemaining > 0 && (
+        <div className="fixed bottom-20 md:bottom-4 left-1/2 z-40 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-emerald-600/40 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-emerald-400">
+              <Timer className="h-5 w-5" />
+              <span className="text-2xl font-black tabular-nums">{formatClock(restRemaining)}</span>
+            </div>
+            <div className="flex gap-1.5">
+              <button type="button" onClick={() => adjustRest(-15)} className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200">
+                −15s
+              </button>
+              <button type="button" onClick={() => adjustRest(15)} className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-200">
+                +15s
+              </button>
+              <button type="button" onClick={() => setRestEndsAt(null)} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">
+                Skip
+              </button>
+            </div>
+          </div>
+          <div className="mt-2 h-1 rounded-full bg-zinc-800 overflow-hidden">
+            <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, (restRemaining / restSeconds) * 100)}%` }} />
+          </div>
+        </div>
+      )}
+
+      {/* PR toast */}
+      {toast && (
+        <div role="status" className="fixed top-20 left-1/2 z-50 -translate-x-1/2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-bold text-zinc-950 shadow-2xl flex items-center gap-2">
+          <Trophy className="h-4 w-4" /> {toast}
+        </div>
+      )}
+
+      {pickerOpen && (
+        <ExercisePicker
+          library={library}
+          favoriteIds={favoriteIds}
+          recentNames={recentNames}
+          onToggleFavorite={toggleFavorite}
+          onPick={pickExercise}
+          onCreateCustom={createCustomExercise}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {/* Finish panel */}
+      {finishOpen && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 p-0 md:p-4">
+          <div className="w-full max-w-md rounded-t-2xl md:rounded-2xl border border-zinc-800 bg-zinc-950 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-white">Finish workout</h2>
+              <button type="button" onClick={() => setFinishOpen(false)} aria-label="Close" className="text-zinc-400">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {error && <Alert variant="error" title="Check this">{error}</Alert>}
+            <label className="block">
+              <span className="text-xs font-semibold uppercase text-zinc-400">Duration (minutes)</span>
+              <input
+                inputMode="numeric"
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(Number(e.target.value) || 0)}
+                className="mt-1 w-full rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2 text-white"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase text-zinc-400">How hard was it? RPE {rpe}/10</span>
+              <input type="range" min={1} max={10} value={rpe} onChange={(e) => setRpe(Number(e.target.value))} className="mt-2 w-full accent-emerald-500" />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase text-zinc-400">Notes (optional)</span>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="mt-1 w-full h-16 rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-white"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <input type="checkbox" checked={saveAsRoutine} onChange={(e) => setSaveAsRoutine(e.target.checked)} className="h-4 w-4 accent-emerald-500" />
+              Save these exercises as a routine
+            </label>
+            {saveAsRoutine && (
+              <input
+                value={routineName}
+                onChange={(e) => setRoutineName(e.target.value)}
+                placeholder="Routine name, e.g. Leg Day"
+                maxLength={60}
+                className="w-full rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-white"
+              />
+            )}
+            <Button variant="primary" size="lg" className="w-full" isLoading={saving} onClick={saveWorkout}>
+              Save workout
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
