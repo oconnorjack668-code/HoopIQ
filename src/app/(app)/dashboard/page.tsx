@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/server';
 import { getActiveProgram } from '@/lib/programs';
+import { loadAchievements } from '@/lib/achievements-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,12 +29,14 @@ export default async function DashboardPage() {
   }
 
   const supabase = await createClient();
-  const [subscription, metrics, trends, shootingByZone, activeProgram] = await Promise.all([
+  const [subscription, metrics, trends, shootingByZone, activeProgram, achievements] = await Promise.all([
     getCurrentSubscription(),
     calculateDashboardMetrics(user.id),
     getSessionTrends(user.id, 30),
     getShootingByZone(user.id),
     getActiveProgram(supabase as any, user.id),
+    // Also awards any weekly challenges / badges earned since the last visit
+    loadAchievements(user.id),
   ]);
 
   const weeklyGoalPercentage = Math.round((metrics.weeklyGoalProgress / metrics.weeklyGoalTarget) * 100);
@@ -57,6 +60,17 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Rank */}
+        <Link href="/achievements" className="mb-4 flex items-center justify-between rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 hover:bg-amber-500/15">
+          <span className="text-sm text-zinc-200">
+            <span className="font-black text-amber-300">{achievements.rank.name}</span> · {achievements.xp.toLocaleString()} XP
+            {achievements.newlyEarned.length > 0 && <span className="ml-2 text-emerald-400">New badge: {achievements.newlyEarned[0]}!</span>}
+          </span>
+          <span className="text-xs text-amber-300">
+            {achievements.challenges.filter((c) => c.done).length}/{achievements.challenges.length} weekly challenges →
+          </span>
+        </Link>
 
         {/* Today */}
         <div className="mb-8 rounded-2xl border border-orange-600/40 bg-gradient-to-br from-orange-600/15 to-transparent p-5">

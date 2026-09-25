@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { CalendarCheck, Wand2, ListChecks, Sparkles, Video, Users, BookHeart, Trophy, ChevronRight } from 'lucide-react';
+import { CalendarCheck, Wand2, ListChecks, Sparkles, Video, Users, BookHeart, Trophy, ChevronRight, Medal, Crosshair, Crown } from 'lucide-react';
 
 export const metadata = { title: 'Train - HoopIQ' };
 
@@ -14,6 +14,9 @@ const SECTIONS = [
   { href: '/ai-coach', icon: Sparkles, title: 'AI Coach', desc: 'Personal feedback on your sessions', color: 'text-purple-400' },
   { href: '/video', icon: Video, title: 'Video AI', desc: 'Auto shot tracking, form check, game film', color: 'text-red-400' },
   { href: '/guides', icon: BookHeart, title: 'Guides', desc: 'Mental game, recovery, nutrition, injury prevention', color: 'text-emerald-400' },
+  { href: '/achievements', icon: Medal, title: 'Achievements', desc: 'Weekly challenges, badges and your rank', color: 'text-amber-400' },
+  { href: '/goals', icon: Crosshair, title: 'Goals', desc: 'Set weekly targets and track them', color: 'text-orange-400' },
+  { href: '/pro', icon: Crown, title: 'HoopIQ Pro', desc: 'Unlimited AI coaching', color: 'text-amber-300' },
   { href: '/leaderboard', icon: Trophy, title: 'Leaderboard', desc: 'Season points and streaks', color: 'text-amber-300' },
 ];
 

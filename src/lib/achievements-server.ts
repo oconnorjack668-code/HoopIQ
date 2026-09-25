@@ -1,0 +1,169 @@
+// src/lib/achievements-server.ts
+// SERVER-ONLY: gathers a player's stats, awards newly completed weekly challenges
+// and earned badges (service role, so players can't award themselves), and
+// returns everything the achievements screens need.
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  BADGES,
+  challengeProgress,
+  rankFor,
+  streaks,
+  xpFor,
+  type ChallengeRules,
+  type PlayerStats,
+} from '@/lib/achievements';
+
+function toDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export interface ChallengeView {
+  id: string;
+  title: string;
+  description: string;
+  points: number;
+  current: number;
+  target: number;
+  done: boolean;
+}
+
+export async function loadAchievements(userId: string) {
+  const supabase = (await createClient()) as any;
+  const now = new Date();
+  const today = toDateString(now);
+  const weekStartDate = new Date(now);
+  weekStartDate.setHours(0, 0, 0, 0);
+  weekStartDate.setDate(weekStartDate.getDate() - ((weekStartDate.getDay() + 6) % 7));
+  const weekStart = toDateString(weekStartDate);
+  const weekStartIso = weekStartDate.toISOString();
+
+  const [
+    { data: sessions },
+    { data: workouts },
+    { data: shots },
+    { data: lessons },
+    { count: prSets },
+    { count: prTests },
+    { data: programDays },
+    { count: programsDone },
+    { count: videoTracked },
+    { data: challenges },
+    { data: completions },
+    { data: rewardRows },
+    { data: season },
+  ] = await Promise.all([
+    supabase.from('training_sessions').select('session_date').eq('user_id', userId),
+    supabase.from('workouts').select('workout_date').eq('user_id', userId),
+    supabase.from('shooting_entries').select('makes, created_at').eq('user_id', userId),
+    supabase.from('study_progress').select('completed_at, study_items(topic_id)').eq('user_id', userId).not('completed_at', 'is', null),
+    supabase.from('workout_sets').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('is_personal_record', true),
+    supabase.from('performance_tests').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('is_personal_record', true),
+    supabase.from('program_day_completions').select('completed_at').eq('user_id', userId).gte('completed_at', weekStartIso),
+    supabase.from('program_enrollments').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'completed'),
+    supabase.from('video_analyses').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('kind', 'shot_tracking'),
+    supabase.from('challenges').select('id, slug, title, description, points, challenge_type, rules').eq('recurring', true).eq('is_active', true).order('points', { ascending: false }),
+    supabase.from('challenge_completions').select('challenge_id, period_start, points_earned').eq('user_id', userId),
+    supabase.from('reward_events').select('badge_id, created_at').eq('user_id', userId),
+    supabase.from('leaderboard_seasons').select('id').eq('is_active', true).limit(1).maybeSingle(),
+  ]);
+
+  const sessionDays: string[] = (sessions || []).map((s: { session_date: string }) => s.session_date);
+  const workoutDays: string[] = (workouts || []).map((w: { workout_date: string }) => w.workout_date);
+  const allDays = [...sessionDays, ...workoutDays];
+  const { longest, current } = streaks(allDays, today);
+  const lessonRows = (lessons || []) as Array<{ completed_at: string; study_items: { topic_id: string } | null }>;
+
+  const stats: PlayerStats = {
+    totalSessions: sessionDays.length,
+    totalWorkouts: workoutDays.length,
+    totalMakes: (shots || []).reduce((n: number, s: { makes: number }) => n + s.makes, 0),
+    totalLessons: lessonRows.length,
+    sectionsWithLesson: new Set(lessonRows.map((l) => l.study_items?.topic_id).filter(Boolean)).size,
+    totalPRs: (prSets || 0) + (prTests || 0),
+    programsCompleted: programsDone || 0,
+    videoTracked: videoTracked || 0,
+    longestStreak: longest,
+    currentStreak: current,
+    week: {
+      trainingDays: new Set(allDays.filter((d) => d >= weekStart && d <= today)).size,
+      makes: (shots || []).filter((s: { created_at: string }) => s.created_at >= weekStartIso).reduce((n: number, s: { makes: number }) => n + s.makes, 0),
+      lessons: lessonRows.filter((l) => l.completed_at >= weekStartIso).length,
+      workouts: workoutDays.filter((d) => d >= weekStart && d <= today).length,
+      sessions: sessionDays.filter((d) => d >= weekStart && d <= today).length,
+      programSessions: (programDays || []).length,
+    },
+  };
+
+  const completionRows = (completions || []) as Array<{ challenge_id: string | null; period_start: string | null; points_earned: number }>;
+  const doneThisWeek = new Set(completionRows.filter((c) => c.period_start === weekStart).map((c) => c.challenge_id));
+  const earnedBadgeIds = new Set(((rewardRows || []) as Array<{ badge_id: string }>).map((r) => r.badge_id));
+
+  const challengeViews: ChallengeView[] = ((challenges || []) as Array<{
+    id: string;
+    title: string;
+    description: string;
+    points: number;
+    challenge_type: string;
+    rules: ChallengeRules;
+  }>).map((c) => {
+    const p = challengeProgress(c.rules, stats);
+    return { id: c.id, title: c.title, description: c.description, points: c.points, ...p, done: p.done || doneThisWeek.has(c.id) };
+  });
+
+  // Award anything new (needs the service role key; otherwise progress is still shown)
+  const newChallenges = (challenges || []).filter(
+    (c: { id: string; rules: ChallengeRules }) => !doneThisWeek.has(c.id) && challengeProgress(c.rules, stats).done
+  );
+  const newBadges = BADGES.filter((b) => !earnedBadgeIds.has(b.id) && b.earned(stats));
+  let awardedPoints = 0;
+  if ((newChallenges.length || newBadges.length) && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const admin = createAdminClient() as any;
+      if (newChallenges.length) {
+        const { error } = await admin.from('challenge_completions').insert(
+          newChallenges.map((c: { id: string; title: string; points: number; challenge_type: string }) => ({
+            user_id: userId,
+            season_id: season?.id ?? null,
+            challenge_id: c.id,
+            challenge_type: c.challenge_type,
+            title: c.title,
+            points_earned: c.points,
+            verified: true,
+            period_start: weekStart,
+          }))
+        );
+        if (!error) awardedPoints = newChallenges.reduce((n: number, c: { points: number }) => n + c.points, 0);
+      }
+      if (newBadges.length) {
+        const { error } = await admin.from('reward_events').insert(
+          newBadges.map((b) => ({
+            user_id: userId,
+            event_type: 'badge_earned',
+            badge_id: b.id,
+            badge_title: b.title,
+            badge_description: b.description,
+            icon_name: b.icon,
+            tier: b.tier,
+            season_id: season?.id ?? null,
+          }))
+        );
+        if (!error) newBadges.forEach((b) => earnedBadgeIds.add(b.id));
+      }
+    } catch {
+      // Missing/invalid service key: awards are retried on the next visit
+    }
+  }
+
+  const challengePoints = completionRows.reduce((n, c) => n + c.points_earned, 0) + awardedPoints;
+  const xp = xpFor(stats, challengePoints, earnedBadgeIds.size);
+
+  return {
+    stats,
+    challenges: challengeViews,
+    badges: BADGES.map((b) => ({ id: b.id, title: b.title, description: b.description, tier: b.tier, icon: b.icon, earned: earnedBadgeIds.has(b.id) })),
+    newlyEarned: newBadges.map((b) => b.title),
+    xp,
+    rank: rankFor(xp),
+  };
+}

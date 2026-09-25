@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { User, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { ProfileSettings } from './ProfileSettings';
+import { RemindersCard } from './RemindersCard';
 import { asMeasurementSystem, formatHeight } from '@/lib/units';
 
 export const dynamic = 'force-dynamic';
@@ -75,6 +76,7 @@ export default async function ProfilePage() {
             <Field label="Level" value={profile?.playing_level ? LEVEL_LABELS[profile.playing_level] : null} />
             <Field label="Age" value={profile?.age_bracket} />
             <Field label="Dominant hand" value={profile?.dominant_hand ? HAND_LABELS[profile.dominant_hand] : null} />
+            <Field label="Plan" value={<Link href="/pro" className="underline">See HoopIQ Pro</Link>} />
             <Field label="Units" value={units === 'metric' ? 'Metric (cm, kg)' : 'Imperial (ft, lbs)'} />
           </div>
           {profile?.goals && profile.goals.length > 0 && (
@@ -85,6 +87,10 @@ export default async function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="mt-6">
+        <RemindersCard />
+      </div>
 
       <ProfileSettings initialIsPublic={profile?.is_public ?? false} />
 
