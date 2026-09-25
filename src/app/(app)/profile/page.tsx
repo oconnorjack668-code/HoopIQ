@@ -96,6 +96,8 @@ export default async function ProfilePage() {
 
       <p className="mt-8 text-center text-xs text-zinc-500">
         <Link href="/privacy" className="underline hover:text-zinc-300">Privacy policy</Link>
+        {' · '}
+        <Link href="/terms" className="underline hover:text-zinc-300">Terms of use</Link>
       </p>
     </div>
   );

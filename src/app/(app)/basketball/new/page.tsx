@@ -11,6 +11,15 @@ import { Alert } from '@/components/ui/Alert';
 import { CourtMap } from '@/components/basketball/CourtMap';
 import { classifyZone, ZONE_LABELS, ZONE_SPOTS, type CourtZone } from '@/lib/court';
 import { sessionCategoryForSkill } from '@/lib/drills';
+import {
+  enqueue,
+  getUserIdForSave,
+  isOffline,
+  newId,
+  saveBasketballSession,
+  type BasketballSavePayload,
+} from '@/lib/offline';
+import { SavedOfflineCard } from '@/components/SavedOfflineCard';
 import { ArrowLeft, Plus, Timer, Undo2, X, Flame } from 'lucide-react';
 
 interface TrackedShot {
@@ -109,6 +118,7 @@ export default function NewBasketballSessionPage() {
   const [quality, setQuality] = useState(3);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [savedOffline, setSavedOffline] = useState(false);
 
   // Other (non-shooting) drill form
   const [otherOpen, setOtherOpen] = useState(false);
@@ -335,77 +345,64 @@ export default function NewBasketballSessionPage() {
     setSaving(true);
     setError(null);
     const supabase = createClient() as any;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/login');
+    const userId = await getUserIdForSave(supabase);
+    if (!userId) {
+      if (isOffline()) {
+        setError('You are offline and not logged in on this phone. Your session is kept here; save it once you are back online.');
+        setSaving(false);
+      } else {
+        router.push('/login');
+      }
       return;
     }
 
-    const { data: session, error: sessionError } = await supabase
-      .from('training_sessions')
-      .insert({
-        user_id: user.id,
+    const payload: BasketballSavePayload = {
+      id: newId(),
+      session: {
         session_date: draft.sessionDate,
         session_type: draft.sessionType,
         duration_minutes: Number(durationMinutes),
         intensity_rpe: Number(intensityRpe),
         perceived_quality: Number(quality),
         notes: notes || null,
-      })
-      .select('id')
-      .single();
+      },
+      drills: draft.drills
+        .filter((d) => d.shots.length > 0 || d.category !== 'shooting')
+        .map((drill) => {
+          // One row per zone with the drill's makes and attempts
+          const byZone = new Map<CourtZone, { makes: number; attempts: number }>();
+          for (const s of drill.shots) {
+            const z = byZone.get(s.zone) || { makes: 0, attempts: 0 };
+            z.attempts += 1;
+            if (s.made) z.makes += 1;
+            byZone.set(s.zone, z);
+          }
+          return {
+            name: drill.name,
+            category: drill.category,
+            minutes: drill.minutes === '' ? null : Number(drill.minutes),
+            zones: [...byZone.entries()].map(([zone, t]) => ({ zone, ...t })),
+          };
+        }),
+    };
 
-    if (sessionError || !session) {
-      setError(`Could not save the session: ${sessionError?.message || 'unknown error'}`);
+    const result = isOffline() ? { network: true, error: 'offline' } : await saveBasketballSession(supabase, userId, payload);
+    if (result.error && !result.network) {
+      setError(`${result.error}. Nothing was saved, please try again.`);
       setSaving(false);
       return;
     }
 
-    const drillsToSave = draft.drills.filter((d) => d.shots.length > 0 || d.category !== 'shooting');
-    for (const [i, drill] of drillsToSave.entries()) {
-      const { data: savedDrill, error: drillError } = await supabase
-        .from('session_drills')
-        .insert({
-          session_id: session.id,
-          user_id: user.id,
-          drill_name: drill.name.slice(0, 120),
-          drill_category: drill.category,
-          duration_minutes: drill.minutes === '' ? null : Number(drill.minutes),
-          display_order: i,
-        })
-        .select('id')
-        .single();
-
-      let failed = !!drillError || !savedDrill;
-      if (!failed && drill.shots.length > 0) {
-        // One row per zone with the drill's makes and attempts
-        const byZone = new Map<CourtZone, { makes: number; attempts: number }>();
-        for (const s of drill.shots) {
-          const z = byZone.get(s.zone) || { makes: 0, attempts: 0 };
-          z.attempts += 1;
-          if (s.made) z.makes += 1;
-          byZone.set(s.zone, z);
-        }
-        const { error: shotsError } = await supabase.from('shooting_entries').insert(
-          [...byZone.entries()].map(([zone, t]) => ({
-            drill_id: savedDrill.id,
-            user_id: user.id,
-            shot_zone: zone,
-            makes: t.makes,
-            attempts: t.attempts,
-          }))
-        );
-        failed = !!shotsError;
-      }
-
-      if (failed) {
-        await supabase.from('training_sessions').delete().eq('id', session.id);
-        setError(`Could not save "${drill.name}". Nothing was saved, please try again.`);
-        setSaving(false);
-        return;
-      }
+    if (result.network) {
+      const shots = draft.drills.reduce((n, d) => n + d.shots.length, 0);
+      enqueue({
+        id: payload.id,
+        kind: 'basketball',
+        userId,
+        label: `${draft.sessionType} session${shots ? ` · ${shots} shots` : ''}`,
+        createdAt: Date.now(),
+        payload,
+      });
     }
 
     try {
@@ -413,8 +410,24 @@ export default function NewBasketballSessionPage() {
     } catch {
       // ignore
     }
+    if (result.network) {
+      setSaving(false);
+      setFinishOpen(false);
+      setSavedOffline(true);
+      return;
+    }
     router.push('/basketball');
     router.refresh();
+  }
+
+  function startAnother() {
+    setDraft(freshDraft());
+    setNotes('');
+    setSavedOffline(false);
+  }
+
+  if (savedOffline) {
+    return <SavedOfflineCard what="session" backHref="/basketball" onAnother={startAnother} />;
   }
 
   // ---------------------------------------------------------------------------

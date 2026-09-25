@@ -3,6 +3,7 @@ import React from 'react';
 import { requireUser, checkIsOwner, getCurrentProfile } from '@/lib/auth';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { OfflineSync } from '@/components/OfflineSync';
 
 export const metadata = {
   title: 'HoopIQ AI Basketball Trainer',
@@ -28,6 +29,7 @@ export default async function AppLayout({
       </main>
 
       <BottomNav />
+      <OfflineSync />
     </div>
   );
 }

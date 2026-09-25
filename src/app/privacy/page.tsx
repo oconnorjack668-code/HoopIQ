@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export const metadata = { title: 'Privacy Policy - HoopIQ' };
 
-const LAST_UPDATED = 'September 24, 2026';
+const LAST_UPDATED = 'September 25, 2026';
 
 export default function PrivacyPage() {
   const contactEmail = process.env.SUPPORT_EMAIL || process.env.OWNER_EMAIL;
@@ -33,7 +33,18 @@ export default function PrivacyPage() {
             <li>Training data you log: basketball sessions, drills, shots by zone, workouts, sets and performance tests.</li>
             <li>Study activity: quiz scores and lesson progress.</li>
             <li>Videos you choose to upload, with the camera angle and drill type you select.</li>
+            <li>
+              Video analysis results: shot counts, form measurements (angles and timings) and film tags. The analysis
+              itself runs on your phone, so videos you analyse without uploading never leave your device.
+            </li>
             <li>AI coaching reports generated from your session data.</li>
+            <li>Programmes, goals, challenges, badges and NBA style match results.</li>
+            <li>Reminder settings (time, days, time zone) and, if you turn reminders on, your browser&apos;s push address.</li>
+            <li>If you buy Pro: your plan and billing status. Card details are handled by Stripe and never reach us.</li>
+            <li>
+              Crash reports when something breaks: the error, the page, your device type and your account id, kept for
+              90 days and used only to fix bugs.
+            </li>
           </ul>
         </section>
 
@@ -52,8 +63,11 @@ export default function PrivacyPage() {
             <li>Vercel hosts the app.</li>
             <li>
               OpenAI receives the details of a session (type, duration, intensity, shooting numbers, drills and your
-              notes) only when you tap &ldquo;Get AI feedback&rdquo;, to write the report.
+              notes), the video numbers you choose to share, or your style match results, only when you ask for AI
+              feedback, to write the report. Videos are never sent to OpenAI.
             </li>
+            <li>Stripe processes Pro payments.</li>
+            <li>Your browser&apos;s push service (for example Google or Apple) delivers training reminders you turn on.</li>
           </ul>
         </section>
 
@@ -66,10 +80,16 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-bold text-white">Deleting your data</h2>
+          <h2 className="text-lg font-bold text-white">Your rights</h2>
           <p>
-            You can permanently delete your account and all of its data, including uploaded videos, at any time from
-            Profile → Delete account.
+            You can download a copy of your data at any time from Profile → Download my data, and permanently delete
+            your account and all of its data, including uploaded videos, from Profile → Delete account. Under the GDPR
+            you can also ask us to correct your data or restrict how we use it, and you can complain to the Irish Data
+            Protection Commission (dataprotection.ie).
+          </p>
+          <p>
+            HoopIQ only uses the cookies needed to keep you logged in. Data is stored on servers that may be outside the
+            EU; our providers use the EU&apos;s standard contractual clauses to protect it.
           </p>
         </section>
 

@@ -2,13 +2,19 @@
   "id": "/",
   "name": "HoopIQ AI Basketball Trainer",
   "short_name": "HoopIQ",
-  "description": "Train with intent. See your progress. Improve every day.",
+  "description": "AI basketball trainer: track every shot, check your shooting form on video, follow training programs and build your basketball IQ.",
+  "lang": "en-IE",
+  "dir": "ltr",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
+  "display_override": [
+    "standalone"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#09090b",
   "theme_color": "#09090b",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-192.png",
@@ -29,21 +35,35 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["sports", "health", "fitness"],
+  "categories": [
+    "sports",
+    "health",
+    "fitness"
+  ],
   "shortcuts": [
     {
       "name": "Log Basketball Session",
       "short_name": "New Session",
       "description": "Quickly log a new basketball training session",
       "url": "/basketball/new",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Log Workout",
       "short_name": "New Workout",
       "description": "Log a strength or conditioning workout",
       "url": "/workouts/new",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

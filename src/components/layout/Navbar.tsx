@@ -6,7 +6,7 @@ import { Logo } from '@/components/Logo';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { LogOut, User, ShieldAlert } from 'lucide-react';
+import { LogOut, ShieldAlert } from 'lucide-react';
 import type { Profile } from '@/lib/auth';
 import { DESKTOP_NAV_ITEMS, isNavActive } from './BottomNav';
 
@@ -22,6 +22,8 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    // Pages kept for offline logging belong to this player
+    if (typeof caches !== 'undefined') await caches.delete('hoopiq-pages-v1').catch(() => false);
     router.push('/login');
     router.refresh();
   }
@@ -65,10 +67,14 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
         {/* Right side: Owner badge, Profile link, Sign Out */}
         <div className="flex items-center gap-3">
           {isOwner && (
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
+            <Link
+              href="/admin/errors"
+              title="Owner tools: app errors"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold hover:bg-amber-500/20"
+            >
               <ShieldAlert className="h-3.5 w-3.5" />
-              <span>Owner Access</span>
-            </div>
+              <span className="hidden sm:inline">Owner Access</span>
+            </Link>
           )}
 
           <Link
