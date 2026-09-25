@@ -46,14 +46,17 @@ export default function QuizPage() {
 
   async function loadQuiz() {
     try {
-      const supabase = createClient();
-      // A topic's quiz is the combined quiz_questions of its lessons
-      const { data: items, error: fetchError } = (await supabase
+      const supabase = createClient() as any;
+      // A topic's quiz is the combined quiz_questions of its lessons; ?item=<id> quizzes one lesson
+      const itemId = new URLSearchParams(window.location.search).get('item');
+      let query = supabase
         .from('study_items')
         .select('id, quiz_questions')
         .eq('topic_id', topicId)
         .eq('is_active', true)
-        .order('display_order', { ascending: true })) as unknown as { data: any[] | null; error: any };
+        .order('display_order', { ascending: true });
+      if (itemId) query = query.eq('id', itemId);
+      const { data: items, error: fetchError } = (await query) as { data: any[] | null; error: any };
 
       if (fetchError || !items) {
         setError('Quiz not found');
@@ -80,6 +83,8 @@ export default function QuizPage() {
   }
 
   function handleSelectAnswer(index: number) {
+    // First answer counts; the result and explanation are shown right away
+    if (selectedAnswers[currentQuestion] !== undefined) return;
     setSelectedAnswers({
       ...selectedAnswers,
       [currentQuestion]: index,
@@ -309,6 +314,7 @@ export default function QuizPage() {
 
         <CardContent className="space-y-4">
           {question.options.map((option, idx) => {
+            const answered = selectedAnswer !== undefined;
             const isSelected = selectedAnswer === idx;
             const isCorrect = idx === question.correctAnswer;
 
@@ -316,25 +322,37 @@ export default function QuizPage() {
               <button
                 key={idx}
                 onClick={() => handleSelectAnswer(idx)}
+                disabled={answered}
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-                  isSelected
-                    ? isCorrect
-                      ? 'border-emerald-500/50 bg-emerald-500/10 text-white'
-                      : 'border-red-500/50 bg-red-500/10 text-white'
-                    : 'border-zinc-700/50 bg-zinc-900/50 text-zinc-300 hover:border-blue-500/30 hover:bg-blue-500/5'
+                  answered && isCorrect
+                    ? 'border-emerald-500/50 bg-emerald-500/10 text-white'
+                    : isSelected
+                      ? 'border-red-500/50 bg-red-500/10 text-white'
+                      : answered
+                        ? 'border-zinc-800 bg-zinc-900/30 text-zinc-500'
+                        : 'border-zinc-700/50 bg-zinc-900/50 text-zinc-300 hover:border-blue-500/30 hover:bg-blue-500/5'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span>{option}</span>
-                  {isSelected && (
-                    <span className="text-sm">
-                      {isCorrect ? '✓' : '✗'}
-                    </span>
+                  {answered && (isCorrect || isSelected) && (
+                    <span className="text-sm">{isCorrect ? '✓' : '✗'}</span>
                   )}
                 </div>
               </button>
             );
           })}
+
+          {selectedAnswer !== undefined && question.explanation && (
+            <div
+              className={`rounded-lg p-3 text-sm ${
+                selectedAnswer === question.correctAnswer ? 'bg-emerald-500/10 text-emerald-200' : 'bg-amber-500/10 text-amber-100'
+              }`}
+            >
+              <span className="font-bold">{selectedAnswer === question.correctAnswer ? 'Correct. ' : 'Not quite. '}</span>
+              {question.explanation}
+            </div>
+          )}
         </CardContent>
 
         <CardFooter className="flex justify-between pt-4">
