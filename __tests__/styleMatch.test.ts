@@ -1,6 +1,6 @@
 // __tests__/styleMatch.test.ts
 import { describe, it, expect } from 'vitest';
-import { findMatches, scorePlayer, shotProfileFromZones, type NbaPlayer } from '@/lib/styleMatch';
+import { findMatches, scorePlayer, shotProfileFromZones, styleFromFilm, type NbaPlayer } from '@/lib/styleMatch';
 
 const player = (slug: string, position: string, height_cm: number, style_tags: string[], shot_profile = { rim: 0.33, mid: 0.33, three: 0.34 }): NbaPlayer => ({
   slug,
@@ -59,5 +59,26 @@ describe('style match', () => {
     expect(m.score).toBeLessThanOrEqual(100);
     expect(m.heightDiffCm).toBe(0);
     expect(m.sharedTags).toEqual(['spot_up_shooter']);
+  });
+});
+
+describe('game film tagging', () => {
+  const tags = (type: string, n: number) => Array.from({ length: n }, () => ({ type }));
+
+  it('turns frequent plays into style tags, most frequent first', () => {
+    const { styleTags } = styleFromFilm([...tags('drive', 6), ...tags('assist', 3), ...tags('post_up', 1), ...tags('transition', 2)]);
+    expect(styleTags).toEqual(['slasher', 'playmaker', 'transition_threat']);
+  });
+
+  it('marks players busy on both ends as two-way', () => {
+    const { styleTags } = styleFromFilm([...tags('drive', 3), ...tags('pullup', 2), ...tags('steal', 3), ...tags('stop', 3)]);
+    expect(styleTags).toContain('two_way');
+  });
+
+  it('builds a shot profile once there are enough tagged shots', () => {
+    expect(styleFromFilm([...tags('three_make', 2), ...tags('rim_make', 2)]).shotProfile).toBeNull();
+    const film = styleFromFilm([...tags('three_make', 3), ...tags('three_miss', 3), ...tags('rim_make', 2), ...tags('mid_miss', 2)]);
+    expect(film.shots).toBe(10);
+    expect(film.shotProfile).toEqual({ rim: 0.2, mid: 0.2, three: 0.6 });
   });
 });

@@ -128,6 +128,60 @@ export function scorePlayer(input: MatchInput, p: NbaPlayer): Match {
   return { player: p, score: Math.round(score * 100), heightDiffCm, sharedTags };
 }
 
+// ---- Game film tagging -> style profile -------------------------------------
+
+export const FILM_TAGS = [
+  { id: 'rim_make', label: 'Rim make', group: 'shot' },
+  { id: 'rim_miss', label: 'Rim miss', group: 'shot' },
+  { id: 'mid_make', label: 'Mid make', group: 'shot' },
+  { id: 'mid_miss', label: 'Mid miss', group: 'shot' },
+  { id: 'three_make', label: '3PT make', group: 'shot' },
+  { id: 'three_miss', label: '3PT miss', group: 'shot' },
+  { id: 'drive', label: 'Drive', group: 'offense', style: 'slasher' },
+  { id: 'pullup', label: 'Pull-up', group: 'offense', style: 'mid_range_scorer' },
+  { id: 'catch_shoot', label: 'Catch & shoot', group: 'offense', style: 'spot_up_shooter' },
+  { id: 'pnr', label: 'Ran pick & roll', group: 'offense', style: 'pick_and_roll_handler' },
+  { id: 'iso', label: '1-on-1 move', group: 'offense', style: 'isolation_scorer' },
+  { id: 'post_up', label: 'Post-up', group: 'offense', style: 'post_scorer' },
+  { id: 'transition', label: 'Fast break', group: 'offense', style: 'transition_threat' },
+  { id: 'assist', label: 'Assist', group: 'offense', style: 'playmaker' },
+  { id: 'rebound', label: 'Rebound', group: 'defense', style: 'rebounder' },
+  { id: 'steal', label: 'Steal', group: 'defense', style: 'point_of_attack_defender' },
+  { id: 'block', label: 'Block', group: 'defense', style: 'rim_protector' },
+  { id: 'stop', label: 'Defensive stop', group: 'defense', style: 'perimeter_defender' },
+] as const;
+
+export const MIN_FILM_SHOTS = 10;
+
+/** Turns tagged game events into style tags (most frequent first) and a shot profile. */
+export function styleFromFilm(events: Array<{ type: string }>): { styleTags: string[]; shotProfile: ShotProfile | null; shots: number } {
+  const counts = new Map<string, number>();
+  for (const e of events) counts.set(e.type, (counts.get(e.type) || 0) + 1);
+  const c = (id: string) => counts.get(id) || 0;
+
+  const styleCounts = new Map<string, number>();
+  for (const tag of FILM_TAGS) {
+    if ('style' in tag && c(tag.id) > 0) styleCounts.set(tag.style, (styleCounts.get(tag.style) || 0) + c(tag.id));
+  }
+  // Threes off the catch also mark a spot-up shooter; lots of both offense and defense is two-way
+  const offense = FILM_TAGS.filter((t) => t.group === 'offense').reduce((n, t) => n + c(t.id), 0);
+  const defense = FILM_TAGS.filter((t) => t.group === 'defense').reduce((n, t) => n + c(t.id), 0);
+  if (offense >= 5 && defense >= 5) styleCounts.set('two_way', Math.min(offense, defense));
+
+  const styleTags = [...styleCounts.entries()]
+    .filter(([, n]) => n >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([tag]) => tag);
+
+  const rim = c('rim_make') + c('rim_miss');
+  const mid = c('mid_make') + c('mid_miss');
+  const three = c('three_make') + c('three_miss');
+  const shots = rim + mid + three;
+  const shotProfile = shots >= MIN_FILM_SHOTS ? { rim: rim / shots, mid: mid / shots, three: three / shots } : null;
+  return { styleTags, shotProfile, shots };
+}
+
 export function findMatches(input: MatchInput, players: NbaPlayer[], count = 3): Match[] {
   return players
     .map((p) => scorePlayer(input, p))
