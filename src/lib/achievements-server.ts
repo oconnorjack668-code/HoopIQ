@@ -13,7 +13,7 @@ import {
   type ChallengeRules,
   type PlayerStats,
 } from '@/lib/achievements';
-import { calendarNow } from '@/lib/dates';
+import { userCalendarNow } from '@/lib/userTime';
 import { getPersonalRecordCount, getShotTotals, getShotsSince, getTrainingDates } from '@/lib/player-activity';
 
 export interface ChallengeView {
@@ -29,7 +29,7 @@ export interface ChallengeView {
 export async function loadAchievements(userId: string) {
   const supabase = (await createClient()) as any;
   // "Today" and "this week" (Monday to Sunday) on the players' calendar, not the server's (UTC)
-  const { today, weekStart, weekStartIso } = calendarNow();
+  const { today, weekStart, weekStartIso } = await userCalendarNow();
 
   const [
     { sessions: sessionDays, workouts: workoutDays },

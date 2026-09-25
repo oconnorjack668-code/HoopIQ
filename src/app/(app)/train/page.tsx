@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { CalendarCheck, Wand2, ListChecks, Sparkles, Video, Users, BookHeart, Trophy, ChevronRight, Medal, Crosshair, Crown, Shield, UserPlus, MessageCircle, ClipboardList } from 'lucide-react';
+import { CalendarCheck, Wand2, ListChecks, Sparkles, Video, Users, BookHeart, Trophy, ChevronRight, Medal, Crosshair, Crown, Shield, UserPlus, MessageCircle, ClipboardList, ClipboardCheck } from 'lucide-react';
 
 export const metadata = { title: 'Train - HoopIQ' };
 
@@ -13,6 +13,7 @@ const SECTIONS = [
   { href: '/style-match', icon: Users, title: 'Play Style Match', desc: 'Which NBA players you play like, and what to copy', color: 'text-cyan-400' },
   { href: '/games', icon: ClipboardList, title: 'Game Stats', desc: 'Track points, rebounds and assists live; season averages', color: 'text-amber-400' },
   { href: '/teams', icon: Shield, title: 'Teams', desc: 'Join your team or coach one: assignments and roster', color: 'text-blue-400' },
+  { href: '/coach', icon: ClipboardCheck, title: 'Coach dashboard', desc: 'All your teams at a glance (Pro)', color: 'text-indigo-400' },
   { href: '/friends', icon: UserPlus, title: 'Friends', desc: 'Weekly friends leaderboard and activity', color: 'text-cyan-400' },
   { href: '/ai-coach', icon: Sparkles, title: 'AI Coach', desc: 'Personal feedback on your sessions', color: 'text-purple-400' },
   { href: '/ai-coach/chat', icon: MessageCircle, title: 'Ask Coach', desc: 'Chat with an AI coach that knows your numbers', color: 'text-purple-300' },

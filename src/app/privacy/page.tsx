@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export const metadata = { title: 'Privacy Policy - HoopIQ' };
 
-const LAST_UPDATED = 'September 25, 2026';
+const LAST_UPDATED = 'September 26, 2026';
 
 export default function PrivacyPage() {
   const contactEmail = process.env.SUPPORT_EMAIL || process.env.OWNER_EMAIL;
@@ -40,6 +40,7 @@ export default function PrivacyPage() {
             <li>AI coaching reports generated from your session data.</li>
             <li>Programmes, goals, challenges, badges and NBA style match results.</li>
             <li>Game stats you log (box scores, opponent name, score) and teams you create or join.</li>
+            <li>Settings you choose: country, county/region, time zone, whether you use HoopIQ as a player or coach, and your privacy choices.</li>
             <li>Reminder settings (time, days, time zone) and, if you turn reminders on, your browser&apos;s push address.</li>
             <li>If you buy Pro: your plan and billing status. Card details are handled by Stripe and never reach us.</li>
             <li>
@@ -75,8 +76,11 @@ export default function PrivacyPage() {
         <section className="space-y-2">
           <h2 className="text-lg font-bold text-white">Who can see it</h2>
           <p>
-            Your data is private to your account. If you turn on &ldquo;Show me on the leaderboard&rdquo; in your
-            profile, other players can see your display name, points, session count and streak, and nothing else.
+            Your data is private to your account, and your profile is private by default. If you turn on &ldquo;Show me
+            on the public leaderboard&rdquo; in Settings, other players can see your display name, season points,
+            training days, streak and badges. Your position, height and county/country are only shown if you switch
+            them on in Settings → Privacy. Your age is never shown to anyone; it only puts you in the right age group
+            on the leaderboard.
           </p>
           <p>
             Friends you accept (by friend code) can see your display name, your last 7 days of training totals
@@ -85,13 +89,16 @@ export default function PrivacyPage() {
             time. Share cards are only created when you tap Share, and you choose where to post them.
           </p>
           <p>
-            If you join a team, its members (including coaches) can see your display name, position, last 7 days of
-            training totals, streak and your game averages (points, rebounds, assists, FG%). Coaches can post
-            assignments and see who completed them. Leave a team at any time from its page.
+            If you join a team, its members (including coaches) can see your display name, last 7 days of training
+            totals, streak and your game averages (points, rebounds, assists, FG%). Coaches can post assignments and
+            see who completed them. Only if you choose &ldquo;Share my training details with coaches&rdquo; (per team,
+            off by default) can that team&apos;s coaches also see your sessions, shooting zones, workouts, tests and
+            game box scores from recent weeks. Coaches never see your notes, videos or AI reports. Leave a team at any
+            time from its page.
           </p>
           <p>
             AI Coach chat messages are stored in your account so the conversation continues; you can clear them at any
-            time. Weekly AI reports are created from your own training data and can be turned off in Profile.
+            time. Weekly AI reports are created from your own training data and can be turned off in Settings.
           </p>
         </section>
 

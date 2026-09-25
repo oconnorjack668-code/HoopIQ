@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { requireUser, getCurrentSubscription } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { FREE_CHAT_PER_DAY, todayStartIso } from '@/lib/ai/chat';
+import { getUserTimeZone } from '@/lib/userTime';
 import { CoachChat, type ChatEntry } from './CoachChat';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
 
@@ -20,7 +21,7 @@ export default async function CoachChatPage() {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('role', 'user')
-      .gte('created_at', todayStartIso()),
+      .gte('created_at', todayStartIso(await getUserTimeZone())),
     getCurrentSubscription(),
   ]);
   const unlimited = subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner';

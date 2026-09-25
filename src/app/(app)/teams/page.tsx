@@ -38,6 +38,11 @@ export default async function TeamsPage() {
           </p>
         ) : (
           <>
+            {teams.some((m) => m.role === 'coach') && (
+              <Link href="/coach" className="flex items-center justify-between rounded-2xl border border-indigo-600/40 bg-indigo-600/10 px-4 py-3 text-sm font-semibold text-indigo-200 hover:bg-indigo-600/15">
+                Coach dashboard: all your teams this week <ChevronRight className="h-4 w-4" />
+              </Link>
+            )}
             {teams.length > 0 && (
               <section className="space-y-2">
                 {teams.map((m) => (

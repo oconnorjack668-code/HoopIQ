@@ -2,10 +2,8 @@ import React from 'react';
 import { requireUser, getCurrentProfile } from '@/lib/auth';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { User, Pencil } from 'lucide-react';
+import { User, Pencil, Settings } from 'lucide-react';
 import Link from 'next/link';
-import { ProfileSettings } from './ProfileSettings';
-import { RemindersCard } from './RemindersCard';
 import { asMeasurementSystem, formatHeight } from '@/lib/units';
 
 export const dynamic = 'force-dynamic';
@@ -88,11 +86,19 @@ export default async function ProfilePage() {
         </CardContent>
       </Card>
 
-      <div className="mt-6">
-        <RemindersCard />
-      </div>
-
-      <ProfileSettings initialIsPublic={profile?.is_public ?? false} />
+      <Link
+        href="/settings"
+        className="mt-6 flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 hover:bg-zinc-900"
+      >
+        <span className="flex items-center gap-3">
+          <Settings className="h-5 w-5 text-zinc-400" />
+          <span>
+            <span className="block font-semibold text-white">Settings</span>
+            <span className="block text-xs text-zinc-500">Privacy, region and time zone, notifications, units, your data</span>
+          </span>
+        </span>
+        <span className="text-zinc-600">›</span>
+      </Link>
 
       <p className="mt-8 text-center text-xs text-zinc-500">
         <Link href="/privacy" className="underline hover:text-zinc-300">Privacy policy</Link>

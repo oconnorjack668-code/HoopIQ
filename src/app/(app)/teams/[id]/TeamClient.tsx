@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
+import { IRISH_COUNTIES, POPULAR_COUNTRIES, countryName } from '@/lib/regions';
 import { Alert } from '@/components/ui/Alert';
 import { Check, Flame, Share2, Trash2, UserCog, X } from 'lucide-react';
 import { isSafeAppPath } from '@/lib/safePath';
@@ -29,7 +30,20 @@ export interface RosterRow {
   rpg: number | null;
   apg: number | null;
   fg_pct: number | null;
+  share_details: boolean;
 }
+
+export interface TeamDetails {
+  club_name: string | null;
+  country: string | null;
+  region: string | null;
+  age_group: string | null;
+  level: string | null;
+  season: string | null;
+}
+
+const AGE_GROUPS = ['U10', 'U12', 'U14', 'U16', 'U18', 'U20', 'Senior', 'Masters', 'Mixed'];
+const LEVELS = ['recreational', 'school', 'club', 'regional', 'national', 'elite'];
 
 export interface Assignment {
   id: string;
@@ -68,6 +82,7 @@ export function TeamClient({
   roster,
   assignments,
   completions,
+  team,
 }: {
   teamId: string;
   teamName: string;
@@ -77,6 +92,7 @@ export function TeamClient({
   roster: RosterRow[];
   assignments: Assignment[];
   completions: Array<{ assignment_id: string; user_id: string }>;
+  team: TeamDetails;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -86,6 +102,29 @@ export function TeamClient({
   const [link, setLink] = useState('');
   const [due, setDue] = useState('');
   const [sort, setSort] = useState<'week' | 'ppg' | 'name'>('week');
+  const [info, setInfo] = useState<TeamDetails>(team);
+  const mine = roster.find((r) => r.user_id === myId);
+
+  async function saveDetails(e: React.FormEvent) {
+    e.preventDefault();
+    const clean = (v: string | null, max: number) => (v ? v.replace(/\s+/g, ' ').trim().slice(0, max) || null : null);
+    await run(
+      'details',
+      () =>
+        db()
+          .from('teams')
+          .update({
+            club_name: clean(info.club_name, 80),
+            country: info.country || null,
+            region: clean(info.region, 60),
+            age_group: info.age_group || null,
+            level: info.level || null,
+            season: clean(info.season, 20),
+          })
+          .eq('id', teamId),
+      'Team details saved.'
+    );
+  }
 
   const players = roster.filter((r) => r.role === 'player');
   const doneBy = (assignmentId: string) => completions.filter((c) => c.assignment_id === assignmentId).map((c) => c.user_id);
@@ -160,6 +199,109 @@ export function TeamClient({
         <Alert variant={message.tone} title={message.tone === 'success' ? 'Done' : 'Check this'}>
           {message.text}
         </Alert>
+      )}
+
+      {(team.club_name || team.region || team.age_group || team.level || team.season) && (
+        <p className="text-sm text-zinc-400">
+          {[team.club_name, team.age_group, team.level && team.level[0].toUpperCase() + team.level.slice(1), team.region, team.season]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+      )}
+
+      {mine && mine.role === 'player' && (
+        <label className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 cursor-pointer">
+          <span>
+            <span className="block text-sm font-semibold text-white">Share my training details with this team&apos;s coaches</span>
+            <span className="block text-xs text-zinc-500">
+              Sessions, shooting zones, workouts, tests and games. Never notes or videos. Teammates only see your totals.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={mine.share_details}
+            disabled={busy === 'share'}
+            onChange={(e) =>
+              void run(
+                'share',
+                () => db().from('team_members').update({ share_details: e.target.checked }).eq('team_id', teamId).eq('user_id', myId),
+                e.target.checked ? 'Your coaches can now see your training details.' : 'Your coaches now only see your totals.'
+              )
+            }
+            className="h-5 w-5 flex-shrink-0 accent-orange-500"
+          />
+        </label>
+      )}
+
+      {isCoach && (
+        <details className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-white">Team details</summary>
+          <form onSubmit={saveDetails} className="mt-3 grid grid-cols-2 gap-2">
+            <input
+              value={info.club_name || ''}
+              onChange={(e) => setInfo({ ...info, club_name: e.target.value })}
+              placeholder="Club or school"
+              aria-label="Club or school"
+              maxLength={80}
+              className="col-span-2 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white"
+            />
+            <select value={info.age_group || ''} onChange={(e) => setInfo({ ...info, age_group: e.target.value || null })} aria-label="Age group" className="rounded-lg bg-zinc-800 px-2 py-2 text-sm text-white">
+              <option value="">Age group</option>
+              {AGE_GROUPS.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+            <select value={info.level || ''} onChange={(e) => setInfo({ ...info, level: e.target.value || null })} aria-label="Level" className="rounded-lg bg-zinc-800 px-2 py-2 text-sm text-white">
+              <option value="">Level</option>
+              {LEVELS.map((l) => (
+                <option key={l} value={l}>
+                  {l[0].toUpperCase() + l.slice(1)}
+                </option>
+              ))}
+            </select>
+            <select value={info.country || ''} onChange={(e) => setInfo({ ...info, country: e.target.value || null, region: null })} aria-label="Country" className="rounded-lg bg-zinc-800 px-2 py-2 text-sm text-white">
+              <option value="">Country</option>
+              {POPULAR_COUNTRIES.map((c) => (
+                <option key={c} value={c}>
+                  {countryName(c)}
+                </option>
+              ))}
+            </select>
+            {info.country === 'IE' ? (
+              <select value={info.region || ''} onChange={(e) => setInfo({ ...info, region: e.target.value || null })} aria-label="County" className="rounded-lg bg-zinc-800 px-2 py-2 text-sm text-white">
+                <option value="">County</option>
+                {IRISH_COUNTIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={info.region || ''}
+                onChange={(e) => setInfo({ ...info, region: e.target.value })}
+                placeholder="Region"
+                aria-label="Region"
+                maxLength={60}
+                className="rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white"
+              />
+            )}
+            <input
+              value={info.season || ''}
+              onChange={(e) => setInfo({ ...info, season: e.target.value })}
+              placeholder="Season, e.g. 2026/27"
+              aria-label="Season"
+              maxLength={20}
+              className="col-span-2 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-white"
+            />
+            <Button type="submit" size="sm" variant="primary" className="col-span-2" isLoading={busy === 'details'}>
+              Save team details
+            </Button>
+          </form>
+        </details>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
@@ -303,8 +445,19 @@ export function TeamClient({
                 <tr key={r.user_id} className={r.user_id === myId ? 'bg-orange-600/5' : ''}>
                   <td className="px-3 py-2">
                     <div className="font-semibold text-white whitespace-nowrap">
-                      {r.display_name}
+                      {isCoach && r.share_details && r.user_id !== myId ? (
+                        <Link href={`/teams/${teamId}/players/${r.user_id}`} className="underline decoration-cyan-500/60 underline-offset-2">
+                          {r.display_name}
+                        </Link>
+                      ) : (
+                        r.display_name
+                      )}
                       {r.role === 'coach' && <span className="ml-1.5 text-[10px] font-bold text-cyan-400">COACH</span>}
+                      {isCoach && r.role === 'player' && !r.share_details && (
+                        <span title="Not sharing training details" className="ml-1.5 text-[10px] text-zinc-500">
+                          🔒
+                        </span>
+                      )}
                     </div>
                     <div className="text-[11px] text-zinc-500 flex items-center gap-1">
                       {r.player_position || '—'}
