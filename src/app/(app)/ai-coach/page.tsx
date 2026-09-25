@@ -6,7 +6,7 @@ import { CREDITS_PER_REPORT } from '@/lib/ai/service';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Link as LinkIcon, Zap, TrendingUp, Lightbulb, History } from 'lucide-react';
+import { Link as LinkIcon, Zap, TrendingUp, Lightbulb, History, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { GenerateFeedbackButton } from './GenerateFeedbackButton';
 
@@ -27,7 +27,7 @@ export default async function AICoachPage() {
     // Recent AI reports
     supabase
       .from('ai_reports')
-      .select('id, created_at, output_content, source_session_ids')
+      .select('id, created_at, output_content, source_session_ids, report_type')
       .eq('user_id', user.id)
       .eq('status', 'delivered')
       .order('created_at', { ascending: false })
@@ -45,6 +45,7 @@ export default async function AICoachPage() {
       .from('ai_reports')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
+      .neq('report_type', 'weekly_summary') // weekly reports are free
       .gte('created_at', monthStart.toISOString()),
     // Owner entitlement (role or OWNER_EMAIL) is resolved here
     getCurrentSubscription(),
@@ -70,6 +71,12 @@ export default async function AICoachPage() {
               <p className="text-sm text-zinc-400 mt-1">AI-powered feedback on your sessions and progress</p>
             </div>
           </div>
+          <Link
+            href="/ai-coach/chat"
+            className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-purple-500"
+          >
+            <MessageCircle className="h-4 w-4" /> Ask Coach anything
+          </Link>
         </div>
 
         {/* Credit Info */}
@@ -162,6 +169,9 @@ export default async function AICoachPage() {
                 <Card key={report.id} className="border-zinc-800 bg-zinc-900/70">
                   <CardContent className="p-5">
                     <div className="mb-3 space-y-1">
+                      {report.report_type === 'weekly_summary' && (
+                        <Badge variant="success" className="text-xs">Weekly report</Badge>
+                      )}
                       <p className="text-xs text-zinc-400">
                         {new Date(report.created_at).toLocaleDateString('en-US', {
                           month: 'short',

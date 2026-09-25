@@ -14,7 +14,9 @@ import { Alert } from '@/components/ui/Alert';
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/dashboard';
+  // Only follow links inside HoopIQ (never "//other-site" or "https://…")
+  const requested = searchParams.get('redirectTo') || '';
+  const redirectTo = requested.startsWith('/') && !requested.startsWith('//') ? requested : '/dashboard';
   const queryError = searchParams.get('error');
 
   const [email, setEmail] = useState('');

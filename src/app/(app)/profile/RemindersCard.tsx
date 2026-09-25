@@ -23,6 +23,7 @@ export function RemindersCard() {
   const [deviceOn, setDeviceOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [weekly, setWeekly] = useState<boolean | null>(null);
 
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const supported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -46,6 +47,13 @@ export function RemindersCard() {
         setDays(data.reminder_days || [1, 3, 5]);
         setTime(String(data.reminder_time || '18:00').slice(0, 5));
       }
+      // Separate query: the column only exists after migration 00021
+      const { data: weeklyRow, error: weeklyError } = await supabase
+        .from('notification_preferences')
+        .select('weekly_report')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!weeklyError && weeklyRow) setWeekly(!!weeklyRow.weekly_report);
       if (supported) {
         const reg = await navigator.serviceWorker.getRegistration();
         setDeviceOn(!!(await reg?.pushManager.getSubscription()));
@@ -69,6 +77,16 @@ export function RemindersCard() {
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', user.id);
+    if (error) setMessage(`Could not save: ${error.message}`);
+  }
+
+  async function saveWeekly(next: boolean) {
+    setWeekly(next);
+    const supabase = createClient() as any;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { error } = await supabase.from('notification_preferences').update({ weekly_report: next }).eq('user_id', user.id);
     if (error) setMessage(`Could not save: ${error.message}`);
   }
 
@@ -206,6 +224,21 @@ export function RemindersCard() {
               )}
             </div>
           </>
+        )}
+        {weekly !== null && (
+          <label className="flex items-center justify-between gap-4 border-t border-zinc-800 pt-4 text-sm text-zinc-200">
+            <span>
+              Weekly AI report
+              <span className="block text-xs text-zinc-500">Every Sunday: your week in review and next week&apos;s focus, in AI Coach.</span>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={weekly}
+              onChange={(e) => void saveWeekly(e.target.checked)}
+              className="h-5 w-5 accent-orange-500"
+            />
+          </label>
         )}
         {message && <p className="text-xs text-zinc-300">{message}</p>}
       </CardContent>

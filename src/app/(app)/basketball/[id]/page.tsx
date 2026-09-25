@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { ZONE_LABELS } from '@/lib/court';
 import type { ShotZone } from '@/lib/supabase/types';
 import { ArrowLeft, Target, Sparkles } from 'lucide-react';
+import { ShareCardButton } from '@/components/ShareCardButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,6 +76,12 @@ export default async function BasketballSessionPage({ params }: { params: Promis
           })}{' '}
           · {session.duration_minutes} min · RPE {session.intensity_rpe}/10 · Quality {session.perceived_quality}/5
         </p>
+        <div className="-mt-3 mb-6">
+          <ShareCardButton
+            path={`/api/share/session?id=${id}`}
+            text={attempts > 0 ? `${makes}/${attempts} shots today on HoopIQ 🏀` : 'Put the work in today on HoopIQ 🏀'}
+          />
+        </div>
 
         {attempts > 0 && (
           <Card className="border-zinc-800 bg-zinc-900/70 mb-4">

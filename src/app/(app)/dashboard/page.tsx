@@ -4,7 +4,7 @@ import { requireUser, getCurrentProfile, getCurrentSubscription } from '@/lib/au
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { calculateDashboardMetrics, getSessionTrends, getShootingByZone } from '@/lib/dashboard';
-import { LayoutGrid, Zap, TrendingUp, Target, Award, Flame } from 'lucide-react';
+import { LayoutGrid, Zap, TrendingUp, Target, Award, Flame, Users, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -188,6 +188,28 @@ export default async function DashboardPage() {
                 <div className="text-xs opacity-90">Strength, mobility, or tests</div>
               </div>
             </Button>
+          </Link>
+        </div>
+
+        {/* Social + coach shortcuts */}
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          <Link href="/friends" className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 hover:bg-zinc-900">
+            <div className="h-9 w-9 rounded-lg bg-cyan-600/20 flex items-center justify-center">
+              <Users className="h-5 w-5 text-cyan-400" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">Friends</div>
+              <div className="text-xs text-zinc-400">Weekly leaderboard</div>
+            </div>
+          </Link>
+          <Link href="/ai-coach/chat" className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 hover:bg-zinc-900">
+            <div className="h-9 w-9 rounded-lg bg-purple-600/20 flex items-center justify-center">
+              <MessageCircle className="h-5 w-5 text-purple-400" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white">Ask Coach</div>
+              <div className="text-xs text-zinc-400">Chat about your game</div>
+            </div>
           </Link>
         </div>
 

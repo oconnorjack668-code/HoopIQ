@@ -77,6 +77,16 @@ export default function PrivacyPage() {
             Your data is private to your account. If you turn on &ldquo;Show me on the leaderboard&rdquo; in your
             profile, other players can see your display name, points, session count and streak, and nothing else.
           </p>
+          <p>
+            Friends you accept (by friend code) can see your display name, your last 7 days of training totals
+            (sessions, minutes, shots made), your streak, and your sessions, workouts and badges from the last 14 days
+            as totals. They never see your notes, videos, profile details or AI reports. You can remove a friend at any
+            time. Share cards are only created when you tap Share, and you choose where to post them.
+          </p>
+          <p>
+            AI Coach chat messages are stored in your account so the conversation continues; you can clear them at any
+            time. Weekly AI reports are created from your own training data and can be turned off in Profile.
+          </p>
         </section>
 
         <section className="space-y-2">
