@@ -8,6 +8,8 @@ import { LayoutGrid, Zap, TrendingUp, Target, Award, Flame } from 'lucide-react'
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { createClient } from '@/lib/supabase/server';
+import { getActiveProgram } from '@/lib/programs';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,11 +27,13 @@ export default async function DashboardPage() {
     redirect('/onboarding');
   }
 
-  const [subscription, metrics, trends, shootingByZone] = await Promise.all([
+  const supabase = await createClient();
+  const [subscription, metrics, trends, shootingByZone, activeProgram] = await Promise.all([
     getCurrentSubscription(),
     calculateDashboardMetrics(user.id),
     getSessionTrends(user.id, 30),
     getShootingByZone(user.id),
+    getActiveProgram(supabase as any, user.id),
   ]);
 
   const weeklyGoalPercentage = Math.round((metrics.weeklyGoalProgress / metrics.weeklyGoalTarget) * 100);
@@ -52,6 +56,37 @@ export default async function DashboardPage() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Today */}
+        <div className="mb-8 rounded-2xl border border-orange-600/40 bg-gradient-to-br from-orange-600/15 to-transparent p-5">
+          <div className="text-xs font-bold uppercase tracking-wider text-orange-300">Today</div>
+          {activeProgram?.next ? (
+            <>
+              <div className="mt-1 text-xl font-black text-white">{activeProgram.next.title}</div>
+              <div className="text-sm text-zinc-300">
+                {activeProgram.program.name} · Week {activeProgram.next.week}, session {activeProgram.next.day} ·{' '}
+                {activeProgram.next.estimated_minutes} min
+              </div>
+              <Link href={`/programs/${activeProgram.program.slug}/day/${activeProgram.next.id}`} className="mt-3 inline-block">
+                <Button variant="primary" size="sm">Start today&apos;s session</Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <div className="mt-1 text-lg font-bold text-white">
+                {activeProgram ? `${activeProgram.program.name} complete!` : 'What are you working on today?'}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link href="/programs">
+                  <Button variant="primary" size="sm">{activeProgram ? 'Pick your next program' : 'Follow a program'}</Button>
+                </Link>
+                <Link href="/train/generate">
+                  <Button variant="outline" size="sm">Build a quick workout</Button>
+                </Link>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Quick Stats Grid */}
