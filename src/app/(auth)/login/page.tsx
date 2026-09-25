@@ -10,13 +10,13 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
+import { safeAppPath } from '@/lib/safePath';
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Only follow links inside HoopIQ (never "//other-site" or "https://…")
-  const requested = searchParams.get('redirectTo') || '';
-  const redirectTo = requested.startsWith('/') && !requested.startsWith('//') ? requested : '/dashboard';
+  // Only follow links inside HoopIQ (never "//other-site", "/\other-site" or "https://…")
+  const redirectTo = safeAppPath(searchParams.get('redirectTo'));
   const queryError = searchParams.get('error');
 
   const [email, setEmail] = useState('');

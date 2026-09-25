@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Check, Flame, Share2, Trash2, UserCog, X } from 'lucide-react';
+import { isSafeAppPath } from '@/lib/safePath';
+import { localDateString } from '@/lib/dates';
 
 export interface RosterRow {
   user_id: string;
@@ -211,7 +213,7 @@ export function TeamClient({
         {assignments.map((a) => {
           const done = doneBy(a.id);
           const mine = done.includes(myId);
-          const overdue = a.due_date && !mine && a.due_date < new Date().toISOString().slice(0, 10);
+          const overdue = a.due_date && !mine && a.due_date < localDateString();
           return (
             <div key={a.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3">
               <div className="flex items-start justify-between gap-3">
@@ -227,7 +229,7 @@ export function TeamClient({
                     <span>
                       {done.length}/{players.length || roster.length} done
                     </span>
-                    {a.link && (
+                    {isSafeAppPath(a.link) && (
                       <Link href={a.link} className="text-cyan-400 underline">
                         {LINK_OPTIONS.find((o) => o.value === a.link)?.label || 'Open'}
                       </Link>
