@@ -4,7 +4,8 @@ import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Trophy, Flame, Star, Target } from 'lucide-react';
+import { Trophy, Flame, Star, Target, Users } from 'lucide-react';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +73,12 @@ export default async function LeaderboardPage() {
               </p>
             </div>
           </div>
+          <Link
+            href="/friends"
+            className="inline-flex items-center gap-2 rounded-xl border border-cyan-700/40 bg-cyan-950/30 px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-950/50"
+          >
+            <Users className="h-4 w-4" /> Friends leaderboard
+          </Link>
         </div>
 
         {/* Your Rank */}

@@ -39,6 +39,7 @@ export default function PrivacyPage() {
             </li>
             <li>AI coaching reports generated from your session data.</li>
             <li>Programmes, goals, challenges, badges and NBA style match results.</li>
+            <li>Game stats you log (box scores, opponent name, score) and teams you create or join.</li>
             <li>Reminder settings (time, days, time zone) and, if you turn reminders on, your browser&apos;s push address.</li>
             <li>If you buy Pro: your plan and billing status. Card details are handled by Stripe and never reach us.</li>
             <li>
@@ -76,6 +77,21 @@ export default function PrivacyPage() {
           <p>
             Your data is private to your account. If you turn on &ldquo;Show me on the leaderboard&rdquo; in your
             profile, other players can see your display name, points, session count and streak, and nothing else.
+          </p>
+          <p>
+            Friends you accept (by friend code) can see your display name, your last 7 days of training totals
+            (sessions, minutes, shots made), your streak, and your sessions, workouts and badges from the last 14 days
+            as totals. They never see your notes, videos, profile details or AI reports. You can remove a friend at any
+            time. Share cards are only created when you tap Share, and you choose where to post them.
+          </p>
+          <p>
+            If you join a team, its members (including coaches) can see your display name, position, last 7 days of
+            training totals, streak and your game averages (points, rebounds, assists, FG%). Coaches can post
+            assignments and see who completed them. Leave a team at any time from its page.
+          </p>
+          <p>
+            AI Coach chat messages are stored in your account so the conversation continues; you can clear them at any
+            time. Weekly AI reports are created from your own training data and can be turned off in Profile.
           </p>
         </section>
 

@@ -35,6 +35,10 @@ const USER_TABLES = [
   'challenge_completions',
   'reward_events',
   'push_subscriptions',
+  'coach_messages',
+  'games',
+  'team_members',
+  'team_assignment_completions',
 ] as const;
 
 // Browser push keys are secrets, not personal data worth handing out
@@ -45,8 +49,9 @@ export async function GET() {
   if (!user) return Response.json({ error: 'Please log in again.' }, { status: 401 });
 
   const admin = createAdminClient() as any;
-  const [authUser, profile, ...tables] = await Promise.all([
+  const [authUser, friendships, profile, ...tables] = await Promise.all([
     admin.auth.admin.getUserById(user.id),
+    admin.from('friendships').select('*').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`),
     admin.from('profiles').select('*').eq('id', user.id).maybeSingle(),
     ...USER_TABLES.map((table) => admin.from(table).select('*').eq('user_id', user.id)),
   ]);
@@ -66,6 +71,8 @@ export async function GET() {
       return copy;
     });
   });
+
+  data.friendships = friendships.error ? { error: 'unavailable' } : friendships.data || [];
 
   const body = {
     exported_at: new Date().toISOString(),

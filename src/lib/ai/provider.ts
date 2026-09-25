@@ -163,6 +163,28 @@ export async function openAIJson(system: string, user: string, config: AIProvide
   }
 }
 
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+/** Plain-text chat completion (AI Coach chat). */
+export async function openAIChat(messages: ChatMessage[], config: AIProviderConfig): Promise<string> {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: config.model, max_tokens: config.maxTokens, temperature: 0.6, messages }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+    throw new Error(`OpenAI API error (${response.status}): ${body?.error?.message || response.statusText}`);
+  }
+  const data = (await response.json()) as { choices: Array<{ message: { content: string | null } }> };
+  const content = data.choices[0]?.message.content?.trim();
+  if (!content) throw new Error('No response from OpenAI');
+  return content;
+}
+
 export function getAIProvider(provider: string): AIProvider {
   switch (provider.toLowerCase()) {
     case 'openai':

@@ -5,7 +5,7 @@
 // Every save carries a client-generated id. A retry first deletes that id (children cascade),
 // so a save that half-finished before the signal dropped is never duplicated.
 
-export type QueueKind = 'basketball' | 'workout';
+export type QueueKind = 'basketball' | 'workout' | 'game';
 
 export interface BasketballSavePayload {
   id: string;
@@ -49,9 +49,16 @@ export interface WorkoutSavePayload {
   } | null;
 }
 
+/** A game is one row: box score plus details (points are calculated by the database) */
+export interface GameSavePayload {
+  id: string;
+  game: Record<string, string | number | null>;
+}
+
 export type QueuedSave =
   | { id: string; kind: 'basketball'; userId: string; label: string; createdAt: number; lastError?: string; payload: BasketballSavePayload }
-  | { id: string; kind: 'workout'; userId: string; label: string; createdAt: number; lastError?: string; payload: WorkoutSavePayload };
+  | { id: string; kind: 'workout'; userId: string; label: string; createdAt: number; lastError?: string; payload: WorkoutSavePayload }
+  | { id: string; kind: 'game'; userId: string; label: string; createdAt: number; lastError?: string; payload: GameSavePayload };
 
 export interface SaveResult {
   id?: string;
@@ -202,8 +209,18 @@ export async function saveWorkout(supabase: any, userId: string, p: WorkoutSaveP
   return { id: p.id };
 }
 
+export async function saveGame(supabase: any, userId: string, p: GameSavePayload, retry = false): Promise<SaveResult> {
+  if (retry) {
+    const { error } = await supabase.from('games').delete().eq('id', p.id);
+    if (error) return fail(error.message, 'Could not reach the server');
+  }
+  const { error } = await supabase.from('games').insert({ ...p.game, id: p.id, user_id: userId });
+  if (error) return fail(error.message, 'Could not save the game');
+  return { id: p.id };
+}
+
 export async function runQueuedSave(supabase: any, item: QueuedSave): Promise<SaveResult> {
-  return item.kind === 'basketball'
-    ? saveBasketballSession(supabase, item.userId, item.payload, true)
-    : saveWorkout(supabase, item.userId, item.payload, true);
+  if (item.kind === 'basketball') return saveBasketballSession(supabase, item.userId, item.payload, true);
+  if (item.kind === 'workout') return saveWorkout(supabase, item.userId, item.payload, true);
+  return saveGame(supabase, item.userId, item.payload, true);
 }

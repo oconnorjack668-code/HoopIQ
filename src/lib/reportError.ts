@@ -7,7 +7,14 @@ const IGNORE = [
   /chrome-extension:|moz-extension:|safari-extension:/i,
   /AbortError|The user aborted a request/i,
   /Failed to fetch|NetworkError|Load failed|network request failed/i, // connection problems, not bugs
+  // Scripts that in-app browsers and webviews inject into every page (not HoopIQ code)
+  /SCDynimacBridge|__gCrWeb|_AutofillCallbackHandler|webkit\.messageHandlers|WeixinJSBridge|zaloJSV2|instantSearchSDKJSBridge/,
 ];
+
+/** True for errors that come from the browser or another app, not from HoopIQ. */
+export function isIgnoredError(text: string): boolean {
+  return IGNORE.some((re) => re.test(text));
+}
 
 const sent = new Set<string>();
 
@@ -18,7 +25,7 @@ export function reportError(source: 'client' | 'boundary', error: unknown, extra
   const err = error instanceof Error ? error : new Error(typeof error === 'string' ? error : 'Unknown error');
   const message = `${err.name && err.name !== 'Error' ? `${err.name}: ` : ''}${err.message || 'Unknown error'}`;
   const text = `${message}\n${err.stack || ''}`;
-  if (IGNORE.some((re) => re.test(text))) return;
+  if (isIgnoredError(text)) return;
 
   // One report per distinct error per page load
   const key = `${message}|${location.pathname}`;

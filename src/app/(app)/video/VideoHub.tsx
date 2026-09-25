@@ -7,22 +7,35 @@ import { FilmTagger } from '@/components/video/FilmTagger';
 import { ClipUploader } from '@/components/video/ClipUploader';
 import { VideoAIFeedback, type ShootingSummary } from '@/components/video/VideoAIFeedback';
 import type { ShotMechanics } from '@/lib/video/mechanics';
+import type { MeasurementSystem } from '@/lib/units';
 
 // MediaPipe is browser-only (WebAssembly, WebGL), so these load on the client only
 const Loading = () => <p className="text-sm text-zinc-500">Loading…</p>;
 const ShotTracker = dynamic(() => import('@/components/video/ShotTracker').then((m) => m.ShotTracker), { ssr: false, loading: Loading });
 const FormCheck = dynamic(() => import('@/components/video/FormCheck').then((m) => m.FormCheck), { ssr: false, loading: Loading });
+const JumpTest = dynamic(() => import('@/components/video/JumpTest').then((m) => m.JumpTest), { ssr: false, loading: Loading });
 
-type Tab = 'shots' | 'form' | 'film' | 'clips';
+type Tab = 'shots' | 'form' | 'jump' | 'film' | 'clips';
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'shots', label: 'Shot tracker' },
   { id: 'form', label: 'Form check' },
+  { id: 'jump', label: 'Jump test' },
   { id: 'film', label: 'Game film' },
   { id: 'clips', label: 'Saved clips' },
 ];
 
-export function VideoHub({ heightCm, position, hand }: { heightCm: number | null; position: string | null; hand: 'right' | 'left' }) {
+export function VideoHub({
+  heightCm,
+  position,
+  hand,
+  units,
+}: {
+  heightCm: number | null;
+  position: string | null;
+  hand: 'right' | 'left';
+  units: MeasurementSystem;
+}) {
   const [tab, setTab] = useState<Tab>('shots');
   const [formFile, setFormFile] = useState<File | null>(null);
   const [formShotMs, setFormShotMs] = useState<number | null>(null);
@@ -32,7 +45,7 @@ export function VideoHub({ heightCm, position, hand }: { heightCm: number | null
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-zinc-900 p-1">
+      <div className="grid grid-cols-5 gap-1 rounded-xl bg-zinc-900 p-1">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -59,6 +72,9 @@ export function VideoHub({ heightCm, position, hand }: { heightCm: number | null
       </div>
       <div className={tab === 'form' ? '' : 'hidden'}>
         <FormCheck key={formKey} initialFile={formFile} shotTimeMs={formShotMs} heightCm={heightCm} hand={hand} onResult={setMechanics} />
+      </div>
+      <div className={tab === 'jump' ? '' : 'hidden'}>
+        <JumpTest units={units} />
       </div>
       <div className={tab === 'film' ? '' : 'hidden'}>
         <FilmTagger heightCm={heightCm} position={position} />

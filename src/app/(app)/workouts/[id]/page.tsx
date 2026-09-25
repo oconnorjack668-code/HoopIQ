@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 import { ArrowLeft, Dumbbell, Award, TrendingUp } from 'lucide-react';
 import { notFound } from 'next/navigation';
+import { ShareCardButton } from '@/components/ShareCardButton';
 
 export const metadata = {
   title: 'Workout Details - HoopIQ',
@@ -101,6 +102,9 @@ export default async function WorkoutDetailPage({
                 year: 'numeric',
               })}
             </p>
+            <div className="pt-2">
+              <ShareCardButton path={`/api/share/workout?id=${id}`} text="Workout done on HoopIQ 💪" />
+            </div>
           </div>
           <Link href="/workouts">
             <Button variant="outline" size="icon">

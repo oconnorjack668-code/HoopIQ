@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Target, Flame, Crown, CircleDot, Gem, Zap, Trophy, Dumbbell, BookOpen, GraduationCap, CalendarCheck, Video, Award } from 'lucide-react';
 import { requireUser } from '@/lib/auth';
 import { loadAchievements } from '@/lib/achievements-server';
+import { ShareCardButton } from '@/components/ShareCardButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,9 @@ export default async function AchievementsPage() {
           <div className="text-xs font-bold uppercase tracking-wider text-amber-300">Your rank</div>
           <div className="text-3xl font-black text-white">{a.rank.name}</div>
           <div className="text-sm text-zinc-300">{a.xp.toLocaleString()} XP</div>
+          <div className="mt-3">
+            <ShareCardButton path="/api/share/rank" text={`I'm ranked ${a.rank.name} on HoopIQ 🏀`} label="Share my rank" />
+          </div>
           {a.rank.next && (
             <>
               <div className="mt-3 h-2 rounded-full bg-zinc-800 overflow-hidden">

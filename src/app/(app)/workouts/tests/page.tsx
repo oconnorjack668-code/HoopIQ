@@ -111,6 +111,13 @@ export default async function PerformanceTestsPage() {
           </Link>
         </div>
 
+        <Link
+          href="/video"
+          className="mb-6 flex items-center justify-between rounded-2xl border border-red-600/30 bg-red-600/10 px-4 py-3 hover:bg-red-600/15"
+        >
+          <span className="text-sm font-semibold text-red-200">📹 Measure your vertical with video: Video AI → Jump test</span>
+        </Link>
+
         {/* Test Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {TEST_TYPES.map((testType) => {

@@ -32,7 +32,7 @@ function aiConfig() {
 }
 
 /** Unlimited for owners (role or OWNER_EMAIL) and pro/owner plans. */
-async function hasUnlimitedCredits(planType: string | undefined): Promise<boolean> {
+export async function hasUnlimitedCredits(planType: string | undefined): Promise<boolean> {
   return planType === 'pro' || planType === 'owner' || (await checkIsOwner());
 }
 
