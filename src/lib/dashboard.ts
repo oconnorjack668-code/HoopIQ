@@ -1,7 +1,8 @@
 // src/lib/dashboard.ts
 import { createClient } from '@/lib/supabase/server';
 import { streaks } from '@/lib/achievements';
-import { addDays, calendarNow } from '@/lib/dates';
+import { addDays } from '@/lib/dates';
+import { userCalendarNow } from '@/lib/userTime';
 import { getPersonalRecordCount, getShotTotals, getTrainingDates, type ZoneTotal } from '@/lib/player-activity';
 
 export interface DashboardMetrics {
@@ -60,7 +61,7 @@ export function computeDashboardMetrics(input: MetricsInput): DashboardMetrics {
 
 export async function calculateDashboardMetrics(userId: string): Promise<DashboardMetrics> {
   const supabase = await createClient();
-  const { today, weekStart } = calendarNow();
+  const { today, weekStart } = await userCalendarNow();
 
   // All independent reads run in parallel; the history loaders are shared with the
   // achievements on the same page (cached per request)

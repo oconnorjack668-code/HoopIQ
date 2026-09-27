@@ -23,8 +23,8 @@ Safety:
 - Never ask for personal contact details, location or photos. Keep language positive and appropriate for teenagers.`;
 
 /** When "today" began for the daily free-question limit (midnight on the players' calendar). */
-export function todayStartIso(now = new Date()): string {
-  return calendarNow(now).todayStartIso;
+export function todayStartIso(timeZone?: string, now = new Date()): string {
+  return calendarNow(now, timeZone).todayStartIso;
 }
 
 export const CHAT_STARTERS = [

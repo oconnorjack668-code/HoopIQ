@@ -106,6 +106,7 @@ For players aged 13+. HoopIQ Pro unlocks unlimited AI feedback and the AI develo
 | App activity → Other actions (friends list) | Yes | Optional | App functionality, social features |
 | App info & performance → Crash logs | Yes | Required | Analytics (fixing bugs) |
 | Financial info → Purchase history | Yes | Optional (Pro only) | App functionality |
+| Personal info → Other info (country, county/region, time zone you choose) | Yes | Optional | App functionality (regional leaderboards, reminders) |
 
 Processed ephemerally? No. Location, contacts, messages, audio, files: **not collected**.
 

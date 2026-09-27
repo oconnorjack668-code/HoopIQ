@@ -5,7 +5,7 @@ import React from 'react';
 import { Logo } from '@/components/Logo';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut, ShieldAlert } from 'lucide-react';
+import { LogOut, ShieldAlert, Settings } from 'lucide-react';
 import type { Profile } from '@/lib/auth';
 import { DESKTOP_NAV_ITEMS, isNavActive } from './BottomNav';
 
@@ -18,7 +18,29 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Stop this phone's training reminders: they belong to the player who is signing out.
+  // Runs before sign-out (the server needs the login to forget the device) and never blocks it.
+  async function stopReminders() {
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      const sub = await reg?.pushManager?.getSubscription();
+      if (!sub) return;
+      await Promise.race([
+        fetch('/api/push/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        }).catch(() => undefined),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
+      await sub.unsubscribe().catch(() => false);
+    } catch {
+      // no service worker / push support: nothing to stop
+    }
+  }
+
   async function handleSignOut() {
+    await stopReminders();
     // Loaded on tap: the Supabase library is large and most pages don't otherwise need it
     const { createClient } = await import('@/lib/supabase/client');
     const supabase = createClient();
@@ -92,6 +114,19 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
             <span className="text-xs font-medium hidden sm:inline">
               {profile?.display_name || 'Player'}
             </span>
+          </Link>
+
+          <Link
+            href="/settings"
+            title="Settings"
+            aria-label="Settings"
+            className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-colors ${
+              pathname === '/settings'
+                ? 'border-orange-500 bg-orange-500/10 text-white'
+                : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Settings className="h-4 w-4" />
           </Link>
 
           <button

@@ -54,7 +54,7 @@ export default async function DashboardPage() {
                 Welcome back, {profile?.display_name || 'Player'}
               </h1>
               <p className="text-sm text-zinc-400 mt-1">
-                Ready to train with intent? Let's track your progress today.
+                Ready to train with intent? Let&apos;s track your progress today.
               </p>
             </div>
           </div>
@@ -272,7 +272,7 @@ export default async function DashboardPage() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Consistency</div>
+                  <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Training consistency</div>
                   <div className="text-2xl font-black text-emerald-400">
                     {metrics.consistency}%
                   </div>

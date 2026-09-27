@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { hasUnlimitedCredits } from '@/lib/ai/service';
 import { openAIChat, type ChatMessage } from '@/lib/ai/provider';
 import { buildPlayerContext } from '@/lib/ai/context';
+import { getUserTimeZone } from '@/lib/userTime';
 import { CHAT_HISTORY_TURNS, COACH_SYSTEM_PROMPT, FREE_CHAT_PER_DAY, MAX_CHAT_MESSAGE, todayStartIso } from '@/lib/ai/chat';
 
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = (await createClient()) as any;
+  const timeZone = await getUserTimeZone();
   const [{ data: sub }, { count: usedToday }, { data: history, error: historyError }] = await Promise.all([
     supabase.from('subscriptions').select('plan_type').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('role', 'user')
-      .gte('created_at', todayStartIso()),
+      .gte('created_at', todayStartIso(timeZone)),
     supabase
       .from('coach_messages')
       .select('role, content')

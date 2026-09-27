@@ -14,7 +14,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const user = await requireUser();
   const supabase = (await createClient()) as any;
-  const { data: team } = await supabase.from('teams').select('id, name, join_code').eq('id', id).maybeSingle();
+  const { data: team } = await supabase.from('teams').select('id, name, join_code, club_name, country, region, age_group, level, season').eq('id', id).maybeSingle();
   if (!team) notFound(); // not a member (RLS) or no such team
 
   const [roster, assignments, completions] = await Promise.all([
@@ -53,6 +53,14 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
           joinCode={team.join_code}
           myId={user.id}
           isCoach={me?.role === 'coach'}
+          team={{
+            club_name: team.club_name ?? null,
+            country: team.country ?? null,
+            region: team.region ?? null,
+            age_group: team.age_group ?? null,
+            level: team.level ?? null,
+            season: team.season ?? null,
+          }}
           roster={rows}
           assignments={(assignments.data || []) as Assignment[]}
           completions={((completions.data || []) as Array<{ assignment_id: string; user_id: string }>).map((c) => ({

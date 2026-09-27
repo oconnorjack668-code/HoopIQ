@@ -3,7 +3,7 @@ import React from 'react';
 import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { loadAchievements } from '@/lib/achievements-server';
-import { calendarNow } from '@/lib/dates';
+import { userCalendarNow } from '@/lib/userTime';
 import { getShotsSince } from '@/lib/player-activity';
 import { GoalsEditor, type GoalRow } from './GoalsEditor';
 import { Crosshair } from 'lucide-react';
@@ -17,7 +17,7 @@ export default async function GoalsPage() {
   const supabase = (await createClient()) as any;
 
   // Monday 00:00 on the players' calendar (same week as the achievements below)
-  const { weekStartIso } = calendarNow();
+  const { weekStartIso } = await userCalendarNow();
 
   const [{ data: goals }, achievements, weekShots] = await Promise.all([
     supabase.from('goals').select('id, goal_type, title, target_value, current_value, period, is_active').eq('user_id', user.id).eq('is_active', true).order('created_at'),

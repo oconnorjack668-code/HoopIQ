@@ -28,7 +28,7 @@ export interface FeedItem {
   detail: string | null;
 }
 
-export type RequestResult = 'sent' | 'accepted' | 'already' | 'self' | 'not_found' | 'limit';
+export type RequestResult = 'sent' | 'accepted' | 'already' | 'self' | 'not_found' | 'limit' | 'closed';
 
 export const REQUEST_MESSAGES: Record<RequestResult, string> = {
   sent: 'Friend request sent.',
@@ -37,6 +37,7 @@ export const REQUEST_MESSAGES: Record<RequestResult, string> = {
   self: "That's your own code.",
   not_found: 'No player has that code. Check the 6 letters and numbers.',
   limit: "You've reached the friend request limit. Wait for some to be accepted first.",
+  closed: "This player isn't accepting friend requests right now.",
 };
 
 /**

@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 
-export function ProfileSettings({ initialIsPublic }: { initialIsPublic: boolean }) {
+export function ProfileSettings({ initialIsPublic, showLeaderboard = true }: { initialIsPublic: boolean; showLeaderboard?: boolean }) {
   const router = useRouter();
   const [isPublic, setIsPublic] = useState(initialIsPublic);
   const [savingVisibility, setSavingVisibility] = useState(false);
@@ -71,6 +71,7 @@ export function ProfileSettings({ initialIsPublic }: { initialIsPublic: boolean 
     <div className="space-y-6 mt-6">
       {error && <Alert variant="error" title="Error">{error}</Alert>}
 
+      {showLeaderboard && (
       <Card className="border-zinc-800 bg-zinc-900/70">
         <CardHeader>
           <CardTitle>Leaderboard</CardTitle>
@@ -92,6 +93,7 @@ export function ProfileSettings({ initialIsPublic }: { initialIsPublic: boolean 
           </label>
         </CardContent>
       </Card>
+      )}
 
       <Card className="border-zinc-800 bg-zinc-900/70">
         <CardHeader>
