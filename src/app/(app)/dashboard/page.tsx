@@ -1,10 +1,10 @@
 // src/app/(app)/dashboard/page.tsx
 import React from 'react';
 import { requireUser, getCurrentProfile, getCurrentSubscription } from '@/lib/auth';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { calculateDashboardMetrics, getShootingByZone } from '@/lib/dashboard';
-import { LayoutGrid, Zap, TrendingUp, Target, Award, Flame, Users, MessageCircle } from 'lucide-react';
+import { Zap, TrendingUp, Target, Award, Star, Users, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -43,36 +43,19 @@ export default async function DashboardPage() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-4 md:p-8 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow-lg">
-              <LayoutGrid className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black tracking-tight text-white">
-                Welcome back, {profile?.display_name || 'Player'}
-              </h1>
-              <p className="text-sm text-zinc-400 mt-1">
-                Ready to train with intent? Let&apos;s track your progress today.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Rank */}
-        <Link href="/achievements" className="mb-4 flex items-center justify-between rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 hover:bg-amber-500/15">
-          <span className="text-sm text-zinc-200">
-            <span className="font-black text-amber-300">{achievements.rank.name}</span> · {achievements.xp.toLocaleString()} XP
-            {achievements.newlyEarned.length > 0 && <span className="ml-2 text-emerald-400">New badge: {achievements.newlyEarned[0]}!</span>}
+        {/* Header. Deliberately compact: on a phone the old version spent the
+            whole first screenful on a decorative icon, the player's own name at
+            text-3xl and a slogan, pushing today's session below the fold. */}
+        <h1 className="mb-4 text-xl md:text-3xl font-black tracking-tight text-white">
+          {profile?.display_name || 'Player'}
+          <span className="ml-2 align-middle text-sm font-semibold text-zinc-500">
+            {metrics.currentStreak > 0 ? `${metrics.currentStreak}-day streak` : 'Start a streak today'}
           </span>
-          <span className="text-xs text-amber-300">
-            {achievements.challenges.filter((c) => c.done).length}/{achievements.challenges.length} weekly challenges →
-          </span>
-        </Link>
+        </h1>
 
-        {/* Today */}
-        <div className="mb-8 rounded-2xl border border-orange-600/40 bg-gradient-to-br from-orange-600/15 to-transparent p-5">
+        {/* Today. Deliberately the first thing under the greeting: you open the
+            app to decide what to train, not to look at a reward meter. */}
+        <div className="mb-4 rounded-2xl border border-orange-600/40 bg-gradient-to-br from-orange-600/15 to-transparent p-5">
           <div className="text-xs font-bold uppercase tracking-wider text-orange-300">Today</div>
           {activeProgram?.next ? (
             <>
@@ -102,8 +85,55 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Rank. rankFor() already returns the next rank and the fraction of the
+            way there, so the bar shows real progress to a real next tier rather
+            than a bare XP total with nothing to aim at. */}
+        <Link
+          href="/achievements"
+          className="mb-8 block rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 hover:bg-amber-500/15"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/20">
+                <Star className="h-5 w-5 text-amber-300" />
+              </span>
+              <div className="min-w-0">
+                <div className="font-black text-amber-300">{achievements.rank.name}</div>
+                {achievements.rank.next && (
+                  <div className="text-xs text-zinc-400">
+                    {(achievements.rank.next.min - achievements.xp).toLocaleString()} XP to{' '}
+                    {achievements.rank.next.name}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <span className="text-xl font-black text-white">{achievements.xp.toLocaleString()}</span>
+              <span className="text-xs text-zinc-500">
+                {achievements.rank.next ? ` / ${achievements.rank.next.min.toLocaleString()}` : ''} XP
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 h-2 rounded-full bg-zinc-800 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-400 transition-all"
+              style={{ width: `${Math.round(Math.min(1, Math.max(0, achievements.rank.progress)) * 100)}%` }}
+            />
+          </div>
+          <div className="mt-2.5 flex items-center justify-between text-xs">
+            <span className="font-semibold text-amber-300">
+              Weekly challenges · {achievements.challenges.filter((c) => c.done).length} of{' '}
+              {achievements.challenges.length} done
+            </span>
+            {achievements.newlyEarned.length > 0 && (
+              <span className="font-semibold text-emerald-400">New badge: {achievements.newlyEarned[0]}!</span>
+            )}
+          </div>
+        </Link>
+
+        {/* Quick stats. 2x2 on a phone rather than four full-width cards
+            stacked, which was ~400px of scrolling for four small numbers. */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
           <Card className="border-zinc-800 bg-zinc-900/70">
             <CardContent className="p-5">
               <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">This Week</div>
@@ -143,54 +173,67 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Consistency, not AI credits. A billing counter was previously
+              given the same visual weight as the player's training streak;
+              credits now sit in the slim row below instead. */}
           <Card className="border-zinc-800 bg-zinc-900/70">
             <CardContent className="p-5">
-              <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">AI Credits</div>
+              <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">Consistency</div>
               <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-black text-amber-400">
-                  {subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner'
-                    ? '∞'
-                    : subscription?.ai_credits_remaining || 0}
-                </span>
-                <Badge variant="default" className="text-xs">{subscription?.plan_type || 'free'}</Badge>
+                <span className="text-3xl font-black text-cyan-400">{metrics.consistency}%</span>
+                <Badge variant="default" className="text-xs">30 days</Badge>
               </div>
-              <div className="text-xs text-zinc-500 mt-2">
-                {subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner'
-                  ? 'Unlimited'
-                  : '1 credit per AI report'}
-              </div>
+              <div className="text-xs text-zinc-500 mt-2">Days with any training logged</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Link href="/basketball/new">
-            <Button variant="primary" className="w-full h-16 justify-start gap-3 text-left px-5">
-              <div className="h-10 w-10 rounded-lg bg-orange-600 flex items-center justify-center">
-                <Target className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <div className="font-bold text-sm">Log Basketball Session</div>
-                <div className="text-xs opacity-90">Track drills and shooting</div>
-              </div>
-            </Button>
+        {/* AI credits: useful to know, but it is billing, not training */}
+        <Link
+          href={subscription?.plan_type === 'free' ? '/pro' : '/ai-coach'}
+          className="mb-8 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-2.5 text-sm hover:bg-zinc-900"
+        >
+          <span className="text-zinc-400">
+            AI credits:{' '}
+            <span className="font-bold text-zinc-200">
+              {subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner'
+                ? 'unlimited'
+                : subscription?.ai_credits_remaining || 0}
+            </span>
+            <span className="ml-2 text-xs text-zinc-500">{subscription?.plan_type || 'free'} plan</span>
+          </span>
+          <span className="text-xs text-zinc-500">{subscription?.plan_type === 'free' ? 'See Pro →' : 'AI Coach →'}</span>
+        </Link>
+
+        {/* Quick actions, carrying the same colours the Hoops and Gym tabs use.
+            These were Buttons recoloured by poking Tailwind's internal
+            --tw-gradient-from through an inline style, which broke as soon as
+            the Button variant changed. */}
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          <Link
+            href="/basketball/new"
+            className="flex items-center gap-3 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 p-4 shadow-lg shadow-orange-900/20 hover:brightness-110"
+          >
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-black/20">
+              <Target className="h-5 w-5 text-white" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-white">Hoops session</span>
+              <span className="block text-xs text-white/80">Drills and shooting</span>
+            </span>
           </Link>
 
-          <Link href="/workouts/new">
-            <Button
-              variant="primary"
-              className="w-full h-16 justify-start gap-3 text-left px-5"
-              style={{ '--tw-gradient-from': '#059669' } as React.CSSProperties & { '--tw-gradient-from': string }}
-            >
-              <div className="h-10 w-10 rounded-lg bg-emerald-600 flex items-center justify-center">
-                <Zap className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <div className="font-bold text-sm">Log Workout</div>
-                <div className="text-xs opacity-90">Strength, mobility, or tests</div>
-              </div>
-            </Button>
+          <Link
+            href="/workouts/new"
+            className="flex items-center gap-3 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 p-4 shadow-lg shadow-emerald-900/20 hover:brightness-110"
+          >
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-black/20">
+              <Zap className="h-5 w-5 text-white" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-white">Gym workout</span>
+              <span className="block text-xs text-white/80">Strength and tests</span>
+            </span>
           </Link>
         </div>
 
@@ -246,13 +289,14 @@ export default async function DashboardPage() {
           </Card>
         )}
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {/* All-time totals. Consistency is deliberately not repeated here - it
+            already has a card in the grid above. */}
+        <div className="grid grid-cols-2 gap-3 md:gap-4 mb-8">
           <Card className="border-zinc-800 bg-zinc-900/50">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Total Sessions</div>
+                  <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Total sessions</div>
                   <div className="text-2xl font-black text-white">{metrics.totalSessions}</div>
                 </div>
                 <TrendingUp className="h-8 w-8 text-zinc-700" />
@@ -264,52 +308,15 @@ export default async function DashboardPage() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Personal Records</div>
+                  <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Personal records</div>
                   <div className="text-2xl font-black text-amber-400">{metrics.personalRecords}</div>
                 </div>
                 <Award className="h-8 w-8 text-zinc-700" />
               </div>
             </CardContent>
           </Card>
-
-          <Card className="border-zinc-800 bg-zinc-900/50">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-zinc-400 font-semibold uppercase mb-1">Training consistency</div>
-                  <div className="text-2xl font-black text-emerald-400">
-                    {metrics.consistency}%
-                  </div>
-                </div>
-                <Flame className="h-8 w-8 text-zinc-700" />
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Upcoming Features */}
-        <Card className="border-zinc-800 bg-zinc-900/50">
-          <CardHeader>
-            <CardTitle className="text-lg">Next Milestone: AI Coach & Video</CardTitle>
-            <CardDescription>Coming soon</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm text-zinc-400">
-              <li className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-purple-500" />
-                AI-powered coaching reports with session comparisons
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-red-500" />
-                Private video uploads with pose analysis and trending
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-blue-500" />
-                Advanced charts and progress visualization
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

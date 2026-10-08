@@ -526,26 +526,38 @@ export default function NewBasketballSessionPage() {
 
         {mode === 'track' ? (
           <>
-            <div className="flex items-center justify-between text-xs text-zinc-400 mt-2 mb-3">
-              <span>{spot ? `Spot: ${ZONE_LABELS[spot.zone]}` : 'Tap the court where you are shooting from'}</span>
-              <span className="flex items-center gap-1">
-                {streak >= 3 && <Flame className="h-3.5 w-3.5 text-orange-400" />}
-                {active.name}: {activeMakes}/{active.shots.length} ({pct(activeMakes, active.shots.length)})
-              </span>
-            </div>
+            {spot ? (
+              <div className="flex items-center justify-between text-xs text-zinc-400 mt-2 mb-3">
+                <span>
+                  Spot: <span className="font-semibold text-zinc-200">{ZONE_LABELS[spot.zone]}</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  {streak >= 3 && <Flame className="h-3.5 w-3.5 text-orange-400" />}
+                  {active.name}: {activeMakes}/{active.shots.length} ({pct(activeMakes, active.shots.length)})
+                </span>
+              </div>
+            ) : (
+              // Sits directly above MAKE/MISS because those are disabled until a
+              // spot is picked - the page-level error Alert is off-screen here.
+              <p className="mt-2 mb-3 rounded-xl border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-center text-xs font-semibold text-orange-300">
+                Tap the court above to set where you are shooting from
+              </p>
+            )}
 
             <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
               <button
                 type="button"
                 onClick={() => record(true)}
-                className="h-24 rounded-2xl bg-emerald-600 text-2xl font-black text-white active:scale-95 transition-transform"
+                disabled={!spot}
+                className="h-24 rounded-2xl bg-emerald-600 text-2xl font-black text-white transition-transform active:scale-95 disabled:opacity-40 disabled:active:scale-100"
               >
                 MAKE
               </button>
               <button
                 type="button"
                 onClick={() => record(false)}
-                className="h-24 rounded-2xl bg-red-600/90 text-2xl font-black text-white active:scale-95 transition-transform"
+                disabled={!spot}
+                className="h-24 rounded-2xl bg-red-600/90 text-2xl font-black text-white transition-transform active:scale-95 disabled:opacity-40 disabled:active:scale-100"
               >
                 MISS
               </button>

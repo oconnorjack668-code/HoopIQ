@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 import { Plus, Dumbbell, BookOpen, Award, ListChecks, ChevronRight } from 'lucide-react';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { DeleteRoutineButton } from './DeleteRoutineButton';
 
 export const dynamic = 'force-dynamic';
@@ -48,19 +49,16 @@ export default async function WorkoutsPage() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-4 md:p-8 max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-lg">
-            <Dumbbell className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-white">Gym</h1>
-            <p className="text-sm text-zinc-400 mt-1">Strength, explosiveness, mobility and injury prevention</p>
-          </div>
-        </div>
+        <PageHeader
+          tone="gym"
+          icon={Dumbbell}
+          title="Gym"
+          subtitle="Strength, power, mobility and injury prevention"
+        />
 
         <Link href="/workouts/new" className="block mb-4">
-          <Button variant="primary" size="lg" className="w-full gap-2">
-            <Plus className="h-4 w-4" /> Start workout
+          <Button variant="primary" size="lg" className="w-full gap-2 shadow-lg shadow-orange-900/30">
+            <Plus className="h-5 w-5" /> Start workout
           </Button>
         </Link>
 
@@ -118,9 +116,11 @@ export default async function WorkoutsPage() {
             })}
           </div>
         ) : (
-          <p className="text-sm text-zinc-500 mb-8">
-            Save any workout as a routine when you finish it, then start it again here with one tap.
-          </p>
+          <div className="mb-8 rounded-2xl border border-dashed border-zinc-700 p-5">
+            <p className="text-sm text-zinc-400">
+              Finish a workout, save it as a routine, and start it again here with one tap.
+            </p>
+          </div>
         )}
 
         {/* History */}
@@ -145,7 +145,15 @@ export default async function WorkoutsPage() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-zinc-500">No workouts yet. Tap &ldquo;Start workout&rdquo; to log your first one.</p>
+          <Card className="border-zinc-800 bg-zinc-900/50">
+            <CardContent className="p-10 text-center">
+              <Dumbbell className="h-10 w-10 text-zinc-700 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-zinc-300 mb-1">No workouts yet</h3>
+              <p className="text-sm text-zinc-400">
+                Tap <span className="font-semibold text-zinc-300">Start workout</span> to log your first one.
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

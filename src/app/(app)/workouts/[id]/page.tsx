@@ -3,7 +3,7 @@ import React from 'react';
 import { requireUser, getCurrentProfile } from '@/lib/auth';
 import { asMeasurementSystem, displayWeight, weightUnitLabel } from '@/lib/units';
 import { createClient } from '@/lib/supabase/server';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
