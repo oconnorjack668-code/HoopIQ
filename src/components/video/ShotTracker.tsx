@@ -57,12 +57,22 @@ export function ShotTracker({
   const [saving, setSaving] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
 
-  // Release the camera and screen lock when leaving the page
+  // Live HUD state. The player is usually several metres away with the phone on a
+  // tripod, so the overlay has to answer "is this working?" and "did that count?"
+  // at a glance, without them walking over to look.
+  const [ballVisible, setBallVisible] = useState(false);
+  const [flash, setFlash] = useState<{ made: boolean; confident: boolean } | null>(null);
+  const ballVisibleRef = useRef(false);
+  const lastElapsedPushRef = useRef(0);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Release the camera, screen lock and any pending flash timer when leaving
   useEffect(
     () => () => {
       stopRef.current = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       lockRef.current?.release().catch(() => undefined);
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     },
     []
   );
@@ -199,6 +209,10 @@ export function ShotTracker({
     setStatus(null);
     setShots([]);
     setStep('tracking');
+    setFlash(null);
+    setBallVisible(false);
+    ballVisibleRef.current = false;
+    lastElapsedPushRef.current = 0;
     stopRef.current = false;
 
     const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
@@ -243,9 +257,25 @@ export function ShotTracker({
         if (shot) {
           setShots((cur) => [...cur, { ...shot, id: nextId++ }]);
           navigator.vibrate?.(shot.made ? 40 : [20, 50, 20]);
+          // Big transient MAKE/MISS badge: a tripod phone's buzz is useless from
+          // the arc, so the confirmation has to be visual.
+          setFlash({ made: shot.made, confident: shot.confident });
+          if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+          flashTimerRef.current = setTimeout(() => setFlash(null), 1400);
         }
         draw(ball);
-        setElapsedMs(t);
+
+        // Only re-render on the edge, not every frame - this runs at up to 60fps
+        // on a phone that is also doing ball detection on each frame.
+        const seen = ball !== null;
+        if (seen !== ballVisibleRef.current) {
+          ballVisibleRef.current = seen;
+          setBallVisible(seen);
+        }
+        if (t - lastElapsedPushRef.current > 250) {
+          lastElapsedPushRef.current = t;
+          setElapsedMs(t);
+        }
         if (source === 'file' && video.duration) setProgress(video.currentTime / video.duration);
       }
       const v = video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number };
@@ -375,12 +405,60 @@ export function ShotTracker({
             </div>
           )}
           {step === 'tracking' && (
-            <div className="absolute left-2 top-2 rounded-xl bg-black/70 px-3 py-2 text-white">
-              <div className="text-2xl font-black">
-                {makes}/{shots.length}
+            <>
+              {/* Scrim so the readout stays legible against a bright gym or sky */}
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/80 to-transparent" />
+
+              {/* Primary readout: sized to be read from the three-point line */}
+              <div className="pointer-events-none absolute left-3 top-2 text-white" aria-live="polite" aria-atomic="true">
+                <div className="flex items-end gap-2">
+                  <span className="text-5xl sm:text-6xl font-black leading-none tabular-nums drop-shadow-lg">
+                    {makes}
+                    <span className="text-3xl sm:text-4xl text-zinc-300">/{shots.length}</span>
+                  </span>
+                  <span className="mb-1 text-2xl sm:text-3xl font-black leading-none text-orange-400 tabular-nums drop-shadow-lg">
+                    {shots.length ? Math.round((makes / shots.length) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="mt-1 text-sm font-semibold tabular-nums text-zinc-300 drop-shadow">{clock(elapsedMs)}</div>
               </div>
-              <div className="text-xs text-zinc-300">{shots.length ? Math.round((makes / shots.length) * 100) : 0}%</div>
-            </div>
+
+              {/* Is it actually tracking? Answered without walking back to the phone. */}
+              <div
+                className={`pointer-events-none absolute right-3 top-3 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold backdrop-blur-sm ${
+                  ballVisible ? 'bg-emerald-500/90 text-white' : 'bg-amber-500/90 text-black'
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full bg-current ${ballVisible ? '' : 'animate-pulse'}`} />
+                {ballVisible ? 'Ball tracked' : 'Looking for ball'}
+              </div>
+
+              {/* Last 8 results, newest on the right */}
+              {shots.length > 0 && (
+                <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-1.5">
+                  {shots.slice(-8).map((s) => (
+                    <span
+                      key={s.id}
+                      className={`h-2.5 w-2.5 rounded-full ring-1 ring-black/40 ${s.made ? 'bg-emerald-400' : 'bg-red-400'}`}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Unmistakable confirmation that a shot just registered */}
+              {flash && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div
+                    className={`rounded-2xl px-6 py-3 text-4xl font-black uppercase tracking-wide shadow-2xl ${
+                      flash.made ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'
+                    }`}
+                  >
+                    {flash.made ? 'Make' : 'Miss'}
+                    {!flash.confident && <span className="ml-2 align-middle text-base font-bold opacity-90">check</span>}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -411,7 +489,10 @@ export function ShotTracker({
             </div>
           )}
           <p className="text-xs text-zinc-500 flex items-center gap-1.5">
-            <Activity className="h-3.5 w-3.5" /> {clock(elapsedMs)} · green box = ball found
+            <Activity className="h-3.5 w-3.5" />
+            {shots.length === 0 && !ballVisible
+              ? 'No ball detected yet. Keep the ball and the hoop in frame, in good light.'
+              : 'Counting shots. Every one can be corrected before you save.'}
           </p>
           <Button variant="secondary" size="lg" className="w-full gap-2" onClick={finish}>
             <Square className="h-4 w-4" /> {source === 'camera' ? 'Stop and review' : 'Stop early and review'}
