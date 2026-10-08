@@ -2,10 +2,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
@@ -38,7 +38,6 @@ interface QuizQuestionJson {
 }
 
 export default function QuizPage() {
-  const router = useRouter();
   const params = useParams();
   const topicId = params.id as string;
 
@@ -85,7 +84,7 @@ export default function QuizPage() {
       );
 
       setQuestions(loaded);
-    } catch (err) {
+    } catch {
       setError('Failed to load quiz');
     } finally {
       setLoading(false);

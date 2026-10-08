@@ -28,6 +28,9 @@ export function Frame({ icon, name, children }: { icon: string | null; name: str
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        {/* next/image cannot be used here: these cards are rendered by Satori
+            inside next/og's ImageResponse, which only understands plain img. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         {icon ? <img src={icon} width={96} height={96} style={{ borderRadius: 24 }} alt="" /> : null}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ fontSize: 52, fontWeight: 900 }}>HoopIQ</div>

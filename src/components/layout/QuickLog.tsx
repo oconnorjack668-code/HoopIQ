@@ -33,8 +33,10 @@ export function QuickLog() {
 
   useEffect(() => {
     if (!open) return;
+    // setOpenAt rather than the setOpen helper: a useState setter is stable, so
+    // the effect does not need it as a dependency.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') setOpenAt(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
