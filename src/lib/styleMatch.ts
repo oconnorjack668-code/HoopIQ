@@ -137,6 +137,11 @@ export const FILM_TAGS = [
   { id: 'mid_miss', label: 'Mid miss', group: 'shot' },
   { id: 'three_make', label: '3PT make', group: 'shot' },
   { id: 'three_miss', label: '3PT miss', group: 'shot' },
+  // Free throws are tagged so the box score is complete, but they are left out
+  // of the shot profile below: where you take your field goals from is a style
+  // signal, how often you get fouled is not.
+  { id: 'ft_make', label: 'FT make', group: 'shot' },
+  { id: 'ft_miss', label: 'FT miss', group: 'shot' },
   { id: 'drive', label: 'Drive', group: 'offense', style: 'slasher' },
   { id: 'pullup', label: 'Pull-up', group: 'offense', style: 'mid_range_scorer' },
   { id: 'catch_shoot', label: 'Catch & shoot', group: 'offense', style: 'spot_up_shooter' },
@@ -145,10 +150,15 @@ export const FILM_TAGS = [
   { id: 'post_up', label: 'Post-up', group: 'offense', style: 'post_scorer' },
   { id: 'transition', label: 'Fast break', group: 'offense', style: 'transition_threat' },
   { id: 'assist', label: 'Assist', group: 'offense', style: 'playmaker' },
-  { id: 'rebound', label: 'Rebound', group: 'defense', style: 'rebounder' },
+  { id: 'turnover', label: 'Turnover', group: 'offense' },
+  // Split from a single 'rebound' tag so the box score can separate offensive
+  // from defensive boards; both still count toward the rebounder style.
+  { id: 'off_rebound', label: 'Off. rebound', group: 'defense', style: 'rebounder' },
+  { id: 'def_rebound', label: 'Def. rebound', group: 'defense', style: 'rebounder' },
   { id: 'steal', label: 'Steal', group: 'defense', style: 'point_of_attack_defender' },
   { id: 'block', label: 'Block', group: 'defense', style: 'rim_protector' },
   { id: 'stop', label: 'Defensive stop', group: 'defense', style: 'perimeter_defender' },
+  { id: 'foul', label: 'Foul', group: 'defense' },
 ] as const;
 
 export const MIN_FILM_SHOTS = 10;
