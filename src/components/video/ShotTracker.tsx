@@ -16,6 +16,11 @@ import { Camera, FileVideo, Crosshair, Square, Trash2, Plus, Activity } from 'lu
 type Step = 'source' | 'calibrate' | 'tracking' | 'review';
 type Source = 'camera' | 'file';
 
+// Rim width as a fraction of the frame width. Fixed rather than player-adjustable:
+// the "frame the whole hoop" guide at calibration time does the sizing work instead
+// of a manual ring the player has to drag, matching a single-tap calibration flow.
+const RIM_WIDTH_FRACTION = 0.08;
+
 export interface TrackedShot extends DetectedShot {
   id: number;
 }
@@ -43,7 +48,6 @@ export function ShotTracker({
   const [step, setStep] = useState<Step>('source');
   const [source, setSource] = useState<Source>('file');
   const [rim, setRim] = useState<Rim | null>(null);
-  const [rimWidth, setRimWidth] = useState(0.07);
   const [shots, setShots] = useState<TrackedShot[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,9 +83,26 @@ export function ShotTracker({
 
   async function openCamera() {
     setError(null);
+
+    // iOS Safari (and most browsers) only expose the camera on a secure origin.
+    // Without this check, navigator.mediaDevices is simply undefined on iPhone
+    // when the app is opened over plain http://, and the generic catch below
+    // used to show a misleading "allow camera access" message for that case.
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      setError('Your camera needs a secure connection. Open HoopIQ at its https:// address to use the camera.');
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('This browser does not support camera access here. Try the latest Safari or Chrome, or use "Video from your phone" instead.');
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        // `ideal` (not a hard constraint) so devices/browsers that can't satisfy an
+        // exact match for the rear camera still return a usable stream instead of
+        // throwing OverconstrainedError.
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
       streamRef.current = stream;
@@ -93,8 +114,17 @@ export function ShotTracker({
           videoRef.current.play().catch(() => undefined);
         }
       });
-    } catch {
-      setError('Could not open the camera. Allow camera access for HoopIQ in your browser settings.');
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : null;
+      if (name === 'NotAllowedError') {
+        setError('Camera access was blocked. Allow the camera for HoopIQ in your browser or phone Settings, then try again.');
+      } else if (name === 'NotFoundError') {
+        setError('No camera was found on this device.');
+      } else if (name === 'NotReadableError') {
+        setError('The camera is already in use by another app. Close other camera apps and try again.');
+      } else {
+        setError('Could not open the camera. Try "Video from your phone" instead, or reload and try again.');
+      }
     }
   }
 
@@ -111,13 +141,27 @@ export function ShotTracker({
     });
   }
 
+  // One tap calibrates the rim and starts tracking immediately - no ring, no size
+  // slider, no separate "start" step. The "frame the whole hoop" guide shown before
+  // the tap does the job a manual ring used to do.
+  const [calibrating, setCalibrating] = useState(false);
+
   function tapRim(e: React.MouseEvent<HTMLCanvasElement>) {
-    if (step !== 'calibrate') return;
+    if (step !== 'calibrate' || calibrating) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    setRim({ x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height, width: rimWidth });
+    const tapped: Rim = {
+      x: (e.clientX - rect.left) / rect.width,
+      y: (e.clientY - rect.top) / rect.height,
+      width: RIM_WIDTH_FRACTION,
+    };
+    setRim(tapped);
+    // Pass the tapped rim directly instead of relying on the `rim` state, which
+    // would still read null on this render (state updates are not synchronous).
+    setCalibrating(true);
+    startTracking(tapped).finally(() => setCalibrating(false));
   }
 
-  // Draw the rim marker (and, while tracking, the ball)
+  // Draws a small, fixed marker at the rim (while tracking) and the detected ball
   function draw(ball?: { x: number; y: number; w: number; h: number } | null) {
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -127,11 +171,10 @@ export function ShotTracker({
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (rim) {
-      ctx.strokeStyle = '#f97316';
-      ctx.lineWidth = 3;
+      ctx.fillStyle = '#f97316';
       ctx.beginPath();
-      ctx.ellipse(rim.x * canvas.width, rim.y * canvas.height, (rimWidth / 2) * canvas.width, (rimWidth / 6) * canvas.width, 0, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(rim.x * canvas.width, rim.y * canvas.height, 5, 0, Math.PI * 2);
+      ctx.fill();
     }
     if (ball) {
       ctx.strokeStyle = '#22c55e';
@@ -140,14 +183,9 @@ export function ShotTracker({
     }
   }
 
-  useEffect(() => {
-    if (step === 'calibrate') draw(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rim, rimWidth, step]);
-
-  async function startTracking() {
+  async function startTracking(calibratedRim: Rim) {
     const video = videoRef.current;
-    if (!video || !rim) return;
+    if (!video) return;
     setError(null);
     setStatus('Loading the ball tracker (first time takes a few seconds)…');
     let detector;
@@ -166,7 +204,7 @@ export function ShotTracker({
     const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
     nav.wakeLock?.request('screen').then((l) => (lockRef.current = l)).catch(() => undefined);
 
-    const shotDetector = new ShotDetector({ ...rim, width: rimWidth });
+    const shotDetector = new ShotDetector(calibratedRim);
     const startedAt = performance.now();
     let lastTs = -1;
     let nextId = 1;
@@ -240,7 +278,7 @@ export function ShotTracker({
     }
     setSaving(true);
     setError(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -331,6 +369,11 @@ export function ShotTracker({
         <div className="relative w-full overflow-hidden rounded-2xl bg-black">
           <video ref={videoRef} playsInline muted className="w-full h-auto" />
           <canvas ref={canvasRef} onClick={tapRim} className="absolute inset-0 h-full w-full touch-manipulation" />
+          {step === 'calibrate' && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
+              <div className="aspect-square w-2/3 max-w-xs rounded-2xl border-2 border-dashed border-orange-400/70" />
+            </div>
+          )}
           {step === 'tracking' && (
             <div className="absolute left-2 top-2 rounded-xl bg-black/70 px-3 py-2 text-white">
               <div className="text-2xl font-black">
@@ -345,13 +388,10 @@ export function ShotTracker({
       {step === 'calibrate' && (
         <div className="space-y-3">
           <p className="text-sm text-zinc-300 flex items-center gap-2">
-            <Crosshair className="h-4 w-4 text-orange-400" /> Tap the centre of the rim, then size the orange ring to match it.
+            <Crosshair className="h-4 w-4 text-orange-400" />
+            {calibrating ? 'Starting…' : 'Line the hoop up in the dashed box, then tap the rim to start tracking.'}
           </p>
-          <label className="block text-xs text-zinc-400">
-            Rim size
-            <input type="range" min={0.02} max={0.25} step={0.005} value={rimWidth} onChange={(e) => setRimWidth(Number(e.target.value))} className="w-full accent-orange-500" />
-          </label>
-          {source === 'file' && (
+          {source === 'file' && !calibrating && (
             <label className="text-xs text-zinc-400 flex items-center gap-2">
               Analysis speed
               <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="rounded-lg bg-zinc-900 border border-zinc-800 px-2 py-1 text-white">
@@ -360,9 +400,6 @@ export function ShotTracker({
               </select>
             </label>
           )}
-          <Button variant="primary" size="lg" className="w-full" disabled={!rim} onClick={startTracking}>
-            Start tracking
-          </Button>
         </div>
       )}
 
@@ -410,7 +447,11 @@ export function ShotTracker({
                 </button>
               </div>
             ))}
-            {shots.length === 0 && <p className="text-sm text-zinc-500">No shots were detected. Check the hoop was in view and the rim ring matched it.</p>}
+            {shots.length === 0 && (
+              <p className="text-sm text-zinc-500">
+                No shots were detected. Make sure the ball is visible for its whole flight toward the hoop, in good light, with nothing else moving in frame.
+              </p>
+            )}
           </div>
 
           <div className="flex gap-2">

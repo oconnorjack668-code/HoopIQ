@@ -34,8 +34,14 @@ export function getBallDetector(): Promise<ObjectDetector> {
       ObjectDetector.createFromOptions(vision, {
         baseOptions: { modelAssetPath: BALL_MODEL, delegate },
         runningMode: 'VIDEO',
-        scoreThreshold: 0.25,
-        maxResults: 3,
+        // A basketball in flight is small and motion-blurred relative to the COCO
+        // training images this general-purpose model learned from, so confidence
+        // scores run lower than for e.g. a person or a car. 0.25 was dropping most
+        // genuine balls; ShotTracker already picks the single highest-scoring
+        // candidate per frame, so a lower floor trades some false positives (which
+        // the player reviews and can delete) for far fewer missed true positives.
+        scoreThreshold: 0.12,
+        maxResults: 5,
         categoryAllowlist: ['sports ball'],
       })
     );
