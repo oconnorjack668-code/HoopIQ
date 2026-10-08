@@ -1,24 +1,16 @@
 // src/components/video/ClipUploader.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/ui/Alert';
 import { Upload, Play, Loader, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import type { Database } from '@/lib/supabase/types';
 
-interface VideoAsset {
-  id: string;
-  title: string | null;
-  file_name: string;
-  file_size_bytes: number;
-  analysis_status: 'uploaded' | 'queued' | 'processing' | 'completed' | 'needs_review' | 'failed';
-  duration_seconds?: number | null;
-  correlation_id: string;
-  created_at: string;
-}
+type VideoAsset = Database['public']['Tables']['video_assets']['Row'];
 
 // Must match the storage bucket limit and the video_assets CHECK constraints
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
@@ -56,12 +48,9 @@ export function ClipUploader() {
   const [videoTitle, setVideoTitle] = useState('');
   const [captureAngle, setCaptureAngle] = useState(CAPTURE_ANGLES[0].value);
   const [drillType, setDrillType] = useState(DRILL_TYPES[0].value);
+  const [consentGiven, setConsentGiven] = useState(false);
 
-  React.useEffect(() => {
-    loadVideos();
-  }, []);
-
-  async function loadVideos() {
+  const loadVideos = useCallback(async () => {
     try {
       const supabase = createClient();
       const { data: user } = await supabase.auth.getUser();
@@ -82,11 +71,41 @@ export function ClipUploader() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  async function handleUpload() {
+  useEffect(() => {
+    // Fetching on mount and syncing the result into state is one of the two valid
+    // effect uses per https://react.dev/learn/you-might-not-need-an-effect - this
+    // isn't deriving state from props/state, it's loading from an external system.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadVideos();
+  }, [loadVideos]);
+
+  const triggerAnalysisJob = useCallback(async (videoId: string, userId: string, correlationId: string) => {
+    try {
+      const supabase = createClient();
+
+      // Create analysis job record; the idempotency key stops duplicate jobs per video
+      const { error: jobError } = await supabase.from('video_analysis_jobs').insert([{
+        video_id: videoId,
+        user_id: userId,
+        job_status: 'pending',
+        idempotency_key: `analysis:${videoId}`,
+        correlation_id: correlationId,
+      }]);
+      if (jobError) throw jobError;
+    } catch (err) {
+      console.error('Failed to trigger analysis:', err);
+    }
+  }, []);
+
+  const handleUpload = useCallback(async () => {
     if (!selectedFile || !videoTitle.trim()) {
       setError('Please select a file and enter a title');
+      return;
+    }
+    if (!consentGiven) {
+      setError('Please confirm you consent to this video being uploaded and analysed.');
       return;
     }
 
@@ -124,8 +143,9 @@ export function ClipUploader() {
 
       if (uploadError) throw uploadError;
 
-      // Create video asset record
-      const { data: videoRecord, error: recordError } = (await (supabase
+      // Create video asset record. consent_given/consent_timestamp are recorded here,
+      // not defaulted, since the player just confirmed consent above.
+      const { data: videoRecord, error: recordError } = await supabase
         .from('video_assets')
         .insert([{
           user_id: user.user.id,
@@ -134,11 +154,13 @@ export function ClipUploader() {
           file_name: selectedFile.name,
           file_size_bytes: selectedFile.size,
           mime_type: mimeType,
-          capture_angle: captureAngle,
-          drill_type: drillType,
-        }] as any)
+          capture_angle: captureAngle as Database['public']['Tables']['video_assets']['Row']['capture_angle'],
+          drill_type: drillType as Database['public']['Tables']['video_assets']['Row']['drill_type'],
+          consent_given: true,
+          consent_timestamp: new Date().toISOString(),
+        }])
         .select()
-        .single())) as unknown as { data: any; error: any };
+        .single();
 
       if (recordError) throw recordError;
 
@@ -146,34 +168,17 @@ export function ClipUploader() {
       setVideos([videoRecord, ...videos]);
       setSelectedFile(null);
       setVideoTitle('');
+      setConsentGiven(false);
 
       // Trigger analysis job (would be async background task)
       triggerAnalysisJob(videoRecord.id, user.user.id, videoRecord.correlation_id);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Upload failed:', err);
-      setError(err.message || 'Upload failed');
+      setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
     }
-  }
-
-  async function triggerAnalysisJob(videoId: string, userId: string, correlationId: string) {
-    try {
-      const supabase = createClient();
-
-      // Create analysis job record; the idempotency key stops duplicate jobs per video
-      const { error: jobError } = await (supabase.from('video_analysis_jobs').insert([{
-        video_id: videoId,
-        user_id: userId,
-        job_status: 'pending',
-        idempotency_key: `analysis:${videoId}`,
-        correlation_id: correlationId,
-      }] as any) as any);
-      if (jobError) throw jobError;
-    } catch (err) {
-      console.error('Failed to trigger analysis:', err);
-    }
-  }
+  }, [selectedFile, videoTitle, consentGiven, captureAngle, drillType, videos, triggerAnalysisJob]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -188,7 +193,7 @@ export function ClipUploader() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): 'success' | 'default' | 'danger' => {
     switch (status) {
       case 'completed':
         return 'success';
@@ -312,11 +317,24 @@ export function ClipUploader() {
               </div>
             </div>
 
+            <label className="flex items-start gap-2 text-xs text-zinc-400">
+              <input
+                type="checkbox"
+                checked={consentGiven}
+                onChange={(e) => setConsentGiven(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                I consent to this video being uploaded to my private HoopIQ account and analysed to measure movement
+                and shooting data. This is not medical advice or a guarantee of performance.
+              </span>
+            </label>
+
             <Button
               variant="primary"
               className="w-full"
               onClick={handleUpload}
-              disabled={uploading || !selectedFile || !videoTitle.trim()}
+              disabled={uploading || !selectedFile || !videoTitle.trim() || !consentGiven}
               isLoading={uploading}
             >
               {uploading ? 'Uploading...' : 'Upload Video'}
@@ -356,7 +374,7 @@ export function ClipUploader() {
                         </div>
                       </div>
                       <div className="text-right space-y-2">
-                        <Badge variant={getStatusColor(video.analysis_status) as any} className="text-xs block">
+                        <Badge variant={getStatusColor(video.analysis_status)} className="text-xs block">
                           {video.analysis_status.replace('_', ' ')}
                         </Badge>
                       </div>
