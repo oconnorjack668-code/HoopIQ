@@ -16,7 +16,7 @@ export const metadata = {
 
 export default async function WorkoutsPage() {
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const [{ data: workouts }, { data: routines }] = (await Promise.all([
     supabase

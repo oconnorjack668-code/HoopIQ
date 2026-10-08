@@ -5,13 +5,18 @@
 // Every save carries a client-generated id. A retry first deletes that id (children cascade),
 // so a save that half-finished before the signal dropped is never duplicated.
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database, SessionType, DrillCategory, ShotZone, WorkoutType } from '@/lib/supabase/types';
+
+type Supabase = SupabaseClient<Database>;
+
 export type QueueKind = 'basketball' | 'workout' | 'game';
 
 export interface BasketballSavePayload {
   id: string;
   session: {
     session_date: string;
-    session_type: string;
+    session_type: SessionType;
     duration_minutes: number;
     intensity_rpe: number;
     perceived_quality: number;
@@ -19,9 +24,9 @@ export interface BasketballSavePayload {
   };
   drills: Array<{
     name: string;
-    category: string;
+    category: DrillCategory;
     minutes: number | null;
-    zones: Array<{ zone: string; makes: number; attempts: number }>;
+    zones: Array<{ zone: ShotZone; makes: number; attempts: number }>;
   }>;
 }
 
@@ -29,7 +34,7 @@ export interface WorkoutSavePayload {
   id: string;
   workout: {
     workout_date: string;
-    workout_type: string;
+    workout_type: WorkoutType;
     duration_minutes: number;
     rpe: number;
     notes: string | null;
@@ -121,7 +126,7 @@ export function markQueueError(id: string, message: string) {
 }
 
 /** The signed-in user's id, read from the local session when there is no connection. */
-export async function getUserIdForSave(supabase: any): Promise<string | null> {
+export async function getUserIdForSave(supabase: Supabase): Promise<string | null> {
   if (!isOffline()) {
     const { data, error } = await supabase.auth.getUser();
     if (data?.user?.id) return data.user.id;
@@ -137,7 +142,7 @@ function fail(message: string | undefined, fallback: string): SaveResult {
 }
 
 export async function saveBasketballSession(
-  supabase: any,
+  supabase: Supabase,
   userId: string,
   p: BasketballSavePayload,
   retry = false
@@ -176,7 +181,7 @@ export async function saveBasketballSession(
   return { id: p.id };
 }
 
-export async function saveWorkout(supabase: any, userId: string, p: WorkoutSavePayload, retry = false): Promise<SaveResult> {
+export async function saveWorkout(supabase: Supabase, userId: string, p: WorkoutSavePayload, retry = false): Promise<SaveResult> {
   if (retry) {
     const { error } = await supabase.from('workouts').delete().eq('id', p.id);
     if (error) return fail(error.message, 'Could not reach the server');
@@ -209,7 +214,7 @@ export async function saveWorkout(supabase: any, userId: string, p: WorkoutSaveP
   return { id: p.id };
 }
 
-export async function saveGame(supabase: any, userId: string, p: GameSavePayload, retry = false): Promise<SaveResult> {
+export async function saveGame(supabase: Supabase, userId: string, p: GameSavePayload, retry = false): Promise<SaveResult> {
   if (retry) {
     const { error } = await supabase.from('games').delete().eq('id', p.id);
     if (error) return fail(error.message, 'Could not reach the server');
@@ -219,7 +224,7 @@ export async function saveGame(supabase: any, userId: string, p: GameSavePayload
   return { id: p.id };
 }
 
-export async function runQueuedSave(supabase: any, item: QueuedSave): Promise<SaveResult> {
+export async function runQueuedSave(supabase: Supabase, item: QueuedSave): Promise<SaveResult> {
   if (item.kind === 'basketball') return saveBasketballSession(supabase, item.userId, item.payload, true);
   if (item.kind === 'workout') return saveWorkout(supabase, item.userId, item.payload, true);
   return saveGame(supabase, item.userId, item.payload, true);

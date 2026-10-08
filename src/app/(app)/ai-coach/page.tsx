@@ -23,7 +23,7 @@ export default async function AICoachPage() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [{ data: reports }, { data: sessions }, { count: monthReportCount }, subscription] = (await Promise.all([
+  const [{ data: reports }, { data: sessions }, { count: monthReportCount }, subscription] = await Promise.all([
     // Recent AI reports
     supabase
       .from('ai_reports')
@@ -49,7 +49,7 @@ export default async function AICoachPage() {
       .gte('created_at', monthStart.toISOString()),
     // Owner entitlement (role or OWNER_EMAIL) is resolved here
     getCurrentSubscription(),
-  ])) as unknown as [{ data: any[] }, { data: any[] }, { count: number | null }, Awaited<ReturnType<typeof getCurrentSubscription>>];
+  ]);
   const isUnlimited = subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner';
   const remainingCredits = subscription?.ai_credits_remaining ?? 0;
   const outOfCredits = !isUnlimited && remainingCredits < CREDITS_PER_REPORT;
@@ -162,7 +162,14 @@ export default async function AICoachPage() {
             </h2>
 
             {reports.map((report) => {
-              const output = report.output_content || {};
+              // output_content is a jsonb column (Json in the schema types); the real
+              // shape is always a CoachingOutput-like object written by ai/service.ts.
+              const output = (report.output_content || {}) as {
+                summary?: string;
+                keyInsights?: string[];
+                recommendations?: string[];
+                comparisonToPrevious?: string;
+              };
               const insights: string[] = output.keyInsights || [];
               const recommendations: string[] = output.recommendations || [];
               return (

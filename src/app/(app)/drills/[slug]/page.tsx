@@ -15,7 +15,7 @@ export const metadata = { title: 'Drill - HoopIQ' };
 export default async function DrillPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: drill } = (await supabase.from('drills').select('*').eq('slug', slug).maybeSingle()) as { data: Drill | null };
   if (!drill) notFound();
 

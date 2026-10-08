@@ -107,7 +107,7 @@ export function SettingsClient({
     const before = s;
     setS((cur) => ({ ...cur, ...patch }));
     setStatus(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

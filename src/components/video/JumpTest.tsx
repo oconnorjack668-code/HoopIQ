@@ -9,6 +9,7 @@ import { Alert } from '@/components/ui/Alert';
 import { getPoseLandmarker } from '@/lib/video/mediapipe';
 import { detectJump, flightSeconds, jumpHeightCm, plausibleFlight, type FootSample } from '@/lib/video/jump';
 import type { MeasurementSystem } from '@/lib/units';
+import { localDateString } from '@/lib/dates';
 import { ArrowUpFromLine, ChevronLeft, ChevronRight, FileVideo } from 'lucide-react';
 
 function seek(video: HTMLVideoElement, seconds: number): Promise<void> {
@@ -119,7 +120,7 @@ export function JumpTest({ units }: { units: MeasurementSystem }) {
     if (heightCm == null || flight == null) return;
     setSaving(true);
     setMessage(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -137,6 +138,7 @@ export function JumpTest({ units }: { units: MeasurementSystem }) {
     const isPR = best?.[0]?.value === undefined || value > Number(best[0].value);
     const { error } = await supabase.from('performance_tests').insert({
       user_id: user.id,
+      test_date: localDateString(),
       test_type: testType,
       value,
       unit,

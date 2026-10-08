@@ -3,7 +3,7 @@ import React from 'react';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { GOAL_LABELS, getActiveProgram, type Program } from '@/lib/programs';
+import { GOAL_LABELS, getActiveProgram } from '@/lib/programs';
 import { CalendarCheck, ChevronRight, Play } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -16,10 +16,10 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   const selectedGoal = goal && GOAL_LABELS[goal] ? goal : undefined;
   const supabase = await createClient();
 
-  let query = (supabase as any).from('training_programs').select('*').order('display_order');
+  let query = supabase.from('training_programs').select('*').order('display_order');
   if (selectedGoal) query = query.eq('goal', selectedGoal);
-  const [{ data }, active] = await Promise.all([query, getActiveProgram(supabase as any, user.id)]);
-  const programs = (data || []) as Program[];
+  const [{ data }, active] = await Promise.all([query, getActiveProgram(supabase, user.id)]);
+  const programs = data || [];
 
   return (
     <div className="flex-1 overflow-auto">

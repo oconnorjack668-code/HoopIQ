@@ -7,11 +7,12 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { findMatches, STYLE_TAGS, MIN_SHOTS_FOR_PROFILE, type NbaPlayer, type ShotProfile } from '@/lib/styleMatch';
+import type { Database } from '@/lib/supabase/types';
 import { formatHeight, type MeasurementSystem } from '@/lib/units';
 import { skillLabel } from '@/lib/drills';
 import { Sparkles, Lock, Target } from 'lucide-react';
 
-interface SavedMatch {
+export interface SavedMatch {
   slug: string;
   name: string;
   era: string;
@@ -36,7 +37,7 @@ interface Report {
   watch_for?: string;
 }
 
-interface SavedResult {
+export interface SavedResult {
   id: string;
   matches: SavedMatch[];
   report: Report | null;
@@ -89,7 +90,7 @@ export function StyleMatchClient({
     }
     setBusy(true);
     setError(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data: players, error: loadError } = await supabase.from('nba_players').select('*');
     if (loadError || !players?.length) {
       setError('Could not load NBA player profiles.');
@@ -97,7 +98,7 @@ export function StyleMatchClient({
       return;
     }
     const input = { heightCm: heightCm!, position, styleTags: tags, shotProfile };
-    const top = findMatches(input, players as NbaPlayer[], 3);
+    const top = findMatches(input, players as unknown as NbaPlayer[], 3);
     const matches: SavedMatch[] = top.map((m) => ({
       slug: m.player.slug,
       name: m.player.name,
@@ -116,10 +117,20 @@ export function StyleMatchClient({
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (!user) {
+      setError('Please log in again.');
+      setBusy(false);
+      return;
+    }
     const styleTagLabels = tags.map((t) => STYLE_TAGS.find((s) => s.id === t)?.label || t);
     const { data: saved, error: saveError } = await supabase
       .from('style_match_results')
-      .insert({ user_id: user.id, source: 'profile', input: { ...input, styleTagLabels }, matches })
+      .insert({
+        user_id: user.id,
+        source: 'profile',
+        input: { ...input, styleTagLabels } as unknown as Database['public']['Tables']['style_match_results']['Insert']['input'],
+        matches: matches as unknown as Database['public']['Tables']['style_match_results']['Insert']['matches'],
+      })
       .select('id, matches, report')
       .single();
     setBusy(false);
@@ -127,7 +138,7 @@ export function StyleMatchClient({
       setError(`Could not save your match: ${saveError?.message || 'unknown error'}`);
       return;
     }
-    setResult(saved as SavedResult);
+    setResult(saved as unknown as SavedResult);
     setEditing(false);
   }
 

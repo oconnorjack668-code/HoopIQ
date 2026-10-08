@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     return Response.json({ error: 'isPublic must be true or false.' }, { status: 400 });
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('profiles')
     .update({ is_public: body.isPublic, updated_at: new Date().toISOString() })

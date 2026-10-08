@@ -6,17 +6,18 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Trash2, Minus, Plus } from 'lucide-react';
+import type { GoalType } from '@/lib/supabase/types';
 
 export interface GoalRow {
   id: string;
-  goal_type: string;
+  goal_type: GoalType;
   title: string;
   target_value: number;
   period: string;
   progress: number;
 }
 
-const GOAL_TYPES = [
+const GOAL_TYPES: Array<{ id: GoalType; label: string; unit: string; defaultTarget: number; max: number }> = [
   { id: 'weekly_training_days', label: 'Training days per week', unit: 'days', defaultTarget: 4, max: 7 },
   { id: 'weekly_makes', label: 'Made shots per week', unit: 'makes', defaultTarget: 300, max: 10000 },
   { id: 'shooting_pct', label: 'Shooting % this week', unit: '%', defaultTarget: 45, max: 100 },
@@ -47,10 +48,15 @@ export function GoalsEditor({ goals }: { goals: GoalRow[] }) {
     }
     setBusy(true);
     setError(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (!user) {
+      setBusy(false);
+      setError('Please log in again.');
+      return;
+    }
     const { error: insertError } = await supabase.from('goals').insert({
       user_id: user.id,
       goal_type: type,
@@ -68,7 +74,7 @@ export function GoalsEditor({ goals }: { goals: GoalRow[] }) {
   }
 
   async function update(id: string, patch: Record<string, unknown>) {
-    const { error: updateError } = await (createClient() as any).from('goals').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+    const { error: updateError } = await createClient().from('goals').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
     if (updateError) setError(`Could not update the goal: ${updateError.message}`);
     router.refresh();
   }
@@ -116,7 +122,7 @@ export function GoalsEditor({ goals }: { goals: GoalRow[] }) {
         <select
           value={type}
           onChange={(e) => {
-            setType(e.target.value);
+            setType(e.target.value as GoalType);
             setTarget(String(GOAL_TYPES.find((g) => g.id === e.target.value)!.defaultTarget));
           }}
           aria-label="Goal type"

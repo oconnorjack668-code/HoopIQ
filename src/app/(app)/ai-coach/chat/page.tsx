@@ -13,7 +13,7 @@ export const metadata = { title: 'Ask Coach - HoopIQ' };
 
 export default async function CoachChatPage() {
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const [history, today, subscription] = await Promise.all([
     supabase.from('coach_messages').select('id, role, content, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(60),
     supabase

@@ -31,7 +31,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   await requireUser();
   const [supabase, me] = await Promise.all([createClient(), getCurrentProfile()]);
-  const { data } = await (supabase as any).rpc('player_card', { p_user: id });
+  const { data } = await supabase.rpc('player_card', { p_user: id });
   const card = data as Card | null;
   const units = asMeasurementSystem(me?.measurement_system);
 

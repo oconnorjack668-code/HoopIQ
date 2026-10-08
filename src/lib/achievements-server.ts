@@ -27,7 +27,7 @@ export interface ChallengeView {
 }
 
 export async function loadAchievements(userId: string) {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   // "Today" and "this week" (Monday to Sunday) on the players' calendar, not the server's (UTC)
   const { today, weekStart, weekStartIso } = await userCalendarNow();
 
@@ -62,7 +62,7 @@ export async function loadAchievements(userId: string) {
 
   const allDays = [...sessionDays, ...workoutDays];
   const { longest, current } = streaks(allDays, today);
-  const lessonRows = (lessons || []) as Array<{ completed_at: string; study_items: { topic_id: string } | null }>;
+  const lessonRows = (lessons || []) as unknown as Array<{ completed_at: string; study_items: { topic_id: string } | null }>;
 
   const stats: PlayerStats = {
     totalSessions: sessionDays.length,
@@ -89,27 +89,26 @@ export async function loadAchievements(userId: string) {
   const doneThisWeek = new Set(completionRows.filter((c) => c.period_start === weekStart).map((c) => c.challenge_id));
   const earnedBadgeIds = new Set(((rewardRows || []) as Array<{ badge_id: string }>).map((r) => r.badge_id));
 
-  const challengeViews: ChallengeView[] = ((challenges || []) as Array<{
+  const challengeRows = (challenges || []) as unknown as Array<{
     id: string;
     title: string;
     description: string;
     points: number;
     challenge_type: string;
     rules: ChallengeRules;
-  }>).map((c) => {
+  }>;
+  const challengeViews: ChallengeView[] = challengeRows.map((c) => {
     const p = challengeProgress(c.rules, stats);
     return { id: c.id, title: c.title, description: c.description, points: c.points, ...p, done: p.done || doneThisWeek.has(c.id) };
   });
 
   // Award anything new (needs the service role key; otherwise progress is still shown)
-  const newChallenges = (challenges || []).filter(
-    (c: { id: string; rules: ChallengeRules }) => !doneThisWeek.has(c.id) && challengeProgress(c.rules, stats).done
-  );
+  const newChallenges = challengeRows.filter((c) => !doneThisWeek.has(c.id) && challengeProgress(c.rules, stats).done);
   const newBadges = BADGES.filter((b) => !earnedBadgeIds.has(b.id) && b.earned(stats));
   let awardedPoints = 0;
   if ((newChallenges.length || newBadges.length) && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
-      const admin = createAdminClient() as any;
+      const admin = createAdminClient();
       if (newChallenges.length) {
         const { error } = await admin.from('challenge_completions').insert(
           newChallenges.map((c: { id: string; title: string; points: number; challenge_type: string }) => ({

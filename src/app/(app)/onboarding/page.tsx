@@ -1,5 +1,4 @@
 // src/app/(app)/onboarding/page.tsx
-// @ts-nocheck
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -11,7 +10,6 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
-import { Badge } from '@/components/ui/Badge';
 import {
   User,
   Activity,
@@ -92,25 +90,7 @@ export default function OnboardingPage() {
         return;
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single() as unknown as {
-          data: {
-            display_name: string | null;
-            age_bracket: string | null;
-            height_cm: number | null;
-            measurement_system: string | null;
-            position: string | null;
-            dominant_hand: string | null;
-            playing_level: string | null;
-            goals: string[] | null;
-            strengths: string[] | null;
-            focus_areas: string[] | null;
-            onboarding_completed: boolean;
-          } | null;
-        };
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 
       if (profile) {
         if (profile.onboarding_completed && !editing) {
@@ -163,7 +143,6 @@ export default function OnboardingPage() {
     }
   }
 
-  // @ts-ignore
   async function handleFinish() {
     setError(null);
 
@@ -196,7 +175,6 @@ export default function OnboardingPage() {
 
       // Upsert so a player whose profile row was never created (signed up before
       // the signup trigger existed) still gets one
-      // @ts-ignore - Supabase client doesn't infer table schema on client side
       const updateResponse = await supabase
         .from('profiles')
         .upsert({
@@ -224,7 +202,7 @@ export default function OnboardingPage() {
       }
 
       // Create a default weekly training goal of 4 days, unless the player already has one
-      const { data: existingGoals } = await (supabase as any)
+      const { data: existingGoals } = await supabase
         .from('goals')
         .select('id')
         .eq('user_id', user.id)
@@ -233,7 +211,6 @@ export default function OnboardingPage() {
         .limit(1);
 
       if (!existingGoals || existingGoals.length === 0) {
-        // @ts-ignore - Supabase client doesn't infer table schema on client side
         const goalsResponse = await supabase
           .from('goals')
           .insert({

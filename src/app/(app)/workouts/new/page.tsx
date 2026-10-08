@@ -5,6 +5,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/types';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { ExercisePicker } from '@/components/workouts/ExercisePicker';
@@ -105,12 +107,12 @@ export default function NewWorkoutPage() {
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [recentNames, setRecentNames] = useState<string[]>([]);
 
-  const [draft, setDraft] = useState<Draft>({
+  const [draft, setDraft] = useState<Draft>(() => ({
     startedAt: Date.now(),
     workoutDate: todayString(),
     workoutType: 'strength',
     exercises: [],
-  });
+  }));
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [finishOpen, setFinishOpen] = useState(false);
@@ -129,10 +131,10 @@ export default function NewWorkoutPage() {
   // Rest timer
   const [restSeconds, setRestSeconds] = useState(90);
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
-  const supabaseRef = useRef<any>(null);
-  const getSupabase = () => (supabaseRef.current ??= createClient() as any);
+  const supabaseRef = useRef<SupabaseClient<Database> | null>(null);
+  const getSupabase = () => (supabaseRef.current ??= createClient());
 
   // ---------------------------------------------------------------------------
   // Loading
@@ -205,8 +207,8 @@ export default function NewWorkoutPage() {
       ]);
 
       // Keep a copy on the phone so the logger still works with no signal
-      let [{ data: profile }, { data: lib }, { data: favs }, { data: recent }] = results as any[];
-      if (results.some((r: any) => r.error && isNetworkError(r.error.message))) {
+      let [{ data: profile }, { data: lib }, { data: favs }, { data: recent }] = results;
+      if (results.some((r) => r.error && isNetworkError(r.error.message))) {
         try {
           const cached = JSON.parse(localStorage.getItem(LIBRARY_CACHE_KEY) || 'null');
           if (cached?.userId === user.id) ({ profile, lib, favs, recent } = cached);
@@ -398,6 +400,7 @@ export default function NewWorkoutPage() {
   }
 
   async function toggleFavorite(exercise: LibraryExercise) {
+    if (!userId) return;
     const supabase = getSupabase();
     const isFav = favoriteIds.has(exercise.id);
     const next = new Set(favoriteIds);
@@ -481,7 +484,9 @@ export default function NewWorkoutPage() {
       id: newId(),
       workout: {
         workout_date: draft.workoutDate,
-        workout_type: draft.workoutType,
+        // draft.workoutType only ever comes from the fixed WORKOUT_TYPES dropdown,
+        // whose values are the DB's enum values.
+        workout_type: draft.workoutType as WorkoutSavePayload['workout']['workout_type'],
         duration_minutes: Number(durationMinutes),
         rpe: Number(rpe),
         notes: notes || null,

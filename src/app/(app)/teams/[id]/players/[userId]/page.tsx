@@ -31,10 +31,9 @@ export default async function CoachPlayerPage({ params }: { params: Promise<{ id
   const { id, userId } = await params;
   await requireUser();
   const [supabase, me] = await Promise.all([createClient(), getCurrentProfile()]);
-  const db = supabase as any;
   const [{ data }, { data: team }] = await Promise.all([
-    db.rpc('coach_player_detail', { p_team: id, p_user: userId }),
-    db.from('teams').select('name').eq('id', id).maybeSingle(),
+    supabase.rpc('coach_player_detail', { p_team: id, p_user: userId }),
+    supabase.from('teams').select('name').eq('id', id).maybeSingle(),
   ]);
   const d = data as Detail | null;
   const units = asMeasurementSystem(me?.measurement_system);

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { FILM_TAGS, STYLE_TAGS, findMatches, styleFromFilm, MIN_FILM_SHOTS, type NbaPlayer } from '@/lib/styleMatch';
+import type { Database } from '@/lib/supabase/types';
 import { FileVideo, Undo2, Users } from 'lucide-react';
 
 interface FilmEvent {
@@ -52,7 +53,7 @@ export function FilmTagger({ heightCm, position }: { heightCm: number | null; po
     }
     setBusy(true);
     setError(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const [{ data: players }, { data: auth }] = await Promise.all([supabase.from('nba_players').select('*'), supabase.auth.getUser()]);
     if (!players?.length || !auth?.user) {
       setError('Could not load NBA player profiles.');
@@ -60,7 +61,7 @@ export function FilmTagger({ heightCm, position }: { heightCm: number | null; po
       return;
     }
     const input = { heightCm, position, styleTags: film.styleTags, shotProfile: film.shotProfile };
-    const top = findMatches(input, players as NbaPlayer[], 3);
+    const top = findMatches(input, players as unknown as NbaPlayer[], 3);
     const matches = top.map((m) => ({
       slug: m.player.slug,
       name: m.player.name,
@@ -82,8 +83,8 @@ export function FilmTagger({ heightCm, position }: { heightCm: number | null; po
       supabase.from('style_match_results').insert({
         user_id: auth.user.id,
         source: 'video',
-        input: { ...input, styleTagLabels, film: { format, events: summary } },
-        matches,
+        input: { ...input, styleTagLabels, film: { format, events: summary } } as unknown as Database['public']['Tables']['style_match_results']['Insert']['input'],
+        matches: matches as unknown as Database['public']['Tables']['style_match_results']['Insert']['matches'],
       }),
       supabase.from('video_analyses').insert({ user_id: auth.user.id, kind: 'game_film', summary: { format, events: summary } }),
     ]);

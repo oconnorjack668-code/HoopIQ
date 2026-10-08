@@ -13,7 +13,7 @@ export const metadata = { title: 'Team - HoopIQ' };
 export default async function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: team } = await supabase.from('teams').select('id, name, join_code, club_name, country, region, age_group, level, season').eq('id', id).maybeSingle();
   if (!team) notFound(); // not a member (RLS) or no such team
 

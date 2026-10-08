@@ -20,7 +20,7 @@ const GUIDE_CATEGORIES: Record<string, string> = {
 
 export default async function GuidesPage() {
   await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = (await supabase
     .from('guides')
     .select('slug, category, title, summary, reading_minutes')

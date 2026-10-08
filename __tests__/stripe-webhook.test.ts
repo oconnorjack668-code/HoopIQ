@@ -5,27 +5,27 @@ const calls: Array<{ update: Record<string, unknown>; filters: string[] }> = [];
 let updateError: { message: string } | null = null;
 
 // Chainable stand-in for admin.from('subscriptions').update(...).neq(...).or(...).eq(...)
-function builder(update: Record<string, unknown>) {
+interface Chain {
+  neq: (c: string, v: string) => Chain;
+  or: (f: string) => Chain;
+  eq: (c: string, v: string) => Chain;
+  then: (resolve: (r: { error: { message: string } | null }) => void) => void;
+}
+
+function builder(update: Record<string, unknown>): Chain {
   const entry = { update, filters: [] as string[] };
   calls.push(entry);
-  const chain: any = {
+  const chain: Chain = {
     neq: (c: string, v: string) => (entry.filters.push(`${c}!=${v}`), chain),
     or: (f: string) => (entry.filters.push(`or(${f})`), chain),
     eq: (c: string, v: string) => (entry.filters.push(`${c}=${v}`), chain),
-    then: (resolve: (r: unknown) => void) => resolve({ error: updateError }),
+    then: (resolve) => resolve({ error: updateError }),
   };
   return chain;
 }
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({ from: () => ({ update: builder }) }),
-}));
-
-const retrieve = vi.fn();
-let event: any;
-vi.mock('@/lib/stripe', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/stripe')>()),
-  getStripe: () => ({ webhooks: { constructEvent: () => event }, subscriptions: { retrieve } }),
 }));
 
 const sub = (id: string, status: string) => ({
@@ -35,6 +35,13 @@ const sub = (id: string, status: string) => ({
   metadata: { user_id: 'user-1' },
   items: { data: [{ current_period_start: 1, current_period_end: 2 }] },
 });
+
+const retrieve = vi.fn();
+let event: { type: string; data: { object: ReturnType<typeof sub> } };
+vi.mock('@/lib/stripe', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/stripe')>()),
+  getStripe: () => ({ webhooks: { constructEvent: () => event }, subscriptions: { retrieve } }),
+}));
 
 async function post() {
   const { POST } = await import('@/app/api/webhooks/stripe/route');

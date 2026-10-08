@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   if (!price) return Response.json({ error: `The ${interval}ly plan is not available.` }, { status: 400 });
 
   const stripe = getStripe();
-  const admin = createAdminClient() as any;
+  const admin = createAdminClient();
   const { data: sub } = await admin.from('subscriptions').select('stripe_customer_id, plan_type').eq('user_id', user.id).maybeSingle();
   if (sub?.plan_type === 'pro' || sub?.plan_type === 'owner') {
     return Response.json({ error: 'You already have Pro.' }, { status: 409 });

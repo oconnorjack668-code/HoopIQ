@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const toIso = (seconds: number | null | undefined) => (seconds ? new Date(seconds * 1000).toISOString() : null);
 
 async function syncSubscription(subscription: Stripe.Subscription) {
-  const admin = createAdminClient() as any;
+  const admin = createAdminClient();
   const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
   const userId = subscription.metadata?.user_id;
   const item = subscription.items?.data?.[0];

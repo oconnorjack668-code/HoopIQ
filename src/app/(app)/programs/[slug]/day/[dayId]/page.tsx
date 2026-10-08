@@ -26,7 +26,7 @@ const TEST_LABELS: Record<string, string> = {
 export default async function ProgramDayPage({ params }: { params: Promise<{ slug: string; dayId: string }> }) {
   const { slug, dayId } = await params;
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const { data: day } = (await supabase
     .from('program_days')

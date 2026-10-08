@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
   const { kind } = await params;
   const url = new URL(request.url);
   const id = url.searchParams.get('id') || '';
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const [{ data: profile }, icon] = await Promise.all([
     supabase.from('profiles').select('display_name, measurement_system').eq('id', user.id).maybeSingle(),
     iconData(url.origin),
@@ -49,8 +49,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
       .eq('user_id', user.id)
       .maybeSingle();
     if (!session) return new Response('Not found', { status: 404 });
+    // session_drills(shooting_entries(...)) is a two-level embed, which this
+    // hand-written schema doesn't model relationship metadata for.
+    const typedSession = session as unknown as {
+      session_date: string;
+      session_type: string;
+      duration_minutes: number;
+      session_drills: Array<{ shooting_entries: Array<{ shot_zone: string; makes: number; attempts: number }> }>;
+    };
     const zones = new Map<string, { makes: number; attempts: number }>();
-    for (const d of session.session_drills || []) {
+    for (const d of typedSession.session_drills || []) {
       for (const e of d.shooting_entries || []) {
         const z = zones.get(e.shot_zone) || { makes: 0, attempts: 0 };
         z.makes += e.makes;
@@ -60,10 +68,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
     }
     body = (
       <SessionCard
-        date={session.session_date}
-        type={session.session_type}
-        minutes={session.duration_minutes}
-        drills={(session.session_drills || []).length}
+        date={typedSession.session_date}
+        type={typedSession.session_type}
+        minutes={typedSession.duration_minutes}
+        drills={(typedSession.session_drills || []).length}
         zones={[...zones.entries()].map(([zone, z]) => ({ label: ZONE_LABELS[zone as keyof typeof ZONE_LABELS] || titleCase(zone), ...z }))}
       />
     );
@@ -76,7 +84,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
       .maybeSingle();
     if (!workout) return new Response('Not found', { status: 404 });
     const units = asMeasurementSystem(profile?.measurement_system);
-    const sets = (workout.workout_sets || []) as Array<{ exercise_name: string; reps: number; weight_kg: number | null; is_personal_record: boolean }>;
+    const sets = (workout.workout_sets || []) as unknown as Array<{ exercise_name: string; reps: number; weight_kg: number | null; is_personal_record: boolean }>;
     const best = new Map<string, { weight: number | null; reps: number; pr: boolean }>();
     for (const s of sets) {
       const cur = best.get(s.exercise_name);

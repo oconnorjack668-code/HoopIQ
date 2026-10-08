@@ -1,6 +1,8 @@
 // src/lib/exercises.ts
 // Muscle groups (exercise_library.primary_muscle) and set helpers for the gym logger.
 
+import type { ExerciseCategory } from '@/lib/supabase/types';
+
 export const MUSCLE_GROUPS = [
   { id: 'chest', label: 'Chest', category: 'upper_body_push' },
   { id: 'back', label: 'Back', category: 'upper_body_pull' },
@@ -26,7 +28,7 @@ export function muscleLabel(id: string | null | undefined): string {
   return MUSCLE_GROUPS.find((m) => m.id === id)?.label || 'Other';
 }
 
-export function categoryForMuscle(id: string): string {
+export function categoryForMuscle(id: string): ExerciseCategory {
   return MUSCLE_GROUPS.find((m) => m.id === id)?.category || 'conditioning';
 }
 

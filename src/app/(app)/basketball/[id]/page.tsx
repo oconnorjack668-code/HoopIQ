@@ -22,7 +22,7 @@ function pct(makes: number, attempts: number): string {
 export default async function BasketballSessionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const [{ data: session }, { data: drills }] = (await Promise.all([
     supabase.from('training_sessions').select('*').eq('id', id).eq('user_id', user.id).maybeSingle(),

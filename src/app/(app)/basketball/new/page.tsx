@@ -1,7 +1,7 @@
 // src/app/(app)/basketball/new/page.tsx
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -109,7 +109,7 @@ export default function NewBasketballSessionPage() {
   const [challengeEndsAt, setChallengeEndsAt] = useState<number | null>(null);
   const [challengeStartShots, setChallengeStartShots] = useState(0);
   const [challengeResult, setChallengeResult] = useState<string | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   // Finish
   const [finishOpen, setFinishOpen] = useState(false);
@@ -150,7 +150,7 @@ export default function NewBasketballSessionPage() {
         .filter(Boolean)
         .slice(0, 20);
       if (slugs.length) {
-        const { data: libraryDrills } = await (createClient() as any)
+        const { data: libraryDrills } = await createClient()
           .from('drills')
           .select('slug, name, skill, duration_minutes, tracks_makes')
           .in('slug', slugs);
@@ -210,8 +210,12 @@ export default function NewBasketballSessionPage() {
 
   const active = draft.drills.find((d) => d.key === draft.activeKey) || draft.drills[0];
   const allShots = useMemo(() => draft.drills.flatMap((d) => d.shots), [draft.drills]);
-  shotsRef.current = allShots.length;
-  shotListRef.current = allShots;
+  // Refs are read inside the challenge-countdown interval (an event-driven callback,
+  // not render), so they're synced here, after render, rather than written during it.
+  useEffect(() => {
+    shotsRef.current = allShots.length;
+    shotListRef.current = allShots;
+  }, [allShots]);
 
   // Challenge countdown
   useEffect(() => {
@@ -299,12 +303,12 @@ export default function NewBasketballSessionPage() {
     setOtherName('');
   }
 
-  function startChallenge(minutes: number) {
+  const startChallenge = useCallback((minutes: number) => {
     setChallengeResult(null);
     setChallengeStartShots(shotsRef.current);
     setChallengeEndsAt(Date.now() + minutes * 60_000);
     setNow(Date.now());
-  }
+  }, []);
 
   function discard() {
     if (!window.confirm('Discard this session? Tracked shots will be lost.')) return;
@@ -344,7 +348,7 @@ export default function NewBasketballSessionPage() {
 
     setSaving(true);
     setError(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const userId = await getUserIdForSave(supabase);
     if (!userId) {
       if (isOffline()) {
@@ -360,7 +364,10 @@ export default function NewBasketballSessionPage() {
       id: newId(),
       session: {
         session_date: draft.sessionDate,
-        session_type: draft.sessionType,
+        // draft.sessionType/drill.category come from the fixed SESSION_TYPES
+        // dropdown and sessionCategoryForSkill()/newDrill(), both of which only
+        // ever produce the DB's enum values - this isn't a free-text field.
+        session_type: draft.sessionType as BasketballSavePayload['session']['session_type'],
         duration_minutes: Number(durationMinutes),
         intensity_rpe: Number(intensityRpe),
         perceived_quality: Number(quality),
@@ -379,7 +386,7 @@ export default function NewBasketballSessionPage() {
           }
           return {
             name: drill.name,
-            category: drill.category,
+            category: drill.category as BasketballSavePayload['drills'][number]['category'],
             minutes: drill.minutes === '' ? null : Number(drill.minutes),
             zones: [...byZone.entries()].map(([zone, t]) => ({ zone, ...t })),
           };

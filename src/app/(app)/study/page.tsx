@@ -11,7 +11,7 @@ export const metadata = { title: 'Basketball IQ - HoopIQ' };
 
 export default async function StudyPage() {
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const [{ data: topics }, { data: completed }] = (await Promise.all([
     supabase

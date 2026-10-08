@@ -32,7 +32,7 @@ export function RemindersCard() {
 
   useEffect(() => {
     (async () => {
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -63,10 +63,11 @@ export function RemindersCard() {
   }, [supported]);
 
   async function savePrefs(next: { enabled?: boolean; days?: number[]; time?: string }) {
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (!user) return;
     const { error } = await supabase
       .from('notification_preferences')
       .update({
@@ -82,10 +83,11 @@ export function RemindersCard() {
 
   async function saveWeekly(next: boolean) {
     setWeekly(next);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (!user) return;
     const { error } = await supabase.from('notification_preferences').update({ weekly_report: next }).eq('user_id', user.id);
     if (error) setMessage(`Could not save: ${error.message}`);
   }

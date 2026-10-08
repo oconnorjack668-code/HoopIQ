@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the example holds only placeholder names, and is the documented setup
+# contract - without it a fresh clone has no record of what needs configuring.
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code session artifacts and scratch worktrees
+.claude/

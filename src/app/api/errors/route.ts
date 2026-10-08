@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   if (!message || !source) return Response.json({ error: 'Invalid report' }, { status: 400 });
 
   const user = await getCurrentUser().catch(() => null);
-  const admin = createAdminClient() as any;
+  const admin = createAdminClient();
 
   // Same error from the same player in the last 10 minutes: already recorded
   const since = new Date(Date.now() - 10 * 60_000).toISOString();

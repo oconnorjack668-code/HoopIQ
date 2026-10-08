@@ -39,7 +39,7 @@ function GuideBody({ text }: { text: string }) {
 export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: guide } = (await supabase.from('guides').select('*').eq('slug', slug).maybeSingle()) as {
     data: { title: string; summary: string; reading_minutes: number; sections: Array<{ heading: string; body: string }> } | null;
   };

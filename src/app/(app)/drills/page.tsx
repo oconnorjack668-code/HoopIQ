@@ -42,7 +42,7 @@ export default async function DrillsPage({ searchParams }: { searchParams: Promi
     players: (DRILL_PLAYERS as readonly string[]).includes(raw.players || '') ? raw.players : undefined,
   };
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   let query = supabase
     .from('drills')
     .select('id, slug, name, skill, sub_skill, level, players, duration_minutes, reps')

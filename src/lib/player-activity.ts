@@ -48,7 +48,7 @@ export function totalsByZone(rows: Array<{ shot_zone: string; makes: number; att
 
 /** Every date the player logged a basketball session / a gym workout ("YYYY-MM-DD", repeats kept). */
 export const getTrainingDates = cache(async (userId: string): Promise<{ sessions: string[]; workouts: string[] }> => {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const [sessions, workouts] = await Promise.all([
     fetchAllRows<{ session_date: string }>((from, to) =>
       supabase
@@ -77,7 +77,7 @@ export const getTrainingDates = cache(async (userId: string): Promise<{ sessions
  * (migration 00023, one small row per zone); until that migration runs it adds up the rows here.
  */
 export const getShotTotals = cache(async (userId: string): Promise<ZoneTotal[]> => {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data, error } = await supabase.rpc('my_shot_totals');
   if (!error && Array.isArray(data)) {
     return totalsByZone(data as Array<{ shot_zone: string; makes: number; attempts: number }>);
@@ -90,7 +90,7 @@ export const getShotTotals = cache(async (userId: string): Promise<ZoneTotal[]> 
 
 /** Shooting rows logged since an instant (e.g. the start of this week). */
 export const getShotsSince = cache(async (userId: string, sinceIso: string): Promise<Array<{ makes: number; attempts: number }>> => {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   return fetchAllRows<{ makes: number; attempts: number }>((from, to) =>
     supabase
       .from('shooting_entries')
@@ -104,7 +104,7 @@ export const getShotsSince = cache(async (userId: string, sinceIso: string): Pro
 
 /** Personal records across gym sets and athletic tests. */
 export const getPersonalRecordCount = cache(async (userId: string): Promise<number> => {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const [{ count: sets }, { count: tests }] = await Promise.all([
     supabase.from('workout_sets').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('is_personal_record', true),
     supabase.from('performance_tests').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('is_personal_record', true),

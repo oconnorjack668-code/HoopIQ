@@ -16,6 +16,11 @@ import { Camera, FileVideo, Crosshair, Square, Trash2, Plus, Activity } from 'lu
 type Step = 'source' | 'calibrate' | 'tracking' | 'review';
 type Source = 'camera' | 'file';
 
+// Rim width as a fraction of the frame width. Fixed rather than player-adjustable:
+// the "frame the whole hoop" guide at calibration time does the sizing work instead
+// of a manual ring the player has to drag, matching a single-tap calibration flow.
+const RIM_WIDTH_FRACTION = 0.08;
+
 export interface TrackedShot extends DetectedShot {
   id: number;
 }
@@ -43,7 +48,6 @@ export function ShotTracker({
   const [step, setStep] = useState<Step>('source');
   const [source, setSource] = useState<Source>('file');
   const [rim, setRim] = useState<Rim | null>(null);
-  const [rimWidth, setRimWidth] = useState(0.07);
   const [shots, setShots] = useState<TrackedShot[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,12 +57,22 @@ export function ShotTracker({
   const [saving, setSaving] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
 
-  // Release the camera and screen lock when leaving the page
+  // Live HUD state. The player is usually several metres away with the phone on a
+  // tripod, so the overlay has to answer "is this working?" and "did that count?"
+  // at a glance, without them walking over to look.
+  const [ballVisible, setBallVisible] = useState(false);
+  const [flash, setFlash] = useState<{ made: boolean; confident: boolean } | null>(null);
+  const ballVisibleRef = useRef(false);
+  const lastElapsedPushRef = useRef(0);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Release the camera, screen lock and any pending flash timer when leaving
   useEffect(
     () => () => {
       stopRef.current = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       lockRef.current?.release().catch(() => undefined);
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     },
     []
   );
@@ -79,9 +93,26 @@ export function ShotTracker({
 
   async function openCamera() {
     setError(null);
+
+    // iOS Safari (and most browsers) only expose the camera on a secure origin.
+    // Without this check, navigator.mediaDevices is simply undefined on iPhone
+    // when the app is opened over plain http://, and the generic catch below
+    // used to show a misleading "allow camera access" message for that case.
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      setError('Your camera needs a secure connection. Open HoopIQ at its https:// address to use the camera.');
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('This browser does not support camera access here. Try the latest Safari or Chrome, or use "Video from your phone" instead.');
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        // `ideal` (not a hard constraint) so devices/browsers that can't satisfy an
+        // exact match for the rear camera still return a usable stream instead of
+        // throwing OverconstrainedError.
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
       streamRef.current = stream;
@@ -93,8 +124,17 @@ export function ShotTracker({
           videoRef.current.play().catch(() => undefined);
         }
       });
-    } catch {
-      setError('Could not open the camera. Allow camera access for HoopIQ in your browser settings.');
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : null;
+      if (name === 'NotAllowedError') {
+        setError('Camera access was blocked. Allow the camera for HoopIQ in your browser or phone Settings, then try again.');
+      } else if (name === 'NotFoundError') {
+        setError('No camera was found on this device.');
+      } else if (name === 'NotReadableError') {
+        setError('The camera is already in use by another app. Close other camera apps and try again.');
+      } else {
+        setError('Could not open the camera. Try "Video from your phone" instead, or reload and try again.');
+      }
     }
   }
 
@@ -111,13 +151,27 @@ export function ShotTracker({
     });
   }
 
+  // One tap calibrates the rim and starts tracking immediately - no ring, no size
+  // slider, no separate "start" step. The "frame the whole hoop" guide shown before
+  // the tap does the job a manual ring used to do.
+  const [calibrating, setCalibrating] = useState(false);
+
   function tapRim(e: React.MouseEvent<HTMLCanvasElement>) {
-    if (step !== 'calibrate') return;
+    if (step !== 'calibrate' || calibrating) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    setRim({ x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height, width: rimWidth });
+    const tapped: Rim = {
+      x: (e.clientX - rect.left) / rect.width,
+      y: (e.clientY - rect.top) / rect.height,
+      width: RIM_WIDTH_FRACTION,
+    };
+    setRim(tapped);
+    // Pass the tapped rim directly instead of relying on the `rim` state, which
+    // would still read null on this render (state updates are not synchronous).
+    setCalibrating(true);
+    startTracking(tapped).finally(() => setCalibrating(false));
   }
 
-  // Draw the rim marker (and, while tracking, the ball)
+  // Draws a small, fixed marker at the rim (while tracking) and the detected ball
   function draw(ball?: { x: number; y: number; w: number; h: number } | null) {
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -127,11 +181,10 @@ export function ShotTracker({
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (rim) {
-      ctx.strokeStyle = '#f97316';
-      ctx.lineWidth = 3;
+      ctx.fillStyle = '#f97316';
       ctx.beginPath();
-      ctx.ellipse(rim.x * canvas.width, rim.y * canvas.height, (rimWidth / 2) * canvas.width, (rimWidth / 6) * canvas.width, 0, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(rim.x * canvas.width, rim.y * canvas.height, 5, 0, Math.PI * 2);
+      ctx.fill();
     }
     if (ball) {
       ctx.strokeStyle = '#22c55e';
@@ -140,14 +193,9 @@ export function ShotTracker({
     }
   }
 
-  useEffect(() => {
-    if (step === 'calibrate') draw(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rim, rimWidth, step]);
-
-  async function startTracking() {
+  async function startTracking(calibratedRim: Rim) {
     const video = videoRef.current;
-    if (!video || !rim) return;
+    if (!video) return;
     setError(null);
     setStatus('Loading the ball tracker (first time takes a few seconds)…');
     let detector;
@@ -161,12 +209,16 @@ export function ShotTracker({
     setStatus(null);
     setShots([]);
     setStep('tracking');
+    setFlash(null);
+    setBallVisible(false);
+    ballVisibleRef.current = false;
+    lastElapsedPushRef.current = 0;
     stopRef.current = false;
 
     const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
     nav.wakeLock?.request('screen').then((l) => (lockRef.current = l)).catch(() => undefined);
 
-    const shotDetector = new ShotDetector({ ...rim, width: rimWidth });
+    const shotDetector = new ShotDetector(calibratedRim);
     const startedAt = performance.now();
     let lastTs = -1;
     let nextId = 1;
@@ -205,9 +257,25 @@ export function ShotTracker({
         if (shot) {
           setShots((cur) => [...cur, { ...shot, id: nextId++ }]);
           navigator.vibrate?.(shot.made ? 40 : [20, 50, 20]);
+          // Big transient MAKE/MISS badge: a tripod phone's buzz is useless from
+          // the arc, so the confirmation has to be visual.
+          setFlash({ made: shot.made, confident: shot.confident });
+          if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+          flashTimerRef.current = setTimeout(() => setFlash(null), 1400);
         }
         draw(ball);
-        setElapsedMs(t);
+
+        // Only re-render on the edge, not every frame - this runs at up to 60fps
+        // on a phone that is also doing ball detection on each frame.
+        const seen = ball !== null;
+        if (seen !== ballVisibleRef.current) {
+          ballVisibleRef.current = seen;
+          setBallVisible(seen);
+        }
+        if (t - lastElapsedPushRef.current > 250) {
+          lastElapsedPushRef.current = t;
+          setElapsedMs(t);
+        }
         if (source === 'file' && video.duration) setProgress(video.currentTime / video.duration);
       }
       const v = video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number };
@@ -240,7 +308,7 @@ export function ShotTracker({
     }
     setSaving(true);
     setError(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -331,13 +399,66 @@ export function ShotTracker({
         <div className="relative w-full overflow-hidden rounded-2xl bg-black">
           <video ref={videoRef} playsInline muted className="w-full h-auto" />
           <canvas ref={canvasRef} onClick={tapRim} className="absolute inset-0 h-full w-full touch-manipulation" />
-          {step === 'tracking' && (
-            <div className="absolute left-2 top-2 rounded-xl bg-black/70 px-3 py-2 text-white">
-              <div className="text-2xl font-black">
-                {makes}/{shots.length}
-              </div>
-              <div className="text-xs text-zinc-300">{shots.length ? Math.round((makes / shots.length) * 100) : 0}%</div>
+          {step === 'calibrate' && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
+              <div className="aspect-square w-2/3 max-w-xs rounded-2xl border-2 border-dashed border-orange-400/70" />
             </div>
+          )}
+          {step === 'tracking' && (
+            <>
+              {/* Scrim so the readout stays legible against a bright gym or sky */}
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/80 to-transparent" />
+
+              {/* Primary readout: sized to be read from the three-point line */}
+              <div className="pointer-events-none absolute left-3 top-2 text-white" aria-live="polite" aria-atomic="true">
+                <div className="flex items-end gap-2">
+                  <span className="text-5xl sm:text-6xl font-black leading-none tabular-nums drop-shadow-lg">
+                    {makes}
+                    <span className="text-3xl sm:text-4xl text-zinc-300">/{shots.length}</span>
+                  </span>
+                  <span className="mb-1 text-2xl sm:text-3xl font-black leading-none text-orange-400 tabular-nums drop-shadow-lg">
+                    {shots.length ? Math.round((makes / shots.length) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="mt-1 text-sm font-semibold tabular-nums text-zinc-300 drop-shadow">{clock(elapsedMs)}</div>
+              </div>
+
+              {/* Is it actually tracking? Answered without walking back to the phone. */}
+              <div
+                className={`pointer-events-none absolute right-3 top-3 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold backdrop-blur-sm ${
+                  ballVisible ? 'bg-emerald-500/90 text-white' : 'bg-amber-500/90 text-black'
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full bg-current ${ballVisible ? '' : 'animate-pulse'}`} />
+                {ballVisible ? 'Ball tracked' : 'Looking for ball'}
+              </div>
+
+              {/* Last 8 results, newest on the right */}
+              {shots.length > 0 && (
+                <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-1.5">
+                  {shots.slice(-8).map((s) => (
+                    <span
+                      key={s.id}
+                      className={`h-2.5 w-2.5 rounded-full ring-1 ring-black/40 ${s.made ? 'bg-emerald-400' : 'bg-red-400'}`}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Unmistakable confirmation that a shot just registered */}
+              {flash && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div
+                    className={`rounded-2xl px-6 py-3 text-4xl font-black uppercase tracking-wide shadow-2xl ${
+                      flash.made ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'
+                    }`}
+                  >
+                    {flash.made ? 'Make' : 'Miss'}
+                    {!flash.confident && <span className="ml-2 align-middle text-base font-bold opacity-90">check</span>}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -345,13 +466,10 @@ export function ShotTracker({
       {step === 'calibrate' && (
         <div className="space-y-3">
           <p className="text-sm text-zinc-300 flex items-center gap-2">
-            <Crosshair className="h-4 w-4 text-orange-400" /> Tap the centre of the rim, then size the orange ring to match it.
+            <Crosshair className="h-4 w-4 text-orange-400" />
+            {calibrating ? 'Starting…' : 'Line the hoop up in the dashed box, then tap the rim to start tracking.'}
           </p>
-          <label className="block text-xs text-zinc-400">
-            Rim size
-            <input type="range" min={0.02} max={0.25} step={0.005} value={rimWidth} onChange={(e) => setRimWidth(Number(e.target.value))} className="w-full accent-orange-500" />
-          </label>
-          {source === 'file' && (
+          {source === 'file' && !calibrating && (
             <label className="text-xs text-zinc-400 flex items-center gap-2">
               Analysis speed
               <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="rounded-lg bg-zinc-900 border border-zinc-800 px-2 py-1 text-white">
@@ -360,9 +478,6 @@ export function ShotTracker({
               </select>
             </label>
           )}
-          <Button variant="primary" size="lg" className="w-full" disabled={!rim} onClick={startTracking}>
-            Start tracking
-          </Button>
         </div>
       )}
 
@@ -374,7 +489,10 @@ export function ShotTracker({
             </div>
           )}
           <p className="text-xs text-zinc-500 flex items-center gap-1.5">
-            <Activity className="h-3.5 w-3.5" /> {clock(elapsedMs)} · green box = ball found
+            <Activity className="h-3.5 w-3.5" />
+            {shots.length === 0 && !ballVisible
+              ? 'No ball detected yet. Keep the ball and the hoop in frame, in good light.'
+              : 'Counting shots. Every one can be corrected before you save.'}
           </p>
           <Button variant="secondary" size="lg" className="w-full gap-2" onClick={finish}>
             <Square className="h-4 w-4" /> {source === 'camera' ? 'Stop and review' : 'Stop early and review'}
@@ -410,7 +528,11 @@ export function ShotTracker({
                 </button>
               </div>
             ))}
-            {shots.length === 0 && <p className="text-sm text-zinc-500">No shots were detected. Check the hoop was in view and the rim ring matched it.</p>}
+            {shots.length === 0 && (
+              <p className="text-sm text-zinc-500">
+                No shots were detected. Make sure the ball is visible for its whole flight toward the hoop, in good light, with nothing else moving in frame.
+              </p>
+            )}
           </div>
 
           <div className="flex gap-2">

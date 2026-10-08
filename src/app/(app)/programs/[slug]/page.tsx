@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { GOAL_LABELS, getActiveProgram, sortDays, type Program, type ProgramDay } from '@/lib/programs';
+import { GOAL_LABELS, getActiveProgram, sortDays, type ProgramDay } from '@/lib/programs';
 import { EnrollButton } from './EnrollButton';
 import { ArrowLeft, CheckCircle2, Circle, Clock } from 'lucide-react';
 
@@ -17,16 +17,12 @@ export default async function ProgramPage({ params }: { params: Promise<{ slug: 
   const user = await requireUser();
   const supabase = await createClient();
 
-  const { data: program } = (await (supabase as any)
-    .from('training_programs')
-    .select('*')
-    .eq('slug', slug)
-    .maybeSingle()) as { data: Program | null };
+  const { data: program } = await supabase.from('training_programs').select('*').eq('slug', slug).maybeSingle();
   if (!program) notFound();
 
   const [{ data: dayRows }, active] = await Promise.all([
-    (supabase as any).from('program_days').select('*').eq('program_id', program.id),
-    getActiveProgram(supabase as any, user.id),
+    supabase.from('program_days').select('*').eq('program_id', program.id),
+    getActiveProgram(supabase, user.id),
   ]);
   const days = sortDays((dayRows || []) as ProgramDay[]);
   const isActive = active?.program.id === program.id;

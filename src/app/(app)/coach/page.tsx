@@ -48,12 +48,12 @@ export default async function CoachPage() {
     );
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const [{ data: memberships }, { today }] = await Promise.all([
     supabase.from('team_members').select('role, teams(id, name, age_group, club_name)').eq('user_id', user.id).eq('role', 'coach'),
     userCalendarNow(),
   ]);
-  const teams = ((memberships || []) as Array<{ teams: { id: string; name: string; age_group: string | null; club_name: string | null } | null }>)
+  const teams = ((memberships || []) as unknown as Array<{ teams: { id: string; name: string; age_group: string | null; club_name: string | null } | null }>)
     .map((m) => m.teams)
     .filter(Boolean) as Array<{ id: string; name: string; age_group: string | null; club_name: string | null }>;
 

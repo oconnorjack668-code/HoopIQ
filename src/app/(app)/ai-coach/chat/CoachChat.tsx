@@ -91,7 +91,7 @@ export function CoachChat({ initial, remaining: initialRemaining }: { initial: C
     if (!window.confirm('Clear your whole conversation with the coach?')) return;
     const { data } = await createClient().auth.getUser();
     if (!data.user) return;
-    const { error: deleteError } = await (createClient() as any).from('coach_messages').delete().eq('user_id', data.user.id);
+    const { error: deleteError } = await createClient().from('coach_messages').delete().eq('user_id', data.user.id);
     if (deleteError) setError({ text: `Could not clear the chat: ${deleteError.message}` });
     else setMessages([]);
   }

@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import type { Database } from '@/lib/supabase/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -27,6 +28,15 @@ interface QuizResult {
   answers: Record<string, number>;
 }
 
+// The shape stored in study_items.quiz_questions (a jsonb column, so the schema
+// types it as Json rather than this specific shape).
+interface QuizQuestionJson {
+  question: string;
+  options?: string[];
+  correct_index: number;
+  explanation?: string;
+}
+
 export default function QuizPage() {
   const router = useRouter();
   const params = useParams();
@@ -46,7 +56,7 @@ export default function QuizPage() {
 
   async function loadQuiz() {
     try {
-      const supabase = createClient() as any;
+      const supabase = createClient();
       // A topic's quiz is the combined quiz_questions of its lessons; ?item=<id> quizzes one lesson
       const itemId = new URLSearchParams(window.location.search).get('item');
       let query = supabase
@@ -56,7 +66,7 @@ export default function QuizPage() {
         .eq('is_active', true)
         .order('display_order', { ascending: true });
       if (itemId) query = query.eq('id', itemId);
-      const { data: items, error: fetchError } = (await query) as { data: any[] | null; error: any };
+      const { data: items, error: fetchError } = await query;
 
       if (fetchError || !items) {
         setError('Quiz not found');
@@ -64,7 +74,7 @@ export default function QuizPage() {
       }
 
       const loaded: Question[] = items.flatMap((item) =>
-        (Array.isArray(item.quiz_questions) ? item.quiz_questions : []).map((q: any, idx: number) => ({
+        (Array.isArray(item.quiz_questions) ? (item.quiz_questions as unknown as QuizQuestionJson[]) : []).map((q, idx) => ({
           id: `${item.id}-${idx}`,
           itemId: item.id,
           text: q.question,
@@ -134,13 +144,13 @@ export default function QuizPage() {
 
       if (!user?.user) return;
 
-      const { error: insertError } = await (supabase.from('quiz_completions').insert([{
+      const { error: insertError } = await supabase.from('quiz_completions').insert([{
         user_id: user.user.id,
         topic_id: topicId,
         score: quizResult.score,
         total_questions: quizResult.totalQuestions,
         percentage: quizResult.percentage,
-      }] as any) as any);
+      }]);
       if (insertError) throw insertError;
 
       // Record per-lesson progress; a lesson counts as completed at 80%+
@@ -155,7 +165,7 @@ export default function QuizPage() {
         const itemScore = Math.round((correct / itemQuestionIdxs.length) * 100);
         const now = new Date().toISOString();
 
-        const progress: Record<string, unknown> = {
+        const progress: Database['public']['Tables']['study_progress']['Insert'] = {
           user_id: user.user.id,
           item_id: itemId,
           quiz_score: itemScore,
@@ -165,9 +175,9 @@ export default function QuizPage() {
         // Only set completed_at on a pass so a later failed retake doesn't erase it
         if (itemScore >= 80) progress.completed_at = now;
 
-        const { error: progressError } = await (supabase
+        const { error: progressError } = await supabase
           .from('study_progress')
-          .upsert(progress as any, { onConflict: 'user_id,item_id' }) as any);
+          .upsert(progress, { onConflict: 'user_id,item_id' });
         if (progressError) throw progressError;
       }
     } catch (err) {

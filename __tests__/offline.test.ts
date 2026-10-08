@@ -1,5 +1,7 @@
 // __tests__/offline.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/types';
 import {
   enqueue,
   isNetworkError,
@@ -13,19 +15,27 @@ import {
   type WorkoutSavePayload,
 } from '@/lib/offline';
 
-type Op = { table: string; op: 'insert' | 'delete'; rows?: any; id?: string };
+type Op = { table: string; op: 'insert' | 'delete'; rows?: unknown; id?: string };
+type InsertChain = Promise<{ data: null; error: { message: string } | null }> & {
+  select: () => { single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }> };
+};
 
-/** Minimal stand-in for the Supabase client: records calls, can fail a table. */
+/**
+ * Minimal stand-in for the Supabase client: records calls, can fail a table.
+ * It only implements the `.from(table).insert()/.delete()` shape these save
+ * functions actually use, so it's cast to the real client type once here
+ * rather than loosening those functions' parameter type to `any`.
+ */
 function fakeSupabase(failOn: Record<string, string> = {}) {
   const ops: Op[] = [];
   const client = {
     from(table: string) {
       const result = () => (failOn[table] ? { data: null, error: { message: failOn[table] } } : { data: null, error: null });
       return {
-        insert(rows: any) {
+        insert(rows: unknown) {
           ops.push({ table, op: 'insert', rows });
           const res = result();
-          const chain: any = Promise.resolve(res);
+          const chain = Promise.resolve(res) as unknown as InsertChain;
           chain.select = () => ({ single: async () => (res.error ? res : { data: { id: 'routine-1' }, error: null }) });
           return chain;
         },
@@ -39,7 +49,7 @@ function fakeSupabase(failOn: Record<string, string> = {}) {
         },
       };
     },
-  };
+  } as unknown as SupabaseClient<Database>;
   return { client, ops };
 }
 
@@ -70,7 +80,8 @@ describe('saveBasketballSession', () => {
     const drills = ops.filter((o) => o.table === 'session_drills');
     expect(drills).toHaveLength(2);
     const shots = ops.find((o) => o.table === 'shooting_entries')!;
-    expect(shots.rows).toEqual([{ drill_id: drills[0].rows.id, user_id: 'user-1', shot_zone: 'three-top', makes: 6, attempts: 10 }]);
+    const drillRow = drills[0].rows as { id: string };
+    expect(shots.rows).toEqual([{ drill_id: drillRow.id, user_id: 'user-1', shot_zone: 'three-top', makes: 6, attempts: 10 }]);
     expect(ops.some((o) => o.op === 'delete')).toBe(false);
   });
 
@@ -101,7 +112,7 @@ describe('saveWorkout', () => {
     const { client, ops } = fakeSupabase();
     expect(await saveWorkout(client, 'user-1', gym)).toEqual({ id: 'workout-1' });
     const sets = ops.find((o) => o.table === 'workout_sets')!;
-    expect(sets.rows[0]).toMatchObject({ workout_id: 'workout-1', user_id: 'user-1', exercise_name: 'Squat' });
+    expect((sets.rows as unknown[])[0]).toMatchObject({ workout_id: 'workout-1', user_id: 'user-1', exercise_name: 'Squat' });
     expect(ops.some((o) => o.table === 'workout_routines')).toBe(false);
   });
 
@@ -120,7 +131,7 @@ describe('saveWorkout', () => {
     };
     await saveWorkout(client, 'user-1', withRoutine);
     const routineRows = ops.find((o) => o.table === 'routine_exercises')!;
-    expect(routineRows.rows[0]).toMatchObject({ routine_id: 'routine-1', user_id: 'user-1' });
+    expect((routineRows.rows as unknown[])[0]).toMatchObject({ routine_id: 'routine-1', user_id: 'user-1' });
   });
 
   it('runQueuedSave retries with delete-first', async () => {
