@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/server';
 import { getActiveProgram } from '@/lib/programs';
 import { loadAchievements } from '@/lib/achievements-server';
+import { ShotHeatMap } from '@/components/basketball/ShotHeatMap';
 
 export const dynamic = 'force-dynamic';
 
@@ -259,32 +260,18 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {/* Top Shooting Zones */}
+        {/* Shot chart. The ranked list this replaced gave five zone names and
+            percentages with no sense of where on the floor they were. */}
         {shootingByZone.length > 0 && (
           <Card className="border-zinc-800 bg-zinc-900/70 mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Target className="h-5 w-5 text-orange-400" />
-                Top Shooting Zones
+                Your shot chart
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {shootingByZone.slice(0, 5).map((zone, idx) => (
-                  <div key={zone.zone} className="flex items-center justify-between p-3 rounded-lg bg-zinc-950/50 border border-zinc-800/60">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-xs font-bold text-white">
-                        {idx + 1}
-                      </div>
-                      <div className="capitalize">{zone.zone.replace(/-/g, ' ')}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-orange-400">{zone.percentage.toFixed(1)}%</div>
-                      <div className="text-xs text-zinc-500">{zone.makes}/{zone.attempts}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ShotHeatMap zones={shootingByZone} />
             </CardContent>
           </Card>
         )}

@@ -2,10 +2,8 @@
 'use client';
 
 import React from 'react';
-import { COURT_LENGTH_FT, COURT_WIDTH_FT, HOOP } from '@/lib/court';
-
-// 10 SVG units per foot; the hoop is at the top, half court at the bottom.
-const S = 10;
+import { COURT_LENGTH_FT, COURT_WIDTH_FT } from '@/lib/court';
+import { CourtMarkings, S } from './CourtMarkings';
 
 export interface MapShot {
   x: number; // feet
@@ -37,19 +35,7 @@ export function CourtMap({
       aria-label="Half court. Tap where you are shooting from."
       className="w-full h-auto rounded-2xl bg-amber-950/40 border border-zinc-800 cursor-crosshair select-none touch-manipulation"
     >
-      <g fill="none" stroke="rgb(161 161 170 / 0.55)" strokeWidth={2}>
-        {/* Paint and free throw circle */}
-        <rect x={17 * S} y={0} width={16 * S} height={19 * S} />
-        <circle cx={25 * S} cy={19 * S} r={6 * S} />
-        {/* Three point line: corner straights + arc */}
-        <path d={`M ${3 * S} 0 L ${3 * S} ${14 * S} A ${23.75 * S} ${23.75 * S} 0 0 0 ${47 * S} ${14 * S} L ${47 * S} 0`} />
-        {/* Restricted area, backboard, rim */}
-        <path d={`M ${21 * S} ${HOOP.y * S} A ${4 * S} ${4 * S} 0 0 0 ${29 * S} ${HOOP.y * S}`} />
-        <line x1={22 * S} y1={4 * S} x2={28 * S} y2={4 * S} strokeWidth={3} />
-        <circle cx={HOOP.x * S} cy={HOOP.y * S} r={0.75 * S} stroke="rgb(249 115 22)" strokeWidth={3} />
-        {/* Half court circle */}
-        <path d={`M ${19 * S} ${COURT_LENGTH_FT * S} A ${6 * S} ${6 * S} 0 0 1 ${31 * S} ${COURT_LENGTH_FT * S}`} />
-      </g>
+      <CourtMarkings />
 
       {shots.map((s, i) => (
         <circle
