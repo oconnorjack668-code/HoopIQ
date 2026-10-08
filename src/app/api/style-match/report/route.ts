@@ -3,8 +3,9 @@
 import { getCurrentUser, getCurrentSubscription, getCurrentProfile } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { openAIJson } from '@/lib/ai/provider';
+import { getConfiguredAI, AINotConfiguredError } from '@/lib/ai/config';
 import { formatHeight, asMeasurementSystem } from '@/lib/units';
+import type { Database } from '@/lib/supabase/types';
 
 const SYSTEM_PROMPT = `You are an elite basketball player-development coach. A player has been matched to NBA players
 with similar height and play style. Write a practical development plan for this player (aged 13+) based on what
@@ -26,8 +27,13 @@ export async function POST(request: Request) {
     return Response.json({ error: 'The AI style report is a Pro feature.' }, { status: 403 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return Response.json({ error: 'AI is not configured (OPENAI_API_KEY is missing).' }, { status: 503 });
+  let ai: ReturnType<typeof getConfiguredAI>;
+  try {
+    ai = getConfiguredAI(1200);
+  } catch (err) {
+    if (err instanceof AINotConfiguredError) return Response.json({ error: err.message }, { status: err.status });
+    throw err;
+  }
 
   const body = (await request.json().catch(() => null)) as { resultId?: unknown } | null;
   const resultId = typeof body?.resultId === 'string' ? body.resultId : null;
@@ -36,13 +42,21 @@ export async function POST(request: Request) {
   }
 
   // Row level security makes this return only the player's own result
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: result } = await supabase.from('style_match_results').select('id, input, matches').eq('id', resultId).maybeSingle();
   if (!result) return Response.json({ error: 'Match not found.' }, { status: 404 });
 
   const profile = await getCurrentProfile();
   const units = asMeasurementSystem(profile?.measurement_system);
-  const matches = (result.matches || []) as Array<{
+  // input/matches are jsonb columns (Json in the schema types); the real shape is
+  // always what StyleMatchClient/FilmTagger wrote when the match was first saved.
+  const input = result.input as unknown as {
+    heightCm?: number;
+    position?: string | null;
+    styleTagLabels?: string[];
+    shotProfile?: { rim: number; mid: number; three: number } | null;
+  } | null;
+  const matches = (result.matches || []) as unknown as Array<{
     name: string;
     height_cm: number;
     position: string;
@@ -53,10 +67,10 @@ export async function POST(request: Request) {
     how_to_copy: string[];
   }>;
   const prompt = [
-    `Player: height ${formatHeight(result.input?.heightCm, units)}, position ${result.input?.position || 'not set'}, level ${profile?.playing_level || 'not set'}.`,
-    `Their style (self-described): ${(result.input?.styleTagLabels || []).join('; ') || 'not given'}.`,
-    result.input?.shotProfile
-      ? `Shot locations from logged sessions: ${Math.round(result.input.shotProfile.rim * 100)}% at the rim, ${Math.round(result.input.shotProfile.mid * 100)}% mid-range, ${Math.round(result.input.shotProfile.three * 100)}% threes.`
+    `Player: height ${formatHeight(input?.heightCm, units)}, position ${input?.position || 'not set'}, level ${profile?.playing_level || 'not set'}.`,
+    `Their style (self-described): ${(input?.styleTagLabels || []).join('; ') || 'not given'}.`,
+    input?.shotProfile
+      ? `Shot locations from logged sessions: ${Math.round(input.shotProfile.rim * 100)}% at the rim, ${Math.round(input.shotProfile.mid * 100)}% mid-range, ${Math.round(input.shotProfile.three * 100)}% threes.`
       : 'Not enough logged shots for a shot profile yet.',
     `Their goals: ${(profile?.goals || []).join(', ') || 'not set'}. Focus areas: ${(profile?.focus_areas || []).join(', ') || 'not set'}.`,
     'Matched NBA players:',
@@ -68,14 +82,18 @@ export async function POST(request: Request) {
 
   let report: Record<string, unknown>;
   try {
-    report = await openAIJson(SYSTEM_PROMPT, prompt, { apiKey, model: process.env.AI_MODEL || 'gpt-4o-mini', maxTokens: 1200 });
+    report = await ai.provider.generateJson(SYSTEM_PROMPT, prompt, ai.config);
   } catch (err) {
     return Response.json({ error: err instanceof Error ? err.message : 'AI request failed' }, { status: 502 });
   }
 
   // Players can't update saved results directly; the server stores the report
   try {
-    await (createAdminClient() as any).from('style_match_results').update({ report }).eq('id', resultId).eq('user_id', user.id);
+    await createAdminClient()
+      .from('style_match_results')
+      .update({ report: report as unknown as Database['public']['Tables']['style_match_results']['Update']['report'] })
+      .eq('id', resultId)
+      .eq('user_id', user.id);
   } catch {
     // Not fatal: the report is still returned to the player
   }

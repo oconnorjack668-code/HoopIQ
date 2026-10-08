@@ -3,7 +3,7 @@
 // sees their shooting data, their mechanics data, or both. Video never leaves the phone.
 import { getCurrentUser, getCurrentProfile } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { openAIJson } from '@/lib/ai/provider';
+import { getConfiguredAI, AINotConfiguredError } from '@/lib/ai/config';
 import { AICoachError, reserveCredit, refundCredit } from '@/lib/ai/service';
 
 const SYSTEM_PROMPT = `You are an expert basketball shooting coach reviewing numbers measured from a player's phone video.
@@ -21,8 +21,13 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: 'Please log in again.' }, { status: 401 });
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return Response.json({ error: 'AI is not configured (OPENAI_API_KEY is missing).' }, { status: 503 });
+  let ai: ReturnType<typeof getConfiguredAI>;
+  try {
+    ai = getConfiguredAI(800);
+  } catch (err) {
+    if (err instanceof AINotConfiguredError) return Response.json({ error: err.message }, { status: err.status });
+    throw err;
+  }
 
   const body = (await request.json().catch(() => null)) as {
     data?: DataChoice;
@@ -75,9 +80,8 @@ export async function POST(request: Request) {
   }
 
   let output: Record<string, unknown>;
-  const model = process.env.AI_MODEL || 'gpt-4o-mini';
   try {
-    output = await openAIJson(SYSTEM_PROMPT, lines.join('\n'), { apiKey, model, maxTokens: 800 });
+    output = await ai.provider.generateJson(SYSTEM_PROMPT, lines.join('\n'), ai.config);
   } catch (err) {
     if (credit === 'reserved') await refundCredit(user.id);
     return Response.json({ error: err instanceof Error ? err.message : 'AI request failed' }, { status: 502 });
@@ -89,13 +93,13 @@ export async function POST(request: Request) {
     recommendations: Array.isArray(output.recommendations) ? output.recommendations.filter((x) => typeof x === 'string') : [],
   };
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   await supabase.from('ai_reports').insert({
     user_id: user.id,
     report_type: 'post_session',
     input_data: { source: 'video', data: choice, prompt: lines },
-    provider: 'openai',
-    model,
+    provider: ai.provider.name,
+    model: ai.config.model,
     prompt_version: 'video-1.0',
     output_content: report,
     status: 'delivered',

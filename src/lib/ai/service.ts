@@ -3,7 +3,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkIsOwner } from '@/lib/auth';
-import { getAIProvider, type CoachingEvidence, type CoachingOutput } from './provider';
+import { getConfiguredAI, AINotConfiguredError } from './config';
+import type { CoachingEvidence, CoachingOutput } from './provider';
+import type { Database } from '@/lib/supabase/types';
 
 export const CREDITS_PER_REPORT = 1;
 const PROMPT_VERSION = '1.1';
@@ -20,15 +22,12 @@ export interface GeneratedReport {
 }
 
 function aiConfig() {
-  const provider = process.env.AI_PROVIDER || 'openai';
-  const apiKey = process.env.OPENAI_API_KEY || '';
-  if (!apiKey) {
-    throw new AICoachError('AI Coach is not configured (OPENAI_API_KEY is missing).', 503);
+  try {
+    return getConfiguredAI(800);
+  } catch (err) {
+    if (err instanceof AINotConfiguredError) throw new AICoachError(err.message, err.status);
+    throw err;
   }
-  return {
-    provider,
-    config: { apiKey, model: process.env.AI_MODEL || 'gpt-4o-mini', maxTokens: 800 },
-  };
 }
 
 /** Unlimited for owners (role or OWNER_EMAIL) and pro/owner plans. */
@@ -44,7 +43,7 @@ export async function hasUnlimitedCredits(planType: string | undefined): Promise
  */
 function adminClientOrThrow() {
   try {
-    return createAdminClient() as any;
+    return createAdminClient();
   } catch {
     throw new AICoachError('AI Coach is not configured (SUPABASE_SERVICE_ROLE_KEY is missing).', 503);
   }
@@ -52,7 +51,7 @@ function adminClientOrThrow() {
 
 export async function reserveCredit(userId: string): Promise<'unlimited' | 'reserved'> {
   // Players can read their own subscription, so owners/pro never need the service role
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: sub, error } = await supabase
     .from('subscriptions')
     .select('plan_type, ai_credits_remaining')
@@ -98,7 +97,7 @@ export async function refundCredit(userId: string): Promise<void> {
 
 /** Collects the session, its drills and shots (all RLS-scoped to the player). */
 async function buildEvidence(userId: string, sessionId: string): Promise<CoachingEvidence> {
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const { data: session } = await supabase
     .from('training_sessions')
@@ -114,10 +113,10 @@ async function buildEvidence(userId: string, sessionId: string): Promise<Coachin
     .eq('session_id', sessionId)
     .order('display_order', { ascending: true });
 
-  const drillIds: string[] = (drills || []).map((d: any) => d.id);
+  const drillIds: string[] = (drills || []).map((d) => d.id);
   const { data: shots } = drillIds.length
     ? await supabase.from('shooting_entries').select('shot_zone, makes, attempts').in('drill_id', drillIds)
-    : { data: [] };
+    : { data: [] as Array<{ shot_zone: string; makes: number; attempts: number }> };
 
   const zones = new Map<string, { makes: number; attempts: number }>();
   for (const s of shots || []) {
@@ -148,16 +147,15 @@ async function buildEvidence(userId: string, sessionId: string): Promise<Coachin
     totalAttempts,
     shootingPercentage: totalAttempts > 0 ? (totalMakes / totalAttempts) * 100 : undefined,
     zoneBreakdown: [...zones.entries()].map(([zone, z]) => ({ zone, ...z })),
-    drillsCompleted: (drills || []).map((d: any) => d.drill_name),
+    drillsCompleted: (drills || []).map((d) => d.drill_name),
     playerNotes: session.notes || undefined,
-    previousFeedbackSummary: previous?.output_content?.summary,
+    previousFeedbackSummary: (previous?.output_content as unknown as CoachingOutput | null)?.summary,
   };
 }
 
 export async function generateSessionReport(userId: string, sessionId: string): Promise<GeneratedReport> {
-  const { provider: providerName, config } = aiConfig();
-  const provider = getAIProvider(providerName);
-  const supabase = (await createClient()) as any;
+  const { provider, config } = aiConfig();
+  const supabase = await createClient();
 
   const { data: existing } = await supabase
     .from('ai_reports')
@@ -186,11 +184,14 @@ export async function generateSessionReport(userId: string, sessionId: string): 
     .insert({
       user_id: userId,
       report_type: 'post_session',
-      input_data: evidence,
+      // CoachingEvidence/CoachingOutput are plain interfaces (no index signature),
+      // so they don't structurally satisfy Json even though every field in them
+      // really is JSON-serialisable; this is the standard escape hatch for that.
+      input_data: evidence as unknown as Database['public']['Tables']['ai_reports']['Insert']['input_data'],
       provider: provider.name,
       model: config.model,
       prompt_version: PROMPT_VERSION,
-      output_content: output,
+      output_content: output as unknown as Database['public']['Tables']['ai_reports']['Insert']['output_content'],
       status: 'delivered',
       source_session_ids: [sessionId],
     })

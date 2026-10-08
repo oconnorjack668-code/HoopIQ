@@ -4,7 +4,7 @@
 // Free for everyone (no credits). At most one report per player per week.
 // Protected by CRON_SECRET ("Authorization: Bearer <CRON_SECRET>", sent by Vercel Cron).
 import { createAdminClient } from '@/lib/supabase/admin';
-import { openAIJson } from '@/lib/ai/provider';
+import { getConfiguredAI, AINotConfiguredError } from '@/lib/ai/config';
 import { buildPlayerContext } from '@/lib/ai/context';
 import { pushConfigured, sendPush } from '@/lib/push';
 
@@ -28,11 +28,16 @@ export async function GET(request: Request) {
   if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return Response.json({ error: 'OPENAI_API_KEY missing' }, { status: 503 });
+  let ai: ReturnType<typeof getConfiguredAI>;
+  try {
+    ai = getConfiguredAI(600);
+  } catch (err) {
+    if (err instanceof AINotConfiguredError) return Response.json({ error: err.message }, { status: err.status });
+    throw err;
+  }
 
   const started = Date.now();
-  const admin = createAdminClient() as any;
+  const admin = createAdminClient();
   const today = day(new Date());
   const since7 = day(new Date(Date.now() - 6 * 86_400_000));
   const lastWeek = day(new Date(Date.now() - 5 * 86_400_000));
@@ -59,24 +64,23 @@ export async function GET(request: Request) {
   let created = 0;
   let failed = 0;
   let pushed = 0;
-  const model = process.env.AI_MODEL || 'gpt-4o-mini';
 
   async function runOne(p: (typeof due)[number]) {
     try {
       const context = await buildPlayerContext(admin, p.user_id, { days: 7 });
-      const out = (await openAIJson(SYSTEM, `Today is ${today}. This is the player's last 7 days:\n\n${context.text}`, {
-        apiKey: apiKey!,
-        model,
-        maxTokens: 600,
-      })) as { headline?: string; summary?: string; wins?: string[]; focus_next_week?: string[]; challenge?: string };
+      const out = (await ai.provider.generateJson(
+        SYSTEM,
+        `Today is ${today}. This is the player's last 7 days:\n\n${context.text}`,
+        ai.config
+      )) as { headline?: string; summary?: string; wins?: string[]; focus_next_week?: string[]; challenge?: string };
 
       const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 4) : []);
       const { error: insertError } = await admin.from('ai_reports').insert({
         user_id: p.user_id,
         report_type: 'weekly_summary',
         input_data: { week: context.week, days: 7 },
-        provider: 'openai',
-        model,
+        provider: ai.provider.name,
+        model: ai.config.model,
         prompt_version: 'weekly-1',
         output_content: {
           title: out.headline || 'Your week in review',
@@ -110,7 +114,7 @@ export async function GET(request: Request) {
     }
   }
 
-  // Small batches keep OpenAI rate limits and the function time limit happy
+  // Small batches keep the AI provider's rate limits and the function time limit happy
   for (let i = 0; i < due.length; i += CONCURRENCY) {
     if (Date.now() - started > TIME_BUDGET_MS) break;
     await Promise.all(due.slice(i, i + CONCURRENCY).map(runOne));

@@ -6,7 +6,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasUnlimitedCredits } from '@/lib/ai/service';
-import { openAIChat, type ChatMessage } from '@/lib/ai/provider';
+import { getConfiguredAI, AINotConfiguredError } from '@/lib/ai/config';
+import type { ChatMessage } from '@/lib/ai/provider';
 import { buildPlayerContext } from '@/lib/ai/context';
 import { getUserTimeZone } from '@/lib/userTime';
 import { CHAT_HISTORY_TURNS, COACH_SYSTEM_PROMPT, FREE_CHAT_PER_DAY, MAX_CHAT_MESSAGE, todayStartIso } from '@/lib/ai/chat';
@@ -17,8 +18,13 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: 'Please log in again.' }, { status: 401 });
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return Response.json({ error: 'AI Coach is not configured (OPENAI_API_KEY is missing).' }, { status: 503 });
+  let ai: ReturnType<typeof getConfiguredAI>;
+  try {
+    ai = getConfiguredAI(700);
+  } catch (err) {
+    if (err instanceof AINotConfiguredError) return Response.json({ error: err.message }, { status: err.status });
+    throw err;
+  }
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return Response.json({ error: 'AI Coach is not configured (SUPABASE_SERVICE_ROLE_KEY is missing).' }, { status: 503 });
   }
@@ -30,7 +36,7 @@ export async function POST(request: Request) {
     return Response.json({ error: `Keep questions under ${MAX_CHAT_MESSAGE} characters.` }, { status: 400 });
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const timeZone = await getUserTimeZone();
   const [{ data: sub }, { count: usedToday }, { data: history, error: historyError }] = await Promise.all([
     supabase.from('subscriptions').select('plan_type').eq('user_id', user.id).maybeSingle(),
@@ -69,13 +75,13 @@ export async function POST(request: Request) {
 
   let reply: string;
   try {
-    reply = await openAIChat(messages, { apiKey, model: process.env.AI_MODEL || 'gpt-4o-mini', maxTokens: 700 });
+    reply = await ai.provider.generateChat(messages, ai.config);
   } catch (err) {
     console.error('Coach chat failed:', err);
     return Response.json({ error: 'The coach is unavailable right now. Please try again in a minute.' }, { status: 502 });
   }
 
-  const admin = createAdminClient() as any;
+  const admin = createAdminClient();
   const at = Date.now();
   await admin.from('coach_messages').insert([
     { user_id: user.id, role: 'user', content: message, created_at: new Date(at).toISOString() },

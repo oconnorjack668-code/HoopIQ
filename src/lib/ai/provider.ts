@@ -34,6 +34,12 @@ export abstract class AIProvider {
     evidence: CoachingEvidence,
     config: AIProviderConfig
   ): Promise<CoachingOutput>;
+
+  /** Sends one system + user prompt and returns the parsed JSON object. */
+  abstract generateJson(system: string, user: string, config: AIProviderConfig): Promise<Record<string, unknown>>;
+
+  /** Plain-text multi-turn chat completion. */
+  abstract generateChat(messages: ChatMessage[], config: AIProviderConfig): Promise<string>;
 }
 
 const SYSTEM_PROMPT = `You are an expert basketball coach giving a player specific, actionable feedback on one training session.
@@ -76,91 +82,35 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
-// OpenAI implementation
-export class OpenAIProvider extends AIProvider {
-  readonly name = 'openai';
-
-  async generateCoachingSummary(
-    evidence: CoachingEvidence,
-    config: AIProviderConfig
-  ): Promise<CoachingOutput> {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: config.model,
-        max_tokens: config.maxTokens,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: buildPrompt(evidence) },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      // OpenAI puts the useful reason (bad key, unknown model, no quota) in the body
-      const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-      throw new Error(`OpenAI API error (${response.status}): ${body?.error?.message || response.statusText}`);
-    }
-
-    const data = (await response.json()) as { choices: Array<{ message: { content: string | null } }> };
-    const content = data.choices[0]?.message.content;
-    if (!content) {
-      throw new Error('No response from OpenAI');
-    }
-
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      throw new Error('OpenAI returned feedback in an unexpected format');
-    }
-
-    if (typeof parsed.summary !== 'string' || !parsed.summary.trim()) {
-      throw new Error('OpenAI returned feedback without a summary');
-    }
-
-    return {
-      summary: parsed.summary,
-      keyInsights: asStringArray(parsed.keyInsights),
-      recommendations: asStringArray(parsed.recommendations),
-      comparisonToPrevious:
-        typeof parsed.comparisonToPrevious === 'string' ? parsed.comparisonToPrevious : undefined,
-    };
+/** Parses a JSON object from a model response, tolerating a ```json fence around it. */
+function extractJson(text: string): Record<string, unknown> {
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    // fall through to fence stripping below
   }
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1]) as Record<string, unknown>;
+    } catch {
+      // fall through to the error below
+    }
+  }
+  throw new Error('The AI returned a response in an unexpected format');
 }
 
-/** Sends one system + user prompt to OpenAI in JSON mode and returns the parsed object. */
-export async function openAIJson(system: string, user: string, config: AIProviderConfig): Promise<Record<string, unknown>> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: config.model,
-      max_tokens: config.maxTokens,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    }),
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-    throw new Error(`OpenAI API error (${response.status}): ${body?.error?.message || response.statusText}`);
+function summaryFromJson(parsed: Record<string, unknown>, providerLabel: string): CoachingOutput {
+  if (typeof parsed.summary !== 'string' || !parsed.summary.trim()) {
+    throw new Error(`${providerLabel} returned feedback without a summary`);
   }
-  const data = (await response.json()) as { choices: Array<{ message: { content: string | null } }> };
-  const content = data.choices[0]?.message.content;
-  if (!content) throw new Error('No response from OpenAI');
-  try {
-    return JSON.parse(content) as Record<string, unknown>;
-  } catch {
-    throw new Error('OpenAI returned a response in an unexpected format');
-  }
+  return {
+    summary: parsed.summary,
+    keyInsights: asStringArray(parsed.keyInsights),
+    recommendations: asStringArray(parsed.recommendations),
+    comparisonToPrevious:
+      typeof parsed.comparisonToPrevious === 'string' ? parsed.comparisonToPrevious : undefined,
+  };
 }
 
 export interface ChatMessage {
@@ -168,28 +118,112 @@ export interface ChatMessage {
   content: string;
 }
 
-/** Plain-text chat completion (AI Coach chat). */
-export async function openAIChat(messages: ChatMessage[], config: AIProviderConfig): Promise<string> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: config.model, max_tokens: config.maxTokens, temperature: 0.6, messages }),
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
-    throw new Error(`OpenAI API error (${response.status}): ${body?.error?.message || response.statusText}`);
+// OpenAI implementation
+export class OpenAIProvider extends AIProvider {
+  readonly name = 'openai';
+
+  /** Sends one system + user prompt to OpenAI in JSON mode and returns the parsed object. */
+  async generateJson(system: string, user: string, config: AIProviderConfig): Promise<Record<string, unknown>> {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: config.maxTokens,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+      }),
+    });
+    if (!response.ok) {
+      // OpenAI puts the useful reason (bad key, unknown model, no quota) in the body
+      const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      throw new Error(`OpenAI API error (${response.status}): ${body?.error?.message || response.statusText}`);
+    }
+    const data = (await response.json()) as { choices: Array<{ message: { content: string | null } }> };
+    const content = data.choices[0]?.message.content;
+    if (!content) throw new Error('No response from OpenAI');
+    return extractJson(content);
   }
-  const data = (await response.json()) as { choices: Array<{ message: { content: string | null } }> };
-  const content = data.choices[0]?.message.content?.trim();
-  if (!content) throw new Error('No response from OpenAI');
-  return content;
+
+  /** Plain-text chat completion (AI Coach chat). */
+  async generateChat(messages: ChatMessage[], config: AIProviderConfig): Promise<string> {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: config.model, max_tokens: config.maxTokens, temperature: 0.6, messages }),
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      throw new Error(`OpenAI API error (${response.status}): ${body?.error?.message || response.statusText}`);
+    }
+    const data = (await response.json()) as { choices: Array<{ message: { content: string | null } }> };
+    const content = data.choices[0]?.message.content?.trim();
+    if (!content) throw new Error('No response from OpenAI');
+    return content;
+  }
+
+  async generateCoachingSummary(evidence: CoachingEvidence, config: AIProviderConfig): Promise<CoachingOutput> {
+    const parsed = await this.generateJson(SYSTEM_PROMPT, buildPrompt(evidence), config);
+    return summaryFromJson(parsed, 'OpenAI');
+  }
+}
+
+// Anthropic (Claude) implementation
+export class AnthropicProvider extends AIProvider {
+  readonly name = 'anthropic';
+  private static readonly API_VERSION = '2023-06-01';
+
+  private async send(system: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, config: AIProviderConfig): Promise<string> {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': config.apiKey,
+        'anthropic-version': AnthropicProvider.API_VERSION,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ model: config.model, max_tokens: config.maxTokens, system, messages }),
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      throw new Error(`Anthropic API error (${response.status}): ${body?.error?.message || response.statusText}`);
+    }
+    const data = (await response.json()) as { content: Array<{ type: string; text?: string }> };
+    const text = data.content?.find((block) => block.type === 'text')?.text;
+    if (!text) throw new Error('No response from Anthropic');
+    return text;
+  }
+
+  async generateJson(system: string, user: string, config: AIProviderConfig): Promise<Record<string, unknown>> {
+    const jsonSystem = `${system}\n\nRespond with ONLY the JSON object and no other text, markdown, or explanation.`;
+    const text = await this.send(jsonSystem, [{ role: 'user', content: user }], config);
+    return extractJson(text);
+  }
+
+  async generateChat(messages: ChatMessage[], config: AIProviderConfig): Promise<string> {
+    const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
+    const turns = messages
+      .filter((m): m is ChatMessage & { role: 'user' | 'assistant' } => m.role !== 'system')
+      .map((m) => ({ role: m.role, content: m.content }));
+    const text = await this.send(system, turns, config);
+    return text.trim();
+  }
+
+  async generateCoachingSummary(evidence: CoachingEvidence, config: AIProviderConfig): Promise<CoachingOutput> {
+    const parsed = await this.generateJson(SYSTEM_PROMPT, buildPrompt(evidence), config);
+    return summaryFromJson(parsed, 'Anthropic');
+  }
 }
 
 export function getAIProvider(provider: string): AIProvider {
   switch (provider.toLowerCase()) {
+    case 'anthropic':
+      return new AnthropicProvider();
     case 'openai':
       return new OpenAIProvider();
     default:
-      throw new Error(`AI provider "${provider}" is not supported. Set AI_PROVIDER=openai.`);
+      throw new Error(`AI provider "${provider}" is not supported. Set AI_PROVIDER to "anthropic" or "openai".`);
   }
 }
