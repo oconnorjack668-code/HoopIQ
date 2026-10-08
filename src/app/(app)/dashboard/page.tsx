@@ -4,7 +4,7 @@ import { requireUser, getCurrentProfile, getCurrentSubscription } from '@/lib/au
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { calculateDashboardMetrics, getShootingByZone } from '@/lib/dashboard';
-import { LayoutGrid, Zap, TrendingUp, Target, Award, Flame, Users, MessageCircle } from 'lucide-react';
+import { Zap, TrendingUp, Target, Award, Flame, Users, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -43,22 +43,15 @@ export default async function DashboardPage() {
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-4 md:p-8 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow-lg">
-              <LayoutGrid className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black tracking-tight text-white">
-                Welcome back, {profile?.display_name || 'Player'}
-              </h1>
-              <p className="text-sm text-zinc-400 mt-1">
-                Ready to train with intent? Let&apos;s track your progress today.
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* Header. Deliberately compact: on a phone the old version spent the
+            whole first screenful on a decorative icon, the player's own name at
+            text-3xl and a slogan, pushing today's session below the fold. */}
+        <h1 className="mb-4 text-xl md:text-3xl font-black tracking-tight text-white">
+          {profile?.display_name || 'Player'}
+          <span className="ml-2 align-middle text-sm font-semibold text-zinc-500">
+            {metrics.currentStreak > 0 ? `${metrics.currentStreak}-day streak` : 'Start a streak today'}
+          </span>
+        </h1>
 
         {/* Rank */}
         <Link href="/achievements" className="mb-4 flex items-center justify-between rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 hover:bg-amber-500/15">
@@ -102,8 +95,9 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Quick stats. 2x2 on a phone rather than four full-width cards
+            stacked, which was ~400px of scrolling for four small numbers. */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
           <Card className="border-zinc-800 bg-zinc-900/70">
             <CardContent className="p-5">
               <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">This Week</div>
@@ -143,25 +137,37 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Consistency, not AI credits. A billing counter was previously
+              given the same visual weight as the player's training streak;
+              credits now sit in the slim row below instead. */}
           <Card className="border-zinc-800 bg-zinc-900/70">
             <CardContent className="p-5">
-              <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">AI Credits</div>
+              <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">Consistency</div>
               <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-black text-amber-400">
-                  {subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner'
-                    ? '∞'
-                    : subscription?.ai_credits_remaining || 0}
-                </span>
-                <Badge variant="default" className="text-xs">{subscription?.plan_type || 'free'}</Badge>
+                <span className="text-3xl font-black text-cyan-400">{metrics.consistency}%</span>
+                <Badge variant="default" className="text-xs">30 days</Badge>
               </div>
-              <div className="text-xs text-zinc-500 mt-2">
-                {subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner'
-                  ? 'Unlimited'
-                  : '1 credit per AI report'}
-              </div>
+              <div className="text-xs text-zinc-500 mt-2">Days with any training logged</div>
             </CardContent>
           </Card>
         </div>
+
+        {/* AI credits: useful to know, but it is billing, not training */}
+        <Link
+          href={subscription?.plan_type === 'free' ? '/pro' : '/ai-coach'}
+          className="mb-8 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-2.5 text-sm hover:bg-zinc-900"
+        >
+          <span className="text-zinc-400">
+            AI credits:{' '}
+            <span className="font-bold text-zinc-200">
+              {subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner'
+                ? 'unlimited'
+                : subscription?.ai_credits_remaining || 0}
+            </span>
+            <span className="ml-2 text-xs text-zinc-500">{subscription?.plan_type || 'free'} plan</span>
+          </span>
+          <span className="text-xs text-zinc-500">{subscription?.plan_type === 'free' ? 'See Pro →' : 'AI Coach →'}</span>
+        </Link>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
