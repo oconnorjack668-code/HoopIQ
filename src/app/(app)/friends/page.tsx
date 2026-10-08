@@ -11,7 +11,7 @@ export const metadata = { title: 'Friends - HoopIQ' };
 
 export default async function FriendsPage() {
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   const [{ data: profile }, overview, feed] = await Promise.all([
     supabase.from('profiles').select('friend_code, display_name').eq('id', user.id).maybeSingle(),

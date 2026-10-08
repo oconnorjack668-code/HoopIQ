@@ -39,7 +39,7 @@ export function OfflineSync() {
     try {
       // Loaded only when there is something to upload, so every other page stays lighter
       const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const userId = await getUserIdForSave(supabase);
       for (const item of pending) {
         // Only the player who logged it can upload it (the database would refuse anyway)

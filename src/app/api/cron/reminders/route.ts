@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const admin = createAdminClient() as any;
+  const admin = createAdminClient();
 
   // Housekeeping: crash reports are kept for 90 days
   await admin
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       continue;
     }
 
-    const programName = enrollment?.training_programs?.name as string | undefined;
+    const programName = (enrollment as unknown as { training_programs: { name: string } | null } | null)?.training_programs?.name;
     const payload = programName
       ? { title: 'Time to train 🏀', body: `Your next ${programName} session is ready.`, url: '/dashboard' }
       : { title: 'Time to train 🏀', body: 'Get some reps in today and keep your streak alive.', url: '/basketball/new' };

@@ -33,7 +33,7 @@ export default async function DashboardPage() {
     getCurrentSubscription(),
     calculateDashboardMetrics(user.id),
     getShootingByZone(user.id),
-    getActiveProgram(supabase as any, user.id),
+    getActiveProgram(supabase, user.id),
     // Also awards any weekly challenges / badges earned since the last visit
     loadAchievements(user.id),
   ]);
@@ -178,7 +178,11 @@ export default async function DashboardPage() {
           </Link>
 
           <Link href="/workouts/new">
-            <Button variant="primary" className="w-full h-16 justify-start gap-3 text-left px-5" style={{ '--tw-gradient-from': '#059669' } as any}>
+            <Button
+              variant="primary"
+              className="w-full h-16 justify-start gap-3 text-left px-5"
+              style={{ '--tw-gradient-from': '#059669' } as React.CSSProperties & { '--tw-gradient-from': string }}
+            >
               <div className="h-10 w-10 rounded-lg bg-emerald-600 flex items-center justify-center">
                 <Zap className="h-5 w-5 text-white" />
               </div>

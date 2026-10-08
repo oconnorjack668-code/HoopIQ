@@ -25,10 +25,10 @@ export default async function StudyTopicPage({
   const supabase = await createClient();
 
   // Topic and its lessons load in parallel
-  const [{ data: topic }, { data: items }] = (await Promise.all([
+  const [{ data: topic }, { data: items }] = await Promise.all([
     supabase.from('study_topics').select('*').eq('id', id).maybeSingle(),
     supabase.from('study_items').select('*').eq('topic_id', id).order('display_order', { ascending: true }),
-  ])) as unknown as [{ data: any }, { data: any[] }];
+  ]);
 
   if (!topic) {
     notFound();
@@ -36,14 +36,14 @@ export default async function StudyTopicPage({
 
   // Fetch items this user has completed (quiz passed at 80%+)
   const itemIds = items?.map((item) => item.id) || [];
-  const { data: completedItems } = (itemIds.length > 0
+  const { data: completedItems } = itemIds.length > 0
     ? await supabase
         .from('study_progress')
         .select('item_id')
         .eq('user_id', user.id)
         .in('item_id', itemIds)
         .not('completed_at', 'is', null)
-    : { data: [] }) as unknown as { data: any[] };
+    : { data: [] as { item_id: string }[] };
 
   const completedItemIds = new Set(completedItems?.map((c) => c.item_id) || []);
   const completionPercentage = items && items.length > 0

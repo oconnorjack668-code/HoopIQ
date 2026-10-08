@@ -14,7 +14,7 @@ export const metadata = { title: 'Goals - HoopIQ' };
 
 export default async function GoalsPage() {
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   // Monday 00:00 on the players' calendar (same week as the achievements below)
   const { weekStartIso } = await userCalendarNow();
@@ -39,7 +39,7 @@ export default async function GoalsPage() {
     iq_study_items: w.lessons,
   };
 
-  const rows: GoalRow[] = ((goals || []) as Array<GoalRow & { current_value: number }>).map((g) => ({
+  const rows: GoalRow[] = ((goals || []) as Array<Omit<GoalRow, 'progress'> & { current_value: number }>).map((g) => ({
     ...g,
     progress: g.goal_type === 'custom' ? g.current_value : progress[g.goal_type] ?? 0,
   }));

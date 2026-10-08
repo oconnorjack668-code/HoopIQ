@@ -31,7 +31,7 @@ export function EnrollButton({
     if (hasOtherActive && !window.confirm(`Switch from "${otherName}" to "${programName}"? Your progress there is kept in history.`)) return;
     setBusy(true);
     setError(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -57,7 +57,7 @@ export function EnrollButton({
   async function stop() {
     if (!window.confirm(`Stop "${programName}"?`)) return;
     setBusy(true);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     await supabase
       .from('program_enrollments')
       .update({ status: 'stopped', finished_at: new Date().toISOString() })

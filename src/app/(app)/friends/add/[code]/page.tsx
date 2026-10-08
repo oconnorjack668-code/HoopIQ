@@ -14,7 +14,7 @@ export const metadata = { title: 'Add friend - HoopIQ' };
 export default async function AddFriendPage({ params }: { params: Promise<{ code: string }> }) {
   const user = await requireUser();
   const code = normaliseCode((await params).code);
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase.rpc('friend_code_lookup', { p_code: code });
   const player = (data as Array<{ user_id: string; display_name: string }> | null)?.[0];
 

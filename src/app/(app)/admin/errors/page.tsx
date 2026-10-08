@@ -27,7 +27,7 @@ async function markResolved(formData: FormData) {
   if (!(await checkIsOwner())) return;
   const message = String(formData.get('message') || '');
   if (!message) return;
-  await (createAdminClient() as any).from('app_errors').update({ resolved: true }).eq('message', message).eq('resolved', false);
+  await createAdminClient().from('app_errors').update({ resolved: true }).eq('message', message).eq('resolved', false);
   revalidatePath('/admin/errors');
 }
 
@@ -46,7 +46,7 @@ export default async function AdminErrorsPage() {
   let rows: ErrorRow[] = [];
   let loadError: string | null = null;
   try {
-    const { data, error } = await (createAdminClient() as any)
+    const { data, error } = await createAdminClient()
       .from('app_errors')
       .select('id, created_at, user_id, source, message, stack, digest, url, user_agent')
       .eq('resolved', false)

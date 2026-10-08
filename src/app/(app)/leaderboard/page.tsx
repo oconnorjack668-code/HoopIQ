@@ -46,7 +46,6 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   await requireUser();
   const params = await searchParams;
   const [profile, supabase] = await Promise.all([getCurrentProfile(), createClient()]);
-  const db = supabase as any;
 
   const age = AGE_GROUPS.some((g) => g.id === params.age) ? (params.age as string) : 'all';
   let scope: Scope = (['everyone', 'country', 'region', 'friends', 'team'] as const).includes(params.scope as Scope)
@@ -54,17 +53,17 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
     : 'everyone';
 
   const [{ data: season }, { data: memberships }, { data: challenges }, { data: myChallenges }] = await Promise.all([
-    db.from('leaderboard_seasons').select('id, name').eq('is_active', true).maybeSingle(),
-    db.from('team_members').select('teams(id, name)').eq('user_id', profile?.id ?? ''),
-    db.from('challenges').select('id, title, description, points, end_date').eq('is_active', true).limit(20),
-    db.from('challenge_completions').select('challenge_id').eq('user_id', profile?.id ?? ''),
+    supabase.from('leaderboard_seasons').select('id, name').eq('is_active', true).maybeSingle(),
+    supabase.from('team_members').select('teams(id, name)').eq('user_id', profile?.id ?? ''),
+    supabase.from('challenges').select('id, title, description, points, end_date').eq('is_active', true).limit(20),
+    supabase.from('challenge_completions').select('challenge_id').eq('user_id', profile?.id ?? ''),
   ]);
-  const teams = ((memberships || []) as Array<{ teams: { id: string; name: string } | null }>).map((m) => m.teams).filter(Boolean) as Array<{ id: string; name: string }>;
+  const teams = ((memberships || []) as unknown as Array<{ teams: { id: string; name: string } | null }>).map((m) => m.teams).filter(Boolean) as Array<{ id: string; name: string }>;
   const teamId = scope === 'team' ? teams.find((t) => t.id === params.team)?.id || teams[0]?.id || null : null;
   if (scope === 'team' && !teamId) scope = 'everyone';
 
   const rpc = (s: Scope, limit: number, team: string | null = null) =>
-    db.rpc('leaderboard_page', { p_scope: s, p_age: age, p_team: team, p_limit: limit });
+    supabase.rpc('leaderboard_page', { p_scope: s, p_age: age, p_team: team, p_limit: limit });
 
   // The main list plus "your rank" in each view, all in parallel
   const [main, meEveryone, meCountry, meRegion, meFriends] = await Promise.all([

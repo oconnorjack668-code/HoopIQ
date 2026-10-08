@@ -25,7 +25,7 @@ const yearAgo = () => new Date(Date.now() - 365 * 86_400_000).toISOString().slic
 
 export default async function GamesPage() {
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const since = yearAgo();
   const { data, error } = await supabase
     .from('games')

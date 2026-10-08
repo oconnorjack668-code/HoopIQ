@@ -12,7 +12,7 @@ export function AddFriendButton({ code }: { code: string }) {
 
   async function add() {
     setBusy(true);
-    const { data, error } = await (createClient() as any).rpc('send_friend_request', { p_code: code });
+    const { data, error } = await createClient().rpc('send_friend_request', { p_code: code });
     setBusy(false);
     setResult(error ? error.message : REQUEST_MESSAGES[data as RequestResult] || 'Done.');
   }

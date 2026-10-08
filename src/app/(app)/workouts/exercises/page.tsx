@@ -18,7 +18,7 @@ export default async function ExerciseLibraryPage({
   await requireUser();
   const { muscle } = await searchParams;
   const selected = MUSCLE_GROUPS.find((m) => m.id === muscle)?.id;
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
 
   let query = supabase
     .from('exercise_library')

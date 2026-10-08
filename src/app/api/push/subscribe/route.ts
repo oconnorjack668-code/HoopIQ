@@ -22,10 +22,10 @@ export async function POST(request: Request) {
   // device now belongs to the player who is signed in: stop sending the other account's
   // reminders to it (row level security would otherwise block this save).
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    await (createAdminClient() as any).from('push_subscriptions').delete().eq('endpoint', endpoint).neq('user_id', user.id);
+    await createAdminClient().from('push_subscriptions').delete().eq('endpoint', endpoint).neq('user_id', user.id);
   }
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { error } = await supabase.from('push_subscriptions').upsert(
     {
       user_id: user.id,
@@ -51,7 +51,7 @@ export async function DELETE(request: Request) {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: 'Please log in again.' }, { status: 401 });
   const body = (await request.json().catch(() => null)) as { endpoint?: string } | null;
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   if (body?.endpoint) await supabase.from('push_subscriptions').delete().eq('endpoint', body.endpoint);
   const { count } = await supabase.from('push_subscriptions').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
   if (!count) await supabase.from('notification_preferences').update({ push_enabled: false }).eq('user_id', user.id);

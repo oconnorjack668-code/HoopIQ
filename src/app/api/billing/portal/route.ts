@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: 'Please log in again.' }, { status: 401 });
   if (!stripeConfigured()) return Response.json({ error: 'Payments are not set up yet.' }, { status: 503 });
 
-  const { data: sub } = await (createAdminClient() as any)
+  const { data: sub } = await createAdminClient()
     .from('subscriptions')
     .select('stripe_customer_id')
     .eq('user_id', user.id)

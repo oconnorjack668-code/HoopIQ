@@ -27,7 +27,7 @@ export function CompleteDayButton({
   async function toggle() {
     setBusy(true);
     setError(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

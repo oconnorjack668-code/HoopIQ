@@ -31,7 +31,7 @@ export function TeamsActions({ canCreate }: { canCreate: boolean }) {
     }
     setBusy('join');
     setMessage(null);
-    const { data, error } = await (createClient() as any).rpc('join_team', { p_code: clean });
+    const { data, error } = await createClient().rpc('join_team', { p_code: clean });
     setBusy(null);
     if (error) return setMessage({ tone: 'error', text: error.message });
     setMessage({ tone: data === 'joined' ? 'success' : 'error', text: JOIN_MESSAGES[data] || 'Done.' });
@@ -49,7 +49,7 @@ export function TeamsActions({ canCreate }: { canCreate: boolean }) {
     }
     setBusy('create');
     setMessage(null);
-    const { data, error } = await (createClient() as any).rpc('create_team', { p_name: name.trim().slice(0, 60) });
+    const { data, error } = await createClient().rpc('create_team', { p_name: name.trim().slice(0, 60) });
     setBusy(null);
     if (error) return setMessage({ tone: 'error', text: error.message });
     router.push(`/teams/${data}`);

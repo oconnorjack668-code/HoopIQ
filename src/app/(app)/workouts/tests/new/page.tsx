@@ -1,8 +1,7 @@
 // src/app/(app)/workouts/tests/new/page.tsx
-// @ts-nocheck
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { performanceTestSchema } from '@/lib/validation';
@@ -14,8 +13,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Alert } from '@/components/ui/Alert';
 import { ArrowLeft, Award } from 'lucide-react';
 import Link from 'next/link';
+import type { PerformanceTestType } from '@/lib/supabase/types';
 
-const TESTS = [
+const TESTS: Array<{ value: PerformanceTestType; label: string }> = [
   { value: 'standing_vertical', label: 'Standing Vertical (inches)' },
   { value: 'approach_vertical', label: 'Approach Vertical (inches)' },
   { value: 'sprint_three_quarter', label: '3/4 Court Sprint (seconds)' },
@@ -33,13 +33,15 @@ export default function NewPerformanceTestPage() {
 
   // The phone's own date (toISOString() is UTC, which is still yesterday just after midnight in Ireland)
   const [testDate, setTestDate] = useState(() => localDateString());
-  const [testType, setTestType] = useState('standing_vertical');
-
-  // ?type=<test_type> preselects the test (e.g. from a program day)
-  React.useEffect(() => {
+  // ?type=<test_type> preselects the test (e.g. from a program day). Read straight
+  // from the URL in the initializer instead of an effect, so there's no extra
+  // render and no setState-in-effect.
+  const [testType, setTestType] = useState<PerformanceTestType>(() => {
+    if (typeof window === 'undefined') return 'standing_vertical';
     const type = new URLSearchParams(window.location.search).get('type');
-    if (type && TESTS.some((t) => t.value === type)) setTestType(type);
-  }, []);
+    const match = TESTS.find((t) => t.value === type);
+    return match ? match.value : 'standing_vertical';
+  });
   const [customTestName, setCustomTestName] = useState('');
   const [value, setValue] = useState('');
   const [unit, setUnit] = useState('inches');
@@ -56,7 +58,6 @@ export default function NewPerformanceTestPage() {
     return unit;
   };
 
-  // @ts-ignore
   async function handleSave() {
     setError(null);
     setIsLoading(true);
@@ -172,7 +173,7 @@ export default function NewPerformanceTestPage() {
               <Select
                 label="Test Type"
                 value={testType}
-                onChange={(e) => setTestType(e.target.value)}
+                onChange={(e) => setTestType(e.target.value as PerformanceTestType)}
                 options={TESTS}
               />
             </div>

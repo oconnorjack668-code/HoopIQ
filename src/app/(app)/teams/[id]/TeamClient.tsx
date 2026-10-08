@@ -129,7 +129,9 @@ export function TeamClient({
   const players = roster.filter((r) => r.role === 'player');
   const doneBy = (assignmentId: string) => completions.filter((c) => c.assignment_id === assignmentId).map((c) => c.user_id);
 
-  async function run(key: string, fn: () => Promise<{ error: { message: string } | null }>, success?: string) {
+  // PromiseLike, not Promise: supabase's query builders are thenables, not
+  // actual Promise instances, but `await` works on anything with a `.then()`.
+  async function run(key: string, fn: () => PromiseLike<{ error: { message: string } | null }>, success?: string) {
     setBusy(key);
     setMessage(null);
     const { error } = await fn();
@@ -143,7 +145,7 @@ export function TeamClient({
     return true;
   }
 
-  const db = () => createClient() as any;
+  const db = () => createClient();
 
   async function share() {
     const url = `${window.location.origin}/teams`;

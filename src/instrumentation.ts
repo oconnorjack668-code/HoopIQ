@@ -12,7 +12,7 @@ export const onRequestError: Instrumentation.onRequestError = async (err, reques
   const error = err instanceof Error ? err : new Error(String(err));
   try {
     const { createAdminClient } = await import('@/lib/supabase/admin');
-    await (createAdminClient() as any).from('app_errors').insert({
+    await createAdminClient().from('app_errors').insert({
       source: 'server',
       message: `${request.method} ${error.message || 'Unknown error'}`.slice(0, 1000),
       stack: error.stack?.slice(0, 4000) ?? null,

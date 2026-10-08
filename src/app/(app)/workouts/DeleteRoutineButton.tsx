@@ -14,7 +14,7 @@ export function DeleteRoutineButton({ routineId, name }: { routineId: string; na
     setBusy(true);
     // Loaded on tap so the workouts list doesn't ship the Supabase library up front
     const { createClient } = await import('@/lib/supabase/client');
-    const { error } = await (createClient() as any).from('workout_routines').delete().eq('id', routineId);
+    const { error } = await createClient().from('workout_routines').delete().eq('id', routineId);
     setBusy(false);
     if (error) {
       window.alert(`Could not delete the routine: ${error.message}`);

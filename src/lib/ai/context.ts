@@ -4,6 +4,36 @@
 // player's own client or the service-role client used by the weekly cron job.
 // Session notes are included only for the player's own chat, never in shared features.
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/types';
+
+// These queries use PostgREST's embedded-resource syntax (e.g. `session_drills(session_id)`),
+// which this hand-written schema doesn't model (that needs real foreign-key metadata from
+// `supabase gen types`). The real shape is asserted once per query here instead of casting
+// the whole client or every result to `any`.
+interface ZoneRow {
+  shot_zone: string;
+  makes: number;
+  attempts: number;
+  session_drills: { session_id: string } | null;
+}
+interface WorkoutRow {
+  id: string;
+  workout_date: string;
+  workout_type: string;
+  duration_minutes: number;
+  rpe: number;
+  workout_sets: Array<{ exercise_name: string; reps: number; weight_kg: number | null; is_personal_record: boolean }>;
+}
+interface EnrollmentRow {
+  started_at: string;
+  training_programs: { name: string } | null;
+}
+interface StyleMatch {
+  name: string;
+  archetype: string;
+}
+
 export interface PlayerContext {
   text: string;
   /** Numbers the weekly report also shows in the app */
@@ -17,7 +47,7 @@ function pct(makes: number, attempts: number) {
 }
 
 export async function buildPlayerContext(
-  supabase: any,
+  supabase: SupabaseClient<Database>,
   userId: string,
   { includeNotes = true, days = 14 }: { includeNotes?: boolean; days?: number } = {}
 ): Promise<PlayerContext> {
@@ -95,10 +125,10 @@ export async function buildPlayerContext(
   }
 
   // Shots per session for the recent sessions
-  const sessionRows = (sessions.data || []) as any[];
+  const sessionRows = sessions.data || [];
   const bySession = new Map<string, { makes: number; attempts: number }>();
   const zones = new Map<string, { makes: number; attempts: number }>();
-  for (const e of (zones30.data || []) as any[]) {
+  for (const e of (zones30.data || []) as unknown as ZoneRow[]) {
     const z = zones.get(e.shot_zone) || { makes: 0, attempts: 0 };
     z.makes += e.makes;
     z.attempts += e.attempts;
@@ -140,7 +170,7 @@ export async function buildPlayerContext(
     lines.push(`\nShooting by zone (last 30 days): ${list.join('; ')}`);
   }
 
-  const workoutRows = (workouts.data || []) as any[];
+  const workoutRows = (workouts.data || []) as unknown as WorkoutRow[];
   lines.push(`\nGym workouts (last ${days} days): ${workoutRows.length}`);
   for (const w of workoutRows) {
     if (w.workout_date >= since7) {
@@ -149,7 +179,7 @@ export async function buildPlayerContext(
       weekDays.add(w.workout_date);
     }
     const best = new Map<string, { weight: number | null; reps: number; pr: boolean }>();
-    for (const set of (w.workout_sets || []) as any[]) {
+    for (const set of w.workout_sets || []) {
       const cur = best.get(set.exercise_name);
       if (!cur || (set.weight_kg || 0) > (cur.weight || 0)) best.set(set.exercise_name, { weight: set.weight_kg, reps: set.reps, pr: set.is_personal_record });
     }
@@ -160,9 +190,10 @@ export async function buildPlayerContext(
   }
   week.trainingDays = weekDays.size;
 
-  const gameRows = (games.data || []) as any[];
+  const gameRows = games.data || [];
   if (gameRows.length) {
-    const avg = (f: (g: any) => number) => Math.round((gameRows.reduce((n, g) => n + f(g), 0) / gameRows.length) * 10) / 10;
+    const avg = (f: (g: (typeof gameRows)[number]) => number) =>
+      Math.round((gameRows.reduce((n, g) => n + f(g), 0) / gameRows.length) * 10) / 10;
     lines.push(
       `
 Recent games (last ${gameRows.length}): ${avg((g) => g.points)} ppg, ${avg((g) => g.oreb + g.dreb)} rpg, ${avg((g) => g.ast)} apg, ${avg((g) => g.tov)} turnovers per game`
@@ -174,14 +205,14 @@ Recent games (last ${gameRows.length}): ${avg((g) => g.points)} ppg, ${avg((g) =
     }
   }
 
-  const goalRows = (goals.data || []) as any[];
+  const goalRows = goals.data || [];
   if (goalRows.length) lines.push(`\nActive goals: ${goalRows.map((g) => `${g.title} (${g.current_value}/${g.target_value} ${g.period})`).join('; ')}`);
-  const programName = enrollment.data?.training_programs?.name;
+  const programName = (enrollment.data as unknown as EnrollmentRow | null)?.training_programs?.name;
   if (programName) lines.push(`Current programme: ${programName}.`);
   if (formCheck.data?.summary) {
     lines.push(`Latest shooting form check (${String(formCheck.data.created_at).slice(0, 10)}): ${JSON.stringify(formCheck.data.summary).slice(0, 500)}`);
   }
-  const topMatch = (style.data?.matches as any[] | undefined)?.[0];
+  const topMatch = (style.data?.matches as StyleMatch[] | undefined)?.[0];
   if (topMatch?.name) lines.push(`Closest NBA style match: ${topMatch.name} (${topMatch.archetype}).`);
 
   return { text: lines.join('\n'), week };

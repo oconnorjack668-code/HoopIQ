@@ -126,7 +126,7 @@ export default function NewGamePage() {
     const box = clampBox(draft.box);
     setSaving(true);
     setError(null);
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const userId = await getUserIdForSave(supabase);
     if (!userId) {
       setSaving(false);

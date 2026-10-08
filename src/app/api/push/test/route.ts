@@ -9,7 +9,7 @@ export async function POST() {
   if (!user) return Response.json({ error: 'Please log in again.' }, { status: 401 });
   if (!pushConfigured()) return Response.json({ error: 'Notifications are not set up on the server yet (VAPID keys missing).' }, { status: 503 });
 
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data: subs } = await supabase.from('push_subscriptions').select('endpoint, p256dh, auth').eq('user_id', user.id);
   if (!subs?.length) return Response.json({ error: 'No devices are set up for notifications.' }, { status: 404 });
 

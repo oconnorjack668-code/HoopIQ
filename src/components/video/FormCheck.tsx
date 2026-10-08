@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { getPoseLandmarker } from '@/lib/video/mediapipe';
 import { analyzeShot, angleAt, LM, type PoseFrame, type ShotMechanics } from '@/lib/video/mechanics';
+import type { Database } from '@/lib/supabase/types';
 import { FileVideo, ScanLine } from 'lucide-react';
 
 const FPS = 30;
@@ -52,15 +53,6 @@ export function FormCheck({ initialFile, shotTimeMs, heightCm, hand, onResult }:
     return () => URL.revokeObjectURL(url);
   }, [file, shotTimeMs]);
 
-  // Redraw the skeleton for the selected frame
-  useEffect(() => {
-    const video = videoRef.current;
-    const frame = frames[index];
-    if (!video || !frame) return;
-    seek(video, frame.t / 1000).then(() => drawSkeleton(frame));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, frames]);
-
   function drawSkeleton(frame: PoseFrame) {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -102,6 +94,15 @@ export function FormCheck({ initialFile, shotTimeMs, heightCm, hand, onResult }:
     label(`${Math.round(angleAt(l[s[0]], l[s[1]], l[s[2]]))}°`, p(s[1]));
     label(`${Math.round(angleAt(l[LM.rightHip], l[LM.rightKnee], l[LM.rightAnkle]))}°`, p(LM.rightKnee));
   }
+
+  // Redraw the skeleton for the selected frame
+  useEffect(() => {
+    const video = videoRef.current;
+    const frame = frames[index];
+    if (!video || !frame) return;
+    seek(video, frame.t / 1000).then(() => drawSkeleton(frame));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, frames]);
 
   async function analyze() {
     const video = videoRef.current;
@@ -145,11 +146,11 @@ export function FormCheck({ initialFile, shotTimeMs, heightCm, hand, onResult }:
     setIndex(m.releaseFrame);
     onResult?.(m);
 
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) await supabase.from('video_analyses').insert({ user_id: user.id, kind: 'form_check', summary: m });
+    if (user) await supabase.from('video_analyses').insert({ user_id: user.id, kind: 'form_check', summary: m as unknown as Database['public']['Tables']['video_analyses']['Insert']['summary'] });
   }
 
   const phases = mechanics

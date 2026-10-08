@@ -52,7 +52,7 @@ export default function WorkoutBuilderPage() {
 
   useEffect(() => {
     (async () => {
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();

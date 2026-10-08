@@ -13,7 +13,7 @@ export function DeleteGameButton({ id }: { id: string }) {
     setBusy(true);
     // Loaded on tap so the game page doesn't ship the Supabase library up front
     const { createClient } = await import('@/lib/supabase/client');
-    const { error } = await (createClient() as any).from('games').delete().eq('id', id);
+    const { error } = await createClient().from('games').delete().eq('id', id);
     if (error) {
       setBusy(false);
       window.alert(`Could not delete: ${error.message}`);

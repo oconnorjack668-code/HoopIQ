@@ -4,7 +4,7 @@ import { requireUser, getCurrentProfile, getCurrentSubscription } from '@/lib/au
 import { createClient } from '@/lib/supabase/server';
 import { shotProfileFromZones } from '@/lib/styleMatch';
 import { asMeasurementSystem } from '@/lib/units';
-import { StyleMatchClient } from './StyleMatchClient';
+import { StyleMatchClient, type SavedResult } from './StyleMatchClient';
 import { getShotTotals } from '@/lib/player-activity';
 import { Users } from 'lucide-react';
 
@@ -14,7 +14,7 @@ export const metadata = { title: 'Play Style Match - HoopIQ' };
 
 export default async function StyleMatchPage() {
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const [profile, subscription, zoneTotals, { data: last }] = await Promise.all([
     getCurrentProfile(),
     getCurrentSubscription(),
@@ -52,7 +52,7 @@ export default async function StyleMatchPage() {
           shotProfile={shotProfile}
           totalShots={totalShots}
           canUseAi={canUseAi}
-          lastResult={last || null}
+          lastResult={last as unknown as SavedResult | null}
         />
       </div>
     </div>

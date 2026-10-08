@@ -48,7 +48,7 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: 'Please log in again.' }, { status: 401 });
 
-  const admin = createAdminClient() as any;
+  const admin = createAdminClient();
   const [authUser, friendships, profile, ...tables] = await Promise.all([
     admin.auth.admin.getUserById(user.id),
     admin.from('friendships').select('*').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`),

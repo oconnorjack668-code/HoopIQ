@@ -1,5 +1,6 @@
 // src/lib/programs.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/types';
 
 export type ProgramItem =
   | { type: 'drill'; slug: string; note?: string }
@@ -66,24 +67,28 @@ export function gymLink(items: ProgramItem[]): string | null {
 }
 
 /** The player's active enrollment with its program, days and completed day ids. */
-export async function getActiveProgram(supabase: SupabaseClient, userId: string) {
-  const { data: enrollment } = await (supabase as any)
+export async function getActiveProgram(supabase: SupabaseClient<Database>, userId: string) {
+  const { data: enrollment } = await supabase
     .from('program_enrollments')
     .select('id, started_at, training_programs(*)')
     .eq('user_id', userId)
     .eq('status', 'active')
     .maybeSingle();
-  if (!enrollment?.training_programs) return null;
+  // The embedded `training_programs(*)` resource isn't modelled in this hand-written
+  // Database type (that needs real foreign-key metadata from `supabase gen types`),
+  // so the joined shape is asserted once here instead of casting the client to any.
+  const row = enrollment as { id: string; training_programs: Program | null } | null;
+  if (!row?.training_programs) return null;
 
-  const program = enrollment.training_programs as Program;
+  const program = row.training_programs;
   const [{ data: days }, { data: completions }] = await Promise.all([
-    (supabase as any).from('program_days').select('*').eq('program_id', program.id),
-    (supabase as any).from('program_day_completions').select('program_day_id').eq('enrollment_id', enrollment.id),
+    supabase.from('program_days').select('*').eq('program_id', program.id),
+    supabase.from('program_day_completions').select('program_day_id').eq('enrollment_id', row.id),
   ]);
-  const completedIds = new Set<string>(((completions || []) as Array<{ program_day_id: string }>).map((c) => c.program_day_id));
+  const completedIds = new Set<string>((completions || []).map((c) => c.program_day_id));
   const allDays = sortDays((days || []) as ProgramDay[]);
   return {
-    enrollmentId: enrollment.id as string,
+    enrollmentId: row.id,
     program,
     days: allDays,
     completedIds,

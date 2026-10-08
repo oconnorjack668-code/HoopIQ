@@ -15,7 +15,7 @@ export const metadata = { title: 'Game - HoopIQ' };
 export default async function GamePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase.from('games').select('*').eq('id', id).eq('user_id', user.id).maybeSingle();
   if (!data) notFound();
   const g = data as GameRow;

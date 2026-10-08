@@ -41,7 +41,10 @@ export function FriendsClient({ myId, myCode, rows, feed }: { myId: string; myCo
   const friendCount = ranked.filter((r) => !r.is_me).length;
   const inviteUrl = typeof window !== 'undefined' ? `${window.location.origin}/friends/add/${myCode}` : `/friends/add/${myCode}`;
 
-  async function call(key: string, fn: () => Promise<{ data?: unknown; error: { message: string } | null }>) {
+  // PromiseLike, not Promise: supabase's .rpc()/.update() builders are thenables,
+  // not actual Promise instances (they lack .catch()/.finally()), but `await`
+  // works on anything with a `.then()`.
+  async function call(key: string, fn: () => PromiseLike<{ data?: unknown; error: { message: string } | null }>) {
     setBusy(key);
     setMessage(null);
     const { data, error } = await fn();
@@ -61,7 +64,7 @@ export function FriendsClient({ myId, myCode, rows, feed }: { myId: string; myCo
       setMessage({ tone: 'error', text: 'Friend codes are 6 letters and numbers.' });
       return;
     }
-    const result = (await call('add', () => (createClient() as any).rpc('send_friend_request', { p_code: clean }))) as RequestResult | null;
+    const result = (await call('add', () => createClient().rpc('send_friend_request', { p_code: clean }))) as RequestResult | null;
     if (result) {
       setMessage({ tone: result === 'sent' || result === 'accepted' ? 'success' : 'error', text: REQUEST_MESSAGES[result] });
       if (result === 'sent' || result === 'accepted') setCode('');
@@ -138,7 +141,8 @@ export function FriendsClient({ myId, myCode, rows, feed }: { myId: string; myCo
                   isLoading={busy === `a-${r.friendship_id}`}
                   onClick={() =>
                     call(`a-${r.friendship_id}`, () =>
-                      (createClient() as any).rpc('respond_friend_request', { p_friendship_id: r.friendship_id, p_accept: true })
+                      // Safe: only rendered for rows with status 'incoming'/'outgoing', which always have a real friendship_id.
+                      createClient().rpc('respond_friend_request', { p_friendship_id: r.friendship_id!, p_accept: true })
                     )
                   }
                 >
@@ -151,7 +155,7 @@ export function FriendsClient({ myId, myCode, rows, feed }: { myId: string; myCo
                   isLoading={busy === `d-${r.friendship_id}`}
                   onClick={() =>
                     call(`d-${r.friendship_id}`, () =>
-                      (createClient() as any).rpc('respond_friend_request', { p_friendship_id: r.friendship_id, p_accept: false })
+                      createClient().rpc('respond_friend_request', { p_friendship_id: r.friendship_id!, p_accept: false })
                     )
                   }
                 >
@@ -205,7 +209,7 @@ export function FriendsClient({ myId, myCode, rows, feed }: { myId: string; myCo
                       className="text-zinc-600 hover:text-red-400"
                       onClick={() => {
                         if (window.confirm(`Remove ${r.display_name} from your friends?`)) {
-                          void call(`r-${r.friendship_id}`, () => (createClient() as any).rpc('remove_friendship', { p_friendship_id: r.friendship_id }));
+                          void call(`r-${r.friendship_id}`, () => createClient().rpc('remove_friendship', { p_friendship_id: r.friendship_id! }));
                         }
                       }}
                     >
@@ -253,7 +257,7 @@ export function FriendsClient({ myId, myCode, rows, feed }: { myId: string; myCo
               <button
                 type="button"
                 className="text-xs text-zinc-500 underline"
-                onClick={() => void call(`c-${r.friendship_id}`, () => (createClient() as any).rpc('remove_friendship', { p_friendship_id: r.friendship_id }))}
+                onClick={() => void call(`c-${r.friendship_id}`, () => createClient().rpc('remove_friendship', { p_friendship_id: r.friendship_id! }))}
               >
                 Cancel
               </button>

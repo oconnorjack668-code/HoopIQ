@@ -11,12 +11,12 @@ export const metadata = { title: 'Teams - HoopIQ' };
 
 export default async function TeamsPage() {
   const user = await requireUser();
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const [{ data, error }, subscription] = await Promise.all([
     supabase.from('team_members').select('role, teams(id, name)').eq('user_id', user.id),
     getCurrentSubscription(),
   ]);
-  const teams = ((data || []) as Array<{ role: string; teams: { id: string; name: string } | null }>).filter((m) => m.teams);
+  const teams = ((data || []) as unknown as Array<{ role: string; teams: { id: string; name: string } | null }>).filter((m) => m.teams);
   const canCreate = subscription?.plan_type === 'pro' || subscription?.plan_type === 'owner';
 
   return (
