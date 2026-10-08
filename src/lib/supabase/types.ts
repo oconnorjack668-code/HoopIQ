@@ -132,6 +132,14 @@ export type VideoAnalysisStatus =
 
 export interface Database {
   public: {
+    // supabase-js's GenericSchema constraint requires Tables, Views and Functions
+    // all three to be present for the client's generics to resolve at all. This
+    // project has no database views, but the empty key still has to exist -
+    // without it, every `.from(table)` call across the whole app silently
+    // degrades to `never` instead of a real row type (which is exactly what was
+    // happening before this was added: no lint rule catches it, and `tsc`/`next
+    // build` had never actually been run to completion before now).
+    Views: Record<string, never>;
     Tables: {
       profiles: {
         Row: {
@@ -215,6 +223,7 @@ export interface Database {
           share_with_coaches?: boolean;
           updated_at?: string;
         };
+        Relationships: [];
       };
       user_roles: {
         Row: {
@@ -232,6 +241,7 @@ export interface Database {
         Update: {
           role?: UserRole;
         };
+        Relationships: [];
       };
       subscriptions: {
         Row: {
@@ -273,6 +283,7 @@ export interface Database {
           ai_credits_remaining?: number;
           updated_at?: string;
         };
+        Relationships: [];
       };
       notification_preferences: {
         Row: {
@@ -285,6 +296,11 @@ export interface Database {
           quiet_hours_end: string | null;
           email_reminders: boolean;
           push_enabled: boolean;
+          // Added by 00019_push_reminders.sql and 00021_friends_and_coach_chat.sql
+          timezone: string;
+          last_reminded_on: string | null;
+          weekly_report: boolean;
+          last_weekly_report_on: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -298,12 +314,20 @@ export interface Database {
           quiet_hours_end?: string | null;
           email_reminders?: boolean;
           push_enabled?: boolean;
+          timezone?: string;
+          last_reminded_on?: string | null;
+          weekly_report?: boolean;
+          last_weekly_report_on?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           reminder_enabled?: boolean;
           reminder_days?: number[];
+          timezone?: string;
+          last_reminded_on?: string | null;
+          weekly_report?: boolean;
+          last_weekly_report_on?: string | null;
           reminder_time?: string;
           quiet_hours_start?: string | null;
           quiet_hours_end?: string | null;
@@ -311,6 +335,7 @@ export interface Database {
           push_enabled?: boolean;
           updated_at?: string;
         };
+        Relationships: [];
       };
       training_sessions: {
         Row: {
@@ -346,6 +371,7 @@ export interface Database {
           notes?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       session_drills: {
         Row: {
@@ -377,6 +403,7 @@ export interface Database {
           notes?: string | null;
           display_order?: number;
         };
+        Relationships: [];
       };
       shooting_entries: {
         Row: {
@@ -405,6 +432,7 @@ export interface Database {
           makes?: number;
           attempts?: number;
         };
+        Relationships: [];
       };
       exercise_library: {
         Row: {
@@ -416,6 +444,10 @@ export interface Database {
           equipment: string[];
           description: string | null;
           is_system: boolean;
+          // Added by 00011_gym_library_and_routines.sql
+          primary_muscle: string | null;
+          cues: string[];
+          is_basketball_specific: boolean;
           created_at: string;
         };
         Insert: {
@@ -427,6 +459,9 @@ export interface Database {
           equipment?: string[];
           description?: string | null;
           is_system?: boolean;
+          primary_muscle?: string | null;
+          cues?: string[];
+          is_basketball_specific?: boolean;
           created_at?: string;
         };
         Update: {
@@ -435,7 +470,11 @@ export interface Database {
           muscle_groups?: string[];
           equipment?: string[];
           description?: string | null;
+          primary_muscle?: string | null;
+          cues?: string[];
+          is_basketball_specific?: boolean;
         };
+        Relationships: [];
       };
       workouts: {
         Row: {
@@ -468,6 +507,7 @@ export interface Database {
           notes?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       workout_sets: {
         Row: {
@@ -516,6 +556,7 @@ export interface Database {
           is_personal_record?: boolean;
           notes?: string | null;
         };
+        Relationships: [];
       };
       performance_tests: {
         Row: {
@@ -551,6 +592,7 @@ export interface Database {
           is_personal_record?: boolean;
           notes?: string | null;
         };
+        Relationships: [];
       };
       goals: {
         Row: {
@@ -586,6 +628,7 @@ export interface Database {
           is_active?: boolean;
           updated_at?: string;
         };
+        Relationships: [];
       };
       ai_reports: {
         Row: {
@@ -623,6 +666,7 @@ export interface Database {
         Update: {
           status?: string;
         };
+        Relationships: [];
       };
       study_topics: {
         Row: {
@@ -656,6 +700,7 @@ export interface Database {
           display_order?: number;
           is_active?: boolean;
         };
+        Relationships: [];
       };
       study_items: {
         Row: {
@@ -700,6 +745,7 @@ export interface Database {
           display_order?: number;
           is_active?: boolean;
         };
+        Relationships: [];
       };
       study_progress: {
         Row: {
@@ -734,6 +780,7 @@ export interface Database {
           completed_at?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       leaderboard_seasons: {
         Row: {
@@ -761,6 +808,7 @@ export interface Database {
           scoring_rules?: Json;
           is_active?: boolean;
         };
+        Relationships: [];
       };
       challenge_completions: {
         Row: {
@@ -773,6 +821,8 @@ export interface Database {
           points_earned: number;
           verified: boolean;
           metadata: Json;
+          // Added by 00018_challenges_and_badges.sql
+          period_start: string | null;
           completed_at: string;
           created_at: string;
         };
@@ -786,6 +836,7 @@ export interface Database {
           points_earned?: number;
           verified?: boolean;
           metadata?: Json;
+          period_start?: string | null;
           completed_at?: string;
           created_at?: string;
         };
@@ -793,6 +844,7 @@ export interface Database {
           points_earned?: number;
           verified?: boolean;
         };
+        Relationships: [];
       };
       reward_events: {
         Row: {
@@ -823,6 +875,7 @@ export interface Database {
           badge_title?: string;
           badge_description?: string;
         };
+        Relationships: [];
       };
       video_assets: {
         Row: {
@@ -870,6 +923,7 @@ export interface Database {
           analysis_status?: VideoAnalysisStatus;
           updated_at?: string;
         };
+        Relationships: [];
       };
       video_analysis_jobs: {
         Row: {
@@ -907,6 +961,7 @@ export interface Database {
           started_at?: string | null;
           completed_at?: string | null;
         };
+        Relationships: [];
       };
       video_measurements: {
         Row: {
@@ -949,6 +1004,7 @@ export interface Database {
           shot_outcome?: string | null;
           player_confirmed?: boolean;
         };
+        Relationships: [];
       };
       quiz_completions: {
         Row: {
@@ -970,6 +1026,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Record<string, never>;
+        Relationships: [];
       };
       challenges: {
         Row: {
@@ -982,6 +1039,10 @@ export interface Database {
           start_date: string;
           end_date: string;
           is_active: boolean;
+          // Added by 00018_challenges_and_badges.sql
+          slug: string | null;
+          rules: Json;
+          recurring: boolean;
           created_at: string;
         };
         Insert: {
@@ -994,6 +1055,9 @@ export interface Database {
           start_date?: string;
           end_date: string;
           is_active?: boolean;
+          slug?: string | null;
+          rules?: Json;
+          recurring?: boolean;
           created_at?: string;
         };
         Update: {
@@ -1002,7 +1066,628 @@ export interface Database {
           points?: number;
           end_date?: string;
           is_active?: boolean;
+          slug?: string | null;
+          rules?: Json;
+          recurring?: boolean;
         };
+        Relationships: [];
+      };
+      // Added for migration 00014_training_programs.sql, which this hand-written
+      // schema had not previously been updated to match.
+      training_programs: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          description: string;
+          goal: string;
+          level: string;
+          position: string;
+          weeks: number;
+          sessions_per_week: number;
+          season: string;
+          display_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          description: string;
+          goal: string;
+          level: string;
+          position?: string;
+          weeks: number;
+          sessions_per_week: number;
+          season?: string;
+          display_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          slug?: string;
+          name?: string;
+          description?: string;
+          goal?: string;
+          level?: string;
+          position?: string;
+          weeks?: number;
+          sessions_per_week?: number;
+          season?: string;
+          display_order?: number;
+        };
+        Relationships: [];
+      };
+      program_days: {
+        Row: {
+          id: string;
+          program_id: string;
+          week: number;
+          day: number;
+          title: string;
+          focus: string;
+          estimated_minutes: number;
+          items: Json;
+        };
+        Insert: {
+          id?: string;
+          program_id: string;
+          week: number;
+          day: number;
+          title: string;
+          focus: string;
+          estimated_minutes: number;
+          items?: Json;
+        };
+        Update: {
+          week?: number;
+          day?: number;
+          title?: string;
+          focus?: string;
+          estimated_minutes?: number;
+          items?: Json;
+        };
+        Relationships: [];
+      };
+      program_enrollments: {
+        Row: {
+          id: string;
+          user_id: string;
+          program_id: string;
+          status: string;
+          started_at: string;
+          finished_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          program_id: string;
+          status?: string;
+          started_at?: string;
+          finished_at?: string | null;
+        };
+        Update: {
+          status?: string;
+          finished_at?: string | null;
+        };
+        Relationships: [];
+      };
+      program_day_completions: {
+        Row: {
+          id: string;
+          user_id: string;
+          enrollment_id: string;
+          program_day_id: string;
+          completed_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          enrollment_id: string;
+          program_day_id: string;
+          completed_at?: string;
+        };
+        Update: {
+          completed_at?: string;
+        };
+        Relationships: [];
+      };
+      // Added to close the gap between this hand-written schema and the real
+      // database - these 18 tables existed in supabase/migrations but had never
+      // been added here, which is why so much code resorted to `as any`.
+      games: {
+        Row: {
+          id: string;
+          user_id: string;
+          game_date: string;
+          game_type: string;
+          opponent: string | null;
+          result: string | null;
+          team_score: number | null;
+          opponent_score: number | null;
+          minutes: number | null;
+          fgm2: number;
+          fga2: number;
+          fgm3: number;
+          fga3: number;
+          ftm: number;
+          fta: number;
+          oreb: number;
+          dreb: number;
+          ast: number;
+          stl: number;
+          blk: number;
+          tov: number;
+          pf: number;
+          points: number;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          game_date?: string;
+          game_type?: string;
+          opponent?: string | null;
+          result?: string | null;
+          team_score?: number | null;
+          opponent_score?: number | null;
+          minutes?: number | null;
+          fgm2?: number;
+          fga2?: number;
+          fgm3?: number;
+          fga3?: number;
+          ftm?: number;
+          fta?: number;
+          oreb?: number;
+          dreb?: number;
+          ast?: number;
+          stl?: number;
+          blk?: number;
+          tov?: number;
+          pf?: number;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          game_date?: string;
+          game_type?: string;
+          opponent?: string | null;
+          result?: string | null;
+          team_score?: number | null;
+          opponent_score?: number | null;
+          minutes?: number | null;
+          fgm2?: number;
+          fga2?: number;
+          fgm3?: number;
+          fga3?: number;
+          ftm?: number;
+          fta?: number;
+          oreb?: number;
+          dreb?: number;
+          ast?: number;
+          stl?: number;
+          blk?: number;
+          tov?: number;
+          pf?: number;
+          notes?: string | null;
+        };
+        Relationships: [];
+      };
+      teams: {
+        Row: {
+          id: string;
+          name: string;
+          join_code: string;
+          created_by: string | null;
+          created_at: string;
+          // Added by 00024_settings_region_coach.sql
+          club_name: string | null;
+          country: string | null;
+          region: string | null;
+          age_group: string | null;
+          level: string | null;
+          season: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          join_code?: string;
+          created_by?: string | null;
+          created_at?: string;
+          club_name?: string | null;
+          country?: string | null;
+          region?: string | null;
+          age_group?: string | null;
+          level?: string | null;
+          season?: string | null;
+        };
+        Update: {
+          name?: string;
+          club_name?: string | null;
+          country?: string | null;
+          region?: string | null;
+          age_group?: string | null;
+          level?: string | null;
+          season?: string | null;
+        };
+        Relationships: [];
+      };
+      team_members: {
+        Row: { team_id: string; user_id: string; role: string; joined_at: string; share_details: boolean };
+        Insert: { team_id: string; user_id: string; role?: string; joined_at?: string; share_details?: boolean };
+        Update: { role?: string; share_details?: boolean };
+        Relationships: [];
+      };
+      team_assignments: {
+        Row: {
+          id: string;
+          team_id: string;
+          created_by: string | null;
+          title: string;
+          details: string | null;
+          link: string | null;
+          due_date: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          created_by?: string | null;
+          title: string;
+          details?: string | null;
+          link?: string | null;
+          due_date?: string | null;
+          created_at?: string;
+        };
+        Update: { title?: string; details?: string | null; link?: string | null; due_date?: string | null };
+        Relationships: [];
+      };
+      team_assignment_completions: {
+        Row: { assignment_id: string; user_id: string; completed_at: string };
+        Insert: { assignment_id: string; user_id: string; completed_at?: string };
+        Update: { completed_at?: string };
+        Relationships: [];
+      };
+      app_errors: {
+        Row: {
+          id: string;
+          created_at: string;
+          user_id: string | null;
+          source: string;
+          message: string;
+          stack: string | null;
+          digest: string | null;
+          url: string | null;
+          user_agent: string | null;
+          resolved: boolean;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          user_id?: string | null;
+          source: string;
+          message: string;
+          stack?: string | null;
+          digest?: string | null;
+          url?: string | null;
+          user_agent?: string | null;
+          resolved?: boolean;
+        };
+        Update: { resolved?: boolean };
+        Relationships: [];
+      };
+      friendships: {
+        Row: {
+          id: string;
+          requester_id: string;
+          addressee_id: string;
+          status: string;
+          created_at: string;
+          responded_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          requester_id: string;
+          addressee_id: string;
+          status?: string;
+          created_at?: string;
+          responded_at?: string | null;
+        };
+        Update: { status?: string; responded_at?: string | null };
+        Relationships: [];
+      };
+      coach_messages: {
+        Row: { id: string; user_id: string; role: string; content: string; created_at: string };
+        Insert: { id?: string; user_id: string; role: string; content: string; created_at?: string };
+        Update: never;
+        Relationships: [];
+      };
+      guides: {
+        Row: {
+          id: string;
+          slug: string;
+          category: string;
+          title: string;
+          summary: string;
+          reading_minutes: number;
+          sections: Json;
+          display_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          category: string;
+          title: string;
+          summary: string;
+          reading_minutes?: number;
+          sections?: Json;
+          display_order?: number;
+          created_at?: string;
+        };
+        Update: { title?: string; summary?: string; sections?: Json; display_order?: number };
+        Relationships: [];
+      };
+      workout_routines: {
+        Row: { id: string; user_id: string; name: string; notes: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; user_id: string; name: string; notes?: string | null; created_at?: string; updated_at?: string };
+        Update: { name?: string; notes?: string | null; updated_at?: string };
+        Relationships: [];
+      };
+      routine_exercises: {
+        Row: {
+          id: string;
+          routine_id: string;
+          user_id: string;
+          exercise_id: string | null;
+          exercise_name: string;
+          target_sets: number;
+          display_order: number;
+        };
+        Insert: {
+          id?: string;
+          routine_id: string;
+          user_id: string;
+          exercise_id?: string | null;
+          exercise_name: string;
+          target_sets?: number;
+          display_order?: number;
+        };
+        Update: { target_sets?: number; display_order?: number };
+        Relationships: [];
+      };
+      exercise_favorites: {
+        Row: { user_id: string; exercise_id: string; created_at: string };
+        Insert: { user_id: string; exercise_id: string; created_at?: string };
+        Update: never;
+        Relationships: [];
+      };
+      drills: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          skill: string;
+          sub_skill: string;
+          level: string;
+          players: string;
+          equipment: string[];
+          duration_minutes: number;
+          reps: string;
+          setup: string;
+          instructions: string[];
+          coaching_cues: string[];
+          common_mistakes: string[];
+          tracks_makes: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          skill: string;
+          sub_skill: string;
+          level: string;
+          players: string;
+          equipment?: string[];
+          duration_minutes: number;
+          reps: string;
+          setup: string;
+          instructions: string[];
+          coaching_cues: string[];
+          common_mistakes: string[];
+          tracks_makes?: boolean;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      video_analyses: {
+        Row: { id: string; user_id: string; kind: string; session_id: string | null; summary: Json; created_at: string };
+        Insert: { id?: string; user_id: string; kind: string; session_id?: string | null; summary?: Json; created_at?: string };
+        Update: never;
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      nba_players: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          era: string;
+          position: string;
+          height_cm: number;
+          archetype: string;
+          style_tags: string[];
+          shot_profile: Json;
+          strengths: string[];
+          signature_moves: string[];
+          how_to_copy: string[];
+          drill_skills: string[];
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          era: string;
+          position: string;
+          height_cm: number;
+          archetype: string;
+          style_tags?: string[];
+          shot_profile: Json;
+          strengths?: string[];
+          signature_moves?: string[];
+          how_to_copy?: string[];
+          drill_skills?: string[];
+        };
+        Update: never;
+        Relationships: [];
+      };
+      style_match_results: {
+        Row: { id: string; user_id: string; source: string; input: Json; matches: Json; report: Json | null; created_at: string };
+        Insert: {
+          id?: string;
+          user_id: string;
+          source?: string;
+          input: Json;
+          matches: Json;
+          report?: Json | null;
+          created_at?: string;
+        };
+        Update: { report?: Json | null };
+        Relationships: [];
+      };
+      leaderboard_snapshot: {
+        Row: {
+          season_id: string;
+          user_id: string;
+          points: number;
+          sessions_completed: number;
+          training_days: number;
+          quizzes_passed: number;
+          challenge_points: number;
+          current_streak: number;
+          computed_at: string;
+        };
+        Insert: {
+          season_id: string;
+          user_id: string;
+          points?: number;
+          sessions_completed?: number;
+          training_days?: number;
+          quizzes_passed?: number;
+          challenge_points?: number;
+          current_streak?: number;
+          computed_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      leaderboard_refresh: {
+        Row: { id: number; refreshed_at: string };
+        Insert: { id: number; refreshed_at: string };
+        Update: { refreshed_at?: string };
+        Relationships: [];
+      };
+    };
+    // Postgres functions called via supabase.rpc(). Hand-maintained to match the
+    // SQL in supabase/migrations, since this project types its schema by hand
+    // rather than running `supabase gen types`.
+    Functions: {
+      send_friend_request: { Args: { p_code: string }; Returns: string };
+      respond_friend_request: { Args: { p_friendship_id: string; p_accept: boolean }; Returns: void };
+      remove_friendship: { Args: { p_friendship_id: string }; Returns: void };
+      training_streak: { Args: { p_user: string }; Returns: number };
+      friend_code_lookup: { Args: { p_code: string }; Returns: { user_id: string; display_name: string }[] };
+      friends_overview: {
+        Args: Record<string, never>;
+        Returns: {
+          friendship_id: string | null;
+          user_id: string;
+          display_name: string;
+          avatar_url: string | null;
+          player_position: string | null;
+          status: string;
+          is_me: boolean;
+          sessions_7d: number;
+          workouts_7d: number;
+          minutes_7d: number;
+          makes_7d: number;
+          attempts_7d: number;
+          streak: number;
+          last_active: string | null;
+        }[];
+      };
+      friend_feed: {
+        Args: { p_limit?: number };
+        Returns: { user_id: string; display_name: string; kind: string; happened_on: string; created_at: string; title: string; detail: string | null }[];
+      };
+      create_team: { Args: { p_name: string }; Returns: string };
+      join_team: { Args: { p_code: string }; Returns: string };
+      delete_team: { Args: { p_team: string }; Returns: void };
+      set_team_role: { Args: { p_team: string; p_user: string; p_role: string }; Returns: void };
+      team_roster: {
+        Args: { p_team: string };
+        Returns: {
+          user_id: string;
+          display_name: string;
+          player_position: string | null;
+          role: string;
+          share_details: boolean;
+          sessions_7d: number;
+          workouts_7d: number;
+          minutes_7d: number;
+          makes_7d: number;
+          attempts_7d: number;
+          sessions_28d: number;
+          streak: number;
+          last_active: string | null;
+          games: number;
+          ppg: number | null;
+          rpg: number | null;
+          apg: number | null;
+          fg_pct: number | null;
+        }[];
+      };
+      coach_player_detail: { Args: { p_team: string; p_user: string }; Returns: Json };
+      player_card: { Args: { p_user: string }; Returns: Json };
+      my_shot_totals: { Args: Record<string, never>; Returns: { shot_zone: string; makes: number; attempts: number }[] };
+      leaderboard_page: {
+        Args: { p_scope?: string; p_age?: string; p_team?: string | null; p_limit?: number };
+        Returns: {
+          user_id: string;
+          player_name: string;
+          points: number;
+          rank: number;
+          sessions_completed: number;
+          training_days: number;
+          quizzes_passed: number;
+          challenge_points: number;
+          current_streak: number;
+          is_me: boolean;
+          total: number;
+        }[];
       };
     };
   };
