@@ -630,6 +630,44 @@ export interface Database {
         };
         Relationships: [];
       };
+      fuel_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          log_date: string;
+          ate_before: boolean | null;
+          ate_after: boolean | null;
+          hydration: string | null;
+          sleep_hours: number | null;
+          energy: number | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          log_date: string;
+          ate_before?: boolean | null;
+          ate_after?: boolean | null;
+          hydration?: string | null;
+          sleep_hours?: number | null;
+          energy?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          ate_before?: boolean | null;
+          ate_after?: boolean | null;
+          hydration?: string | null;
+          sleep_hours?: number | null;
+          energy?: number | null;
+          notes?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       ai_reports: {
         Row: {
           id: string;

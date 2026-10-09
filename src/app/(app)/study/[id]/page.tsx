@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ArrowLeft, BookOpen, Play, CheckCircle2, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { isRealYoutubeId, youtubeEmbedUrl, youtubeSearchUrl } from '@/lib/video/youtube';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,9 +96,7 @@ export default async function StudyTopicPage({
           {items && items.length > 0 ? (
             items.map((item) => {
               const isCompleted = completedItemIds.has(item.id);
-              const videoSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
-                `${item.title} basketball`
-              )}`;
+              const hasVideo = isRealYoutubeId(item.youtube_video_id);
               const questionCount = Array.isArray(item.quiz_questions) ? item.quiz_questions.length : 0;
               return (
                 <Card key={item.id} className="border-zinc-800 bg-zinc-900/70">
@@ -137,16 +136,35 @@ export default async function StudyTopicPage({
                       </p>
                     )}
 
+                    {/* A curated lesson plays in place. One that was seeded with
+                        'placeholder' still falls back to a YouTube search, and
+                        says so rather than pretending to be a lesson video. */}
+                    {hasVideo && (
+                      <div className="overflow-hidden rounded-xl border border-zinc-800 bg-black">
+                        <iframe
+                          src={youtubeEmbedUrl(item.youtube_video_id)}
+                          title={item.title}
+                          loading="lazy"
+                          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          referrerPolicy="strict-origin-when-cross-origin"
+                          allowFullScreen
+                          className="aspect-video w-full"
+                        />
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap gap-2">
-                      <a
-                        href={videoSearchUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800"
-                      >
-                        <Clock className="h-3.5 w-3.5" />
-                        {item.duration_minutes ? `${item.duration_minutes} min · ` : ''}Watch videos
-                      </a>
+                      {!hasVideo && (
+                        <a
+                          href={youtubeSearchUrl(`${item.title} basketball`)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800"
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                          {item.duration_minutes ? `${item.duration_minutes} min · ` : ''}Search videos
+                        </a>
+                      )}
                       {questionCount > 0 && (
                         <Link
                           href={`/study/${id}/quiz?item=${item.id}`}

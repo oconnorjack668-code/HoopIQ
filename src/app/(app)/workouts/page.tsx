@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
-import { Plus, Dumbbell, BookOpen, Award, ListChecks, ChevronRight } from 'lucide-react';
+import { Plus, Dumbbell, BookOpen, Award, ListChecks, ChevronRight, Apple } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { DeleteRoutineButton } from './DeleteRoutineButton';
 
@@ -62,7 +62,7 @@ export default async function WorkoutsPage() {
           </Button>
         </Link>
 
-        <div className="grid grid-cols-2 gap-3 mb-8">
+        <div className="grid grid-cols-2 gap-3 mb-3">
           <Link href="/workouts/exercises">
             <Card className="border-zinc-800 bg-zinc-900/70 hover:bg-zinc-900 transition-colors h-full">
               <CardContent className="p-4 flex items-center gap-3">
@@ -86,6 +86,17 @@ export default async function WorkoutsPage() {
             </Card>
           </Link>
         </div>
+
+        <Link href="/workouts/fuel" className="mb-8 flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 hover:bg-zinc-900">
+          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-600/20">
+            <Apple className="h-5 w-5 text-emerald-400" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-white">Fuel</span>
+            <span className="block text-xs text-zinc-500">Eating, water and sleep around your training</span>
+          </span>
+          <ChevronRight className="h-4 w-4 flex-shrink-0 text-zinc-600" />
+        </Link>
 
         {/* Routines */}
         <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-3">
