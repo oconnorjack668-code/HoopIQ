@@ -8,7 +8,7 @@ import { ShotDetector, rimFromEdges, type DetectedShot } from '@/lib/video/shotD
 import { cropRectFor, ballCentreInFrame, magnification, CROP_CANVAS_PX } from '@/lib/video/crop';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-import { FileVideo, Play, Search } from 'lucide-react';
+import { FileVideo, Play, Search, Crosshair } from 'lucide-react';
 
 /** Mirrors LOST_BALL_MS in shotDetector: a gap longer than this turns an armed
  *  shot into a miss, so gaps are the statistic that predicts false misses. */
@@ -59,6 +59,8 @@ export function DetectorBench() {
   const [hasVideo, setHasVideo] = useState(false);
   const [rim, setRim] = useState<{ x: number; y: number; width: number } | null>(null);
   const [firstEdge, setFirstEdge] = useState<{ x: number; y: number } | null>(null);
+  /** True while the player is tapping the two rim edges. */
+  const [marking, setMarking] = useState(false);
   const [running, setRunning] = useState(false);
   const [report, setReport] = useState<Report | null>(null);
   const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
@@ -72,14 +74,25 @@ export function DetectorBench() {
   function pick(file: File) {
     setHasVideo(true);
     setReport(null);
+    setDiagnosis(null);
     setRim(null);
+    setFirstEdge(null);
+    setMarking(false);
     setError(null);
     requestAnimationFrame(() => {
       if (videoRef.current) videoRef.current.src = URL.createObjectURL(file);
     });
   }
 
-  function tapRim(e: React.MouseEvent<HTMLVideoElement>) {
+  /** Freeze the frame, then take the two rim taps. */
+  function startMarking() {
+    videoRef.current?.pause();
+    setFirstEdge(null);
+    setRim(null);
+    setMarking(true);
+  }
+
+  function tapRim(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const point = {
       x: (e.clientX - rect.left) / rect.width,
@@ -87,11 +100,11 @@ export function DetectorBench() {
     };
     if (!firstEdge) {
       setFirstEdge(point);
-      setRim(null);
       return;
     }
     setRim(rimFromEdges(firstEdge, point));
     setFirstEdge(null);
+    setMarking(false);
   }
 
   /**
@@ -294,14 +307,24 @@ export function DetectorBench() {
       ) : (
         <>
           <div className="relative">
+            {/* Native controls are off while marking the rim. With them on, the
+                browser's own play/pause owns every click on the video and the
+                taps never land. */}
             <video
               ref={videoRef}
-              controls
+              controls={!marking}
               playsInline
               muted
-              onClick={tapRim}
-              className="w-full rounded-2xl bg-black cursor-crosshair"
+              className="w-full rounded-2xl bg-black"
             />
+            {marking && (
+              <button
+                type="button"
+                onClick={tapRim}
+                aria-label={firstEdge ? 'Tap the other side of the rim' : 'Tap one side of the rim'}
+                className="absolute inset-0 cursor-crosshair touch-manipulation"
+              />
+            )}
             {firstEdge && (
               <div
                 className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500 ring-2 ring-white"
@@ -316,13 +339,39 @@ export function DetectorBench() {
             )}
           </div>
 
-          <p className="text-sm text-zinc-400">
-            {rim
-              ? `Rim measured: ${(rim.width * 100).toFixed(1)}% of frame width. Run the benchmark.`
-              : firstEdge
-                ? 'Now tap the other side of the rim.'
-                : 'Pause on a frame showing the hoop, then tap one side of the rim and the other.'}
-          </p>
+          {marking ? (
+            <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 p-3">
+              <p className="text-sm font-semibold text-orange-200">
+                {firstEdge ? 'Now tap the other side of the rim.' : 'Tap one side of the rim.'}
+              </p>
+              <p className="mt-1 text-xs text-zinc-400">
+                Playback is paused and the video controls are off, so your taps land on the frame instead of
+                starting the video.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setMarking(false);
+                  setFirstEdge(null);
+                }}
+                className="mt-2 text-xs text-zinc-400 underline"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={startMarking}>
+                <Crosshair className="mr-1.5 h-4 w-4" />
+                {rim ? 'Set the rim again' : 'Set the rim'}
+              </Button>
+              <span className="text-sm text-zinc-400">
+                {rim
+                  ? `Rim measured: ${(rim.width * 100).toFixed(1)}% of frame width.`
+                  : 'Scrub to a frame showing the hoop first, then set the rim.'}
+              </span>
+            </div>
+          )}
 
           <Button variant="primary" size="lg" className="w-full gap-2" disabled={!rim} isLoading={running} onClick={() => void run()}>
             <Play className="h-4 w-4" /> {running ? 'Processing in real time…' : 'Run benchmark'}

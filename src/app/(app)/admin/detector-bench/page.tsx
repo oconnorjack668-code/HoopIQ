@@ -26,7 +26,9 @@ export default async function DetectorBenchPage() {
             <li>Prop the phone on a tripod or against something solid. Do not hold it.</li>
             <li>Frame the whole hoop plus a few feet below it. Landscape.</li>
             <li>Take 10–20 shots, deliberately mixing makes and misses, and count them yourself.</li>
-            <li>Load the clip here, tap the centre of the rim, run it.</li>
+            <li>Load the clip, scrub to a frame showing the hoop, then press <strong>Set the rim</strong>.</li>
+            <li>Tap one side of the rim and then the other. Playback stays paused while you do.</li>
+            <li>Run the benchmark, or the full-frame versus hoop-crop comparison.</li>
           </ol>
           <p className="text-zinc-400">
             The clip plays in real time while every frame is processed, so a two minute clip takes two minutes.
