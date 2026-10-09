@@ -157,13 +157,18 @@ export async function generateSessionReport(userId: string, sessionId: string): 
   const { provider, config } = aiConfig();
   const supabase = await createClient();
 
-  const { data: existing } = await supabase
-    .from('ai_reports')
-    .select('id')
-    .eq('user_id', userId)
-    .contains('source_session_ids', [sessionId])
-    .limit(1);
-  if (existing && existing.length > 0) {
+  /** Has this session already been written up? */
+  const alreadyReported = async () => {
+    const { data } = await supabase
+      .from('ai_reports')
+      .select('id')
+      .eq('user_id', userId)
+      .contains('source_session_ids', [sessionId])
+      .limit(1);
+    return !!data && data.length > 0;
+  };
+
+  if (await alreadyReported()) {
     throw new AICoachError('This session already has AI feedback.', 409);
   }
 
@@ -177,6 +182,18 @@ export async function generateSessionReport(userId: string, sessionId: string): 
     if (credit === 'reserved') await refundCredit(userId);
     const message = err instanceof Error ? err.message : 'AI request failed';
     throw new AICoachError(message, 502);
+  }
+
+  // Check again, now that the slow part is done. The first check happens before
+  // a multi-second AI call, so two taps a second apart both used to pass it and
+  // the player got two reports and paid two credits. Re-checking here narrows
+  // that window from the length of the AI call to the few milliseconds before
+  // the insert lands. It does not close it: the real fix is a unique index on
+  // (user_id, source_session_ids) for post_session reports, which needs a
+  // migration the user has to run by hand.
+  if (await alreadyReported()) {
+    if (credit === 'reserved') await refundCredit(userId);
+    throw new AICoachError('This session already has AI feedback.', 409);
   }
 
   const { data: report, error } = await supabase
