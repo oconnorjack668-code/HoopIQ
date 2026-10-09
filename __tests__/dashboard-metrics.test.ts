@@ -46,6 +46,47 @@ describe('dashboard metrics', () => {
     expect(m.currentStreak).toBe(2);
   });
 
+  it('prefers the database streak, which sees further back than the date window', () => {
+    // Migration 00025 present: the window only holds 2 days but the real run is 900
+    const m = computeDashboardMetrics({
+      ...base,
+      sessionDates: ['2026-09-24', '2026-09-23'],
+      workoutDates: [],
+      dbStreaks: { longest: 900, current: 900 },
+    });
+    expect(m.currentStreak).toBe(900);
+  });
+
+  it('falls back to the windowed dates before the migration has run', () => {
+    const m = computeDashboardMetrics({
+      ...base,
+      sessionDates: ['2026-09-24', '2026-09-23'],
+      workoutDates: [],
+      dbStreaks: null,
+    });
+    expect(m.currentStreak).toBe(2);
+  });
+
+  it('still knows the streak is at risk when the count came from the database', () => {
+    // Today has nothing logged, so the streak is live but unprotected - and that
+    // is answered from the dates, not from the database count.
+    const atRisk = computeDashboardMetrics({
+      ...base,
+      sessionDates: ['2026-09-23'],
+      workoutDates: [],
+      dbStreaks: { longest: 900, current: 900 },
+    });
+    expect(atRisk.streakAtRisk).toBe(true);
+
+    const safe = computeDashboardMetrics({
+      ...base,
+      sessionDates: ['2026-09-24'],
+      workoutDates: [],
+      dbStreaks: { longest: 900, current: 900 },
+    });
+    expect(safe.streakAtRisk).toBe(false);
+  });
+
   it('career shooting % comes from the zone totals', () => {
     const zones = totalsByZone([
       { shot_zone: 'paint', makes: 6, attempts: 10 },

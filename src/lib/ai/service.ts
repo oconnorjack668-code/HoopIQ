@@ -217,6 +217,12 @@ export async function generateSessionReport(userId: string, sessionId: string): 
 
   if (error || !report) {
     if (credit === 'reserved') await refundCredit(userId);
+    // 23505 = unique violation: migration 00025 adds a one-report-per-session
+    // index, so the loser of the race lands here. That is the race being caught
+    // properly rather than a failure, so it reads as "already has feedback".
+    if (error?.code === '23505') {
+      throw new AICoachError('This session already has AI feedback.', 409);
+    }
     throw new AICoachError('Could not save the AI feedback.', 500);
   }
 

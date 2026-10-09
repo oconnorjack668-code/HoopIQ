@@ -65,6 +65,28 @@ export function totalsByZone(rows: Array<{ shot_zone: string; makes: number; att
  */
 export const HISTORY_WINDOW_DAYS = 730;
 
+/**
+ * Longest and current training streak, over the player's whole history.
+ *
+ * Uses the my_training_streaks() database function (migration 00025), which walks every
+ * session and workout date server-side and returns two numbers. Until that migration runs
+ * this returns null and the caller falls back to counting the windowed date list, where
+ * the longest streak is capped at HISTORY_WINDOW_DAYS.
+ *
+ * Takes the player's calendar date, not the server's: between midnight and 1am Irish time
+ * the server (UTC) is still on yesterday, which would make a live streak look broken.
+ */
+export const getStreaksFromDb = cache(
+  async (userId: string, today: string): Promise<{ longest: number; current: number } | null> => {
+    void userId; // cache key only; the function reads auth.uid() itself
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc('my_training_streaks', { p_today: today });
+    if (error || !Array.isArray(data) || data.length === 0) return null;
+    const row = data[0] as { longest_streak: number; current_streak: number };
+    return { longest: Number(row.longest_streak) || 0, current: Number(row.current_streak) || 0 };
+  }
+);
+
 /** Exact lifetime counts, counted in the database rather than by reading rows. */
 export const getTrainingCounts = cache(async (userId: string): Promise<{ sessions: number; workouts: number }> => {
   const supabase = await createClient();

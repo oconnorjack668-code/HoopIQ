@@ -1673,6 +1673,7 @@ export interface Database {
       coach_player_detail: { Args: { p_team: string; p_user: string }; Returns: Json };
       player_card: { Args: { p_user: string }; Returns: Json };
       my_shot_totals: { Args: Record<string, never>; Returns: { shot_zone: string; makes: number; attempts: number }[] };
+      my_training_streaks: { Args: { p_today: string }; Returns: { longest_streak: number; current_streak: number }[] };
       leaderboard_page: {
         Args: { p_scope?: string; p_age?: string; p_team?: string | null; p_limit?: number };
         Returns: {

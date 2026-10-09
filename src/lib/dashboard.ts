@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { streaks } from '@/lib/achievements';
 import { addDays } from '@/lib/dates';
 import { userCalendarNow } from '@/lib/userTime';
-import { getPersonalRecordCount, getShotTotals, getTrainingCounts, getTrainingDates, type ZoneTotal } from '@/lib/player-activity';
+import { getPersonalRecordCount, getShotTotals, getStreaksFromDb, getTrainingCounts, getTrainingDates, type ZoneTotal } from '@/lib/player-activity';
 import { trainingLoad, type TrainingLoad } from '@/lib/trainingLoad';
 
 export interface DashboardMetrics {
@@ -30,6 +30,8 @@ interface MetricsInput {
   workoutDates: string[];
   /** Lifetime count, counted in the database (sessionDates is windowed). */
   totalSessions: number;
+  /** Streaks from the database over all history; null before migration 00025 runs. */
+  dbStreaks?: { longest: number; current: number } | null;
   zones: ZoneTotal[];
   personalRecords: number;
   weeklyGoalTarget: number | null | undefined;
@@ -50,7 +52,12 @@ export function computeDashboardMetrics(input: MetricsInput): DashboardMetrics {
 
   // Streak and weekly goal count every training day (hoops session or gym workout), the same
   // rule as the leaderboard, rank card, friends list and Goals page
-  const { current, atRisk } = streaks(trainingDays, today);
+  // The database knows the whole history; the windowed dates only reach back
+  // HISTORY_WINDOW_DAYS. atRisk is answered from the dates either way, since it
+  // only asks whether today has anything logged.
+  const windowed = streaks(trainingDays, today);
+  const current = input.dbStreaks ? input.dbStreaks.current : windowed.current;
+  const atRisk = current > 0 && !new Set(trainingDays).has(today);
   const weekTrainingDays = new Set(trainingDays.filter((d) => d >= weekStart && d <= today)).size;
   const since = addDays(today, -(CONSISTENCY_DAYS - 1));
   const activeDays = new Set(trainingDays.filter((d) => d >= since && d <= today)).size;
@@ -75,9 +82,10 @@ export async function calculateDashboardMetrics(userId: string): Promise<Dashboa
 
   // All independent reads run in parallel; the history loaders are shared with the
   // achievements on the same page (cached per request)
-  const [{ sessions, workouts }, counts, zones, personalRecords, { data: weeklyGoal }] = await Promise.all([
+  const [{ sessions, workouts }, counts, dbStreaks, zones, personalRecords, { data: weeklyGoal }] = await Promise.all([
     getTrainingDates(userId),
     getTrainingCounts(userId),
+    getStreaksFromDb(userId, today),
     getShotTotals(userId),
     getPersonalRecordCount(userId),
     // Weekly goal (most recent if several are active)
@@ -96,6 +104,7 @@ export async function calculateDashboardMetrics(userId: string): Promise<Dashboa
     sessionDates: sessions,
     workoutDates: workouts,
     totalSessions: counts.sessions,
+    dbStreaks,
     zones,
     personalRecords,
     weeklyGoalTarget: weeklyGoal?.target_value,

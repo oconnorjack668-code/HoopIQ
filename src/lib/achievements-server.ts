@@ -14,7 +14,7 @@ import {
   type PlayerStats,
 } from '@/lib/achievements';
 import { userCalendarNow } from '@/lib/userTime';
-import { getPersonalRecordCount, getShotTotals, getShotsSince, getTrainingCounts, getTrainingDates } from '@/lib/player-activity';
+import { getPersonalRecordCount, getShotTotals, getShotsSince, getStreaksFromDb, getTrainingCounts, getTrainingDates } from '@/lib/player-activity';
 
 export interface ChallengeView {
   id: string;
@@ -34,6 +34,7 @@ export async function loadAchievements(userId: string) {
   const [
     { sessions: sessionDays, workouts: workoutDays },
     counts,
+    dbStreaks,
     shotTotals,
     weekShots,
     { data: lessons },
@@ -49,6 +50,7 @@ export async function loadAchievements(userId: string) {
     // Shared with the dashboard metrics (cached per request, so read once)
     getTrainingDates(userId),
     getTrainingCounts(userId),
+    getStreaksFromDb(userId, today),
     getShotTotals(userId),
     getShotsSince(userId, weekStartIso),
     supabase.from('study_progress').select('completed_at, study_items(topic_id)').eq('user_id', userId).not('completed_at', 'is', null),
@@ -63,7 +65,11 @@ export async function loadAchievements(userId: string) {
   ]);
 
   const allDays = [...sessionDays, ...workoutDays];
-  const { longest, current } = streaks(allDays, today);
+  // Prefer the database, which walks the whole history. The windowed dates only
+  // reach back HISTORY_WINDOW_DAYS, so before migration 00025 runs the longest
+  // streak is capped at that.
+  const windowed = streaks(allDays, today);
+  const { longest, current } = dbStreaks ?? windowed;
   const lessonRows = (lessons || []) as unknown as Array<{ completed_at: string; study_items: { topic_id: string } | null }>;
 
   const stats: PlayerStats = {
