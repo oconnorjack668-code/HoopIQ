@@ -17,12 +17,15 @@ const JumpTest = dynamic(() => import('@/components/video/JumpTest').then((m) =>
 
 type Tab = 'shots' | 'form' | 'jump' | 'film' | 'clips';
 
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'shots', label: 'Shot tracker' },
-  { id: 'form', label: 'Form check' },
-  { id: 'jump', label: 'Jump test' },
-  { id: 'film', label: 'Game film' },
-  { id: 'clips', label: 'Saved clips' },
+// Each tab carries a one-word label for phones: five two-word labels in a
+// five-column grid gives each cell about 68px at 360px wide, so they wrapped
+// onto two lines and the tap target shrank below the ~44px guideline.
+const TABS: Array<{ id: Tab; label: string; short: string }> = [
+  { id: 'shots', label: 'Shot tracker', short: 'Shots' },
+  { id: 'form', label: 'Form check', short: 'Form' },
+  { id: 'jump', label: 'Jump test', short: 'Jump' },
+  { id: 'film', label: 'Game film', short: 'Film' },
+  { id: 'clips', label: 'Saved clips', short: 'Clips' },
 ];
 
 export function VideoHub({
@@ -51,9 +54,13 @@ export function VideoHub({
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={`rounded-lg py-2 text-xs font-semibold ${tab === t.id ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}
+            aria-label={t.label}
+            className={`min-h-11 rounded-lg px-1 py-2 text-xs font-semibold whitespace-nowrap ${
+              tab === t.id ? 'bg-zinc-800 text-white' : 'text-zinc-500'
+            }`}
           >
-            {t.label}
+            <span className="sm:hidden">{t.short}</span>
+            <span className="hidden sm:inline">{t.label}</span>
           </button>
         ))}
       </div>

@@ -28,6 +28,18 @@ export function localDateString(d: Date = new Date()): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/**
+ * Parses a plain "YYYY-MM-DD" column into a Date at LOCAL midnight.
+ *
+ * Always use this to render a date column. `new Date('2026-10-08')` is
+ * specified to parse as UTC midnight, so anywhere west of Greenwich it
+ * renders as the 7th - a player in New York sees yesterday's date on their
+ * own session. Appending a time makes the engine parse it locally instead.
+ */
+export function fromDateColumn(date: string): Date {
+  return new Date(`${date}T00:00:00`);
+}
+
 const formatters = new Map<string, Intl.DateTimeFormat>();
 function partsIn(d: Date, timeZone: string) {
   let f = formatters.get(timeZone);

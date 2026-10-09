@@ -2,6 +2,7 @@
 import React from 'react';
 import { requireUser, getCurrentProfile } from '@/lib/auth';
 import { asMeasurementSystem, displayWeight, weightUnitLabel } from '@/lib/units';
+import { fromDateColumn } from '@/lib/dates';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -95,7 +96,7 @@ export default async function WorkoutDetailPage({
               {workoutTypeLabel}
             </h1>
             <p className="text-sm text-zinc-400">
-              {new Date(workout.workout_date).toLocaleDateString('en-US', {
+              {fromDateColumn(workout.workout_date).toLocaleDateString('en-US', {
                 weekday: 'long',
                 month: 'long',
                 day: 'numeric',
