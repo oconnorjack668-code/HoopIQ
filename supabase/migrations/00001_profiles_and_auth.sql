@@ -146,14 +146,17 @@ CREATE TRIGGER on_auth_user_created
 -- Profiles RLS
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own profile or public profiles" ON public.profiles;
 CREATE POLICY "Users can view own profile or public profiles"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id OR is_public = true);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile"
   ON public.profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
@@ -161,6 +164,7 @@ CREATE POLICY "Users can insert own profile"
 -- User Roles RLS (Read-only for owner/user; writes are server-only)
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own roles" ON public.user_roles;
 CREATE POLICY "Users can view own roles"
   ON public.user_roles FOR SELECT
   USING (auth.uid() = user_id);
@@ -168,10 +172,12 @@ CREATE POLICY "Users can view own roles"
 -- Subscriptions RLS (Read-only for user; writes via server/webhooks)
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own subscription" ON public.subscriptions;
 CREATE POLICY "Users can view own subscription"
   ON public.subscriptions FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own subscription basic metadata" ON public.subscriptions;
 CREATE POLICY "Users can update own subscription basic metadata"
   ON public.subscriptions FOR UPDATE
   USING (auth.uid() = user_id);
@@ -179,14 +185,17 @@ CREATE POLICY "Users can update own subscription basic metadata"
 -- Notification Preferences RLS
 ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own notification preferences" ON public.notification_preferences;
 CREATE POLICY "Users can view own notification preferences"
   ON public.notification_preferences FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own notification preferences" ON public.notification_preferences;
 CREATE POLICY "Users can update own notification preferences"
   ON public.notification_preferences FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own notification preferences" ON public.notification_preferences;
 CREATE POLICY "Users can insert own notification preferences"
   ON public.notification_preferences FOR INSERT
   WITH CHECK (auth.uid() = user_id);

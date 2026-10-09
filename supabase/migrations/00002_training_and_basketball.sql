@@ -79,52 +79,64 @@ ALTER TABLE public.session_drills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shooting_entries ENABLE ROW LEVEL SECURITY;
 
 -- training_sessions policies
+DROP POLICY IF EXISTS "Users can view own training sessions" ON public.training_sessions;
 CREATE POLICY "Users can view own training sessions"
   ON public.training_sessions FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own training sessions" ON public.training_sessions;
 CREATE POLICY "Users can insert own training sessions"
   ON public.training_sessions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own training sessions" ON public.training_sessions;
 CREATE POLICY "Users can update own training sessions"
   ON public.training_sessions FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own training sessions" ON public.training_sessions;
 CREATE POLICY "Users can delete own training sessions"
   ON public.training_sessions FOR DELETE
   USING (auth.uid() = user_id);
 
 -- session_drills policies
+DROP POLICY IF EXISTS "Users can view own session drills" ON public.session_drills;
 CREATE POLICY "Users can view own session drills"
   ON public.session_drills FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own session drills" ON public.session_drills;
 CREATE POLICY "Users can insert own session drills"
   ON public.session_drills FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own session drills" ON public.session_drills;
 CREATE POLICY "Users can update own session drills"
   ON public.session_drills FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own session drills" ON public.session_drills;
 CREATE POLICY "Users can delete own session drills"
   ON public.session_drills FOR DELETE
   USING (auth.uid() = user_id);
 
 -- shooting_entries policies
+DROP POLICY IF EXISTS "Users can view own shooting entries" ON public.shooting_entries;
 CREATE POLICY "Users can view own shooting entries"
   ON public.shooting_entries FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own shooting entries" ON public.shooting_entries;
 CREATE POLICY "Users can insert own shooting entries"
   ON public.shooting_entries FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own shooting entries" ON public.shooting_entries;
 CREATE POLICY "Users can update own shooting entries"
   ON public.shooting_entries FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own shooting entries" ON public.shooting_entries;
 CREATE POLICY "Users can delete own shooting entries"
   ON public.shooting_entries FOR DELETE
   USING (auth.uid() = user_id);

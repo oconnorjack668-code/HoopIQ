@@ -100,69 +100,85 @@ ALTER TABLE public.workout_sets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.performance_tests ENABLE ROW LEVEL SECURITY;
 
 -- exercise_library: System exercises readable by all; user exercises only by owner
+DROP POLICY IF EXISTS "Users can view system and own exercises" ON public.exercise_library;
 CREATE POLICY "Users can view system and own exercises"
   ON public.exercise_library FOR SELECT
   USING (is_system = true OR auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create custom exercises" ON public.exercise_library;
 CREATE POLICY "Users can create custom exercises"
   ON public.exercise_library FOR INSERT
   WITH CHECK (auth.uid() = user_id AND is_system = false);
 
+DROP POLICY IF EXISTS "Users can update own custom exercises" ON public.exercise_library;
 CREATE POLICY "Users can update own custom exercises"
   ON public.exercise_library FOR UPDATE
   USING (auth.uid() = user_id AND is_system = false);
 
+DROP POLICY IF EXISTS "Users can delete own custom exercises" ON public.exercise_library;
 CREATE POLICY "Users can delete own custom exercises"
   ON public.exercise_library FOR DELETE
   USING (auth.uid() = user_id AND is_system = false);
 
 -- workouts policies
+DROP POLICY IF EXISTS "Users can view own workouts" ON public.workouts;
 CREATE POLICY "Users can view own workouts"
   ON public.workouts FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own workouts" ON public.workouts;
 CREATE POLICY "Users can insert own workouts"
   ON public.workouts FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own workouts" ON public.workouts;
 CREATE POLICY "Users can update own workouts"
   ON public.workouts FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own workouts" ON public.workouts;
 CREATE POLICY "Users can delete own workouts"
   ON public.workouts FOR DELETE
   USING (auth.uid() = user_id);
 
 -- workout_sets policies
+DROP POLICY IF EXISTS "Users can view own workout sets" ON public.workout_sets;
 CREATE POLICY "Users can view own workout sets"
   ON public.workout_sets FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own workout sets" ON public.workout_sets;
 CREATE POLICY "Users can insert own workout sets"
   ON public.workout_sets FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own workout sets" ON public.workout_sets;
 CREATE POLICY "Users can update own workout sets"
   ON public.workout_sets FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own workout sets" ON public.workout_sets;
 CREATE POLICY "Users can delete own workout sets"
   ON public.workout_sets FOR DELETE
   USING (auth.uid() = user_id);
 
 -- performance_tests policies
+DROP POLICY IF EXISTS "Users can view own performance tests" ON public.performance_tests;
 CREATE POLICY "Users can view own performance tests"
   ON public.performance_tests FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own performance tests" ON public.performance_tests;
 CREATE POLICY "Users can insert own performance tests"
   ON public.performance_tests FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own performance tests" ON public.performance_tests;
 CREATE POLICY "Users can update own performance tests"
   ON public.performance_tests FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own performance tests" ON public.performance_tests;
 CREATE POLICY "Users can delete own performance tests"
   ON public.performance_tests FOR DELETE
   USING (auth.uid() = user_id);

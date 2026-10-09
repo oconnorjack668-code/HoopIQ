@@ -138,51 +138,62 @@ ALTER TABLE public.challenge_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reward_events ENABLE ROW LEVEL SECURITY;
 
 -- study_topics: All authenticated users can read active topics
+DROP POLICY IF EXISTS "Users can view active study topics" ON public.study_topics;
 CREATE POLICY "Users can view active study topics"
   ON public.study_topics FOR SELECT
   USING (is_active = true);
 
 -- study_items: All authenticated users can read active items
+DROP POLICY IF EXISTS "Users can view active study items" ON public.study_items;
 CREATE POLICY "Users can view active study items"
   ON public.study_items FOR SELECT
   USING (is_active = true);
 
 -- study_progress: Users can CRUD own progress
+DROP POLICY IF EXISTS "Users can view own study progress" ON public.study_progress;
 CREATE POLICY "Users can view own study progress"
   ON public.study_progress FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own study progress" ON public.study_progress;
 CREATE POLICY "Users can insert own study progress"
   ON public.study_progress FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own study progress" ON public.study_progress;
 CREATE POLICY "Users can update own study progress"
   ON public.study_progress FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own study progress" ON public.study_progress;
 CREATE POLICY "Users can delete own study progress"
   ON public.study_progress FOR DELETE
   USING (auth.uid() = user_id);
 
 -- leaderboard_seasons: All authenticated users can read seasons
+DROP POLICY IF EXISTS "Users can view leaderboard seasons" ON public.leaderboard_seasons;
 CREATE POLICY "Users can view leaderboard seasons"
   ON public.leaderboard_seasons FOR SELECT
   USING (true);
 
 -- challenge_completions: Users can view own and public player completions
+DROP POLICY IF EXISTS "Users can view own challenge completions" ON public.challenge_completions;
 CREATE POLICY "Users can view own challenge completions"
   ON public.challenge_completions FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own challenge completions" ON public.challenge_completions;
 CREATE POLICY "Users can insert own challenge completions"
   ON public.challenge_completions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- reward_events: Users can view own badges / rewards
+DROP POLICY IF EXISTS "Users can view own reward events" ON public.reward_events;
 CREATE POLICY "Users can view own reward events"
   ON public.reward_events FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own reward events" ON public.reward_events;
 CREATE POLICY "Users can insert own reward events"
   ON public.reward_events FOR INSERT
   WITH CHECK (auth.uid() = user_id);

@@ -107,7 +107,14 @@ export type StudyCategory =
   | 'defense'
   | 'spacing_and_movement'
   | 'transition'
-  | 'film_study';
+  | 'film_study'
+  // Added by 00012, which widened study_topics_category_check from 8 to 12 and
+  // immediately seeded topics using all four. Anything switching on this type
+  // silently mishandled those topics until they were added here.
+  | 'rebounding'
+  | 'post_play'
+  | 'game_situations'
+  | 'mental_game';
 
 export type VideoCaptureAngle =
   | 'fixed_side_right'
@@ -133,12 +140,16 @@ export type VideoAnalysisStatus =
 export interface Database {
   public: {
     // supabase-js's GenericSchema constraint requires Tables, Views and Functions
-    // all three to be present for the client's generics to resolve at all. This
-    // project has no database views, but the empty key still has to exist -
-    // without it, every `.from(table)` call across the whole app silently
-    // degrades to `never` instead of a real row type (which is exactly what was
-    // happening before this was added: no lint rule catches it, and `tsc`/`next
-    // build` had never actually been run to completion before now).
+    // all three to be present for the client's generics to resolve at all. The
+    // app queries no views, so this stays empty - but the key still has to
+    // exist, because without it every `.from(table)` call across the whole app
+    // silently degrades to `never` instead of a real row type (which is exactly
+    // what was happening before this was added: no lint rule catches it, and
+    // `tsc`/`next build` had never actually been run to completion before now).
+    //
+    // The database does still carry one view, leaderboard_standings from 00007.
+    // Nothing reads it and migration 00027 drops it; if a view is ever used
+    // again it has to be declared here or its queries will type as `never`.
     Views: Record<string, never>;
     Tables: {
       profiles: {
@@ -1656,7 +1667,10 @@ export interface Database {
       send_friend_request: { Args: { p_code: string }; Returns: string };
       respond_friend_request: { Args: { p_friendship_id: string; p_accept: boolean }; Returns: void };
       remove_friendship: { Args: { p_friendship_id: string }; Returns: void };
-      training_streak: { Args: { p_user: string }; Returns: number };
+      // training_streak(p_user) is deliberately absent: 00024 revokes EXECUTE
+      // from authenticated and grants it to service_role only, so declaring it
+      // here told callers they could invoke something a browser client cannot.
+      // Use my_training_streaks() below for a player's own streak.
       friend_code_lookup: { Args: { p_code: string }; Returns: { user_id: string; display_name: string }[] };
       friends_overview: {
         Args: Record<string, never>;

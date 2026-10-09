@@ -94,40 +94,49 @@ ALTER TABLE public.video_analysis_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.video_measurements ENABLE ROW LEVEL SECURITY;
 
 -- video_assets policies
+DROP POLICY IF EXISTS "Users can view own video assets" ON public.video_assets;
 CREATE POLICY "Users can view own video assets"
   ON public.video_assets FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own video assets" ON public.video_assets;
 CREATE POLICY "Users can insert own video assets"
   ON public.video_assets FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own video assets" ON public.video_assets;
 CREATE POLICY "Users can update own video assets"
   ON public.video_assets FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own video assets" ON public.video_assets;
 CREATE POLICY "Users can delete own video assets"
   ON public.video_assets FOR DELETE
   USING (auth.uid() = user_id);
 
 -- video_analysis_jobs policies
+DROP POLICY IF EXISTS "Users can view own analysis jobs" ON public.video_analysis_jobs;
 CREATE POLICY "Users can view own analysis jobs"
   ON public.video_analysis_jobs FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own analysis jobs" ON public.video_analysis_jobs;
 CREATE POLICY "Users can insert own analysis jobs"
   ON public.video_analysis_jobs FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- video_measurements policies
+DROP POLICY IF EXISTS "Users can view own video measurements" ON public.video_measurements;
 CREATE POLICY "Users can view own video measurements"
   ON public.video_measurements FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own video measurements" ON public.video_measurements;
 CREATE POLICY "Users can update own video measurements"
   ON public.video_measurements FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own video measurements" ON public.video_measurements;
 CREATE POLICY "Users can insert own video measurements"
   ON public.video_measurements FOR INSERT
   WITH CHECK (auth.uid() = user_id);

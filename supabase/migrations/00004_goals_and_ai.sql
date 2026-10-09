@@ -50,27 +50,33 @@ ALTER TABLE public.goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_reports ENABLE ROW LEVEL SECURITY;
 
 -- goals policies
+DROP POLICY IF EXISTS "Users can view own goals" ON public.goals;
 CREATE POLICY "Users can view own goals"
   ON public.goals FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own goals" ON public.goals;
 CREATE POLICY "Users can insert own goals"
   ON public.goals FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own goals" ON public.goals;
 CREATE POLICY "Users can update own goals"
   ON public.goals FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own goals" ON public.goals;
 CREATE POLICY "Users can delete own goals"
   ON public.goals FOR DELETE
   USING (auth.uid() = user_id);
 
 -- ai_reports policies (Read-only for user; inserts via server action / service role)
+DROP POLICY IF EXISTS "Users can view own AI reports" ON public.ai_reports;
 CREATE POLICY "Users can view own AI reports"
   ON public.ai_reports FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own AI reports" ON public.ai_reports;
 CREATE POLICY "Users can insert own AI reports"
   ON public.ai_reports FOR INSERT
   WITH CHECK (auth.uid() = user_id);
