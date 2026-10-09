@@ -6,6 +6,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getConfiguredAI, AINotConfiguredError } from '@/lib/ai/config';
 import { buildPlayerContext } from '@/lib/ai/context';
+import { coachPrompt } from '@/lib/ai/persona';
 import { pushConfigured, sendPush } from '@/lib/push';
 
 export const dynamic = 'force-dynamic';
@@ -15,11 +16,11 @@ const MAX_PER_RUN = 150;
 const CONCURRENCY = 5;
 const TIME_BUDGET_MS = 50_000;
 
-const SYSTEM = `You are HoopIQ Coach writing a player's weekly training review (players are 13+).
+const SYSTEM = coachPrompt(`Your task: write the player's weekly training review.
 Return JSON: {"headline": string (max 12 words, upbeat), "summary": string (2-3 sentences using their real numbers),
 "wins": string[] (2-3 specific things they did well), "focus_next_week": string[] (2-3 concrete actions with drills/reps),
 "challenge": string (one fun, measurable challenge for next week)}.
-Be encouraging and specific. Never give medical advice; if effort was very high all week, suggest a recovery day.`;
+Be encouraging and specific. If effort was very high all week, suggest a recovery day.`);
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
 

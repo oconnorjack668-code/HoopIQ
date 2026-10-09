@@ -1,4 +1,6 @@
 // src/lib/ai/provider.ts
+import { coachPrompt } from './persona';
+
 export interface CoachingEvidence {
   sessionType: string;
   sessionDate: string;
@@ -42,13 +44,13 @@ export abstract class AIProvider {
   abstract generateChat(messages: ChatMessage[], config: AIProviderConfig): Promise<string>;
 }
 
-const SYSTEM_PROMPT = `You are an expert basketball coach giving a player specific, actionable feedback on one training session.
-Only use the numbers provided; never invent stats. Speak directly to the player.
+const SYSTEM_PROMPT = coachPrompt(`Your task: give the player specific, actionable feedback on one training session.
+Only use the numbers provided.
 Respond with a JSON object with these keys:
 - "summary": 2-3 sentences on session quality and the key takeaway
 - "keyInsights": array of 2-3 specific observations from the data
 - "recommendations": array of 2-3 concrete things to do next session
-- "comparisonToPrevious": one sentence comparing to the previous feedback if it is provided, otherwise omit`;
+- "comparisonToPrevious": one sentence comparing to the previous feedback if it is provided, otherwise omit`);
 
 function buildPrompt(evidence: CoachingEvidence): string {
   const lines = [

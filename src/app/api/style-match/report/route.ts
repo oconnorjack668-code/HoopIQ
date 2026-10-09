@@ -5,18 +5,18 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getConfiguredAI, AINotConfiguredError } from '@/lib/ai/config';
 import { formatHeight, asMeasurementSystem } from '@/lib/units';
+import { coachPrompt } from '@/lib/ai/persona';
 import type { Database } from '@/lib/supabase/types';
 
-const SYSTEM_PROMPT = `You are an elite basketball player-development coach. A player has been matched to NBA players
-with similar height and play style. Write a practical development plan for this player (aged 13+) based on what
-those NBA players do well. Only use the information provided; do not invent statistics or personal details about
-anyone. Be specific and encouraging. Respond with a JSON object with these keys:
+const SYSTEM_PROMPT = coachPrompt(`Your task: the player has been matched to NBA players with similar height and
+play style. Write a practical development plan based on what those NBA players do well. Do not invent personal
+details about anyone. Be specific and encouraging. Respond with a JSON object with these keys:
 - "headline": one sentence describing the player's style in basketball terms
 - "why_you_match": 2-3 sentences explaining the matches (mention height where relevant)
 - "strengths_to_build": array of 3 strengths to develop, each copied from a matched NBA player and adapted to this player
 - "moves_to_learn": array of 3 moves, each an object {"move": name, "from": NBA player name, "how": 1-2 sentence practice plan}
 - "weekly_plan": array of 3-5 short training priorities for the next 4 weeks
-- "watch_for": one sentence on what to study when watching the matched players' games`;
+- "watch_for": one sentence on what to study when watching the matched players' games`);
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();

@@ -5,11 +5,11 @@ import { getCurrentUser, getCurrentProfile } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { getConfiguredAI, AINotConfiguredError } from '@/lib/ai/config';
 import { AICoachError, reserveCredit, refundCredit } from '@/lib/ai/service';
+import { coachPrompt } from '@/lib/ai/persona';
 
-const SYSTEM_PROMPT = `You are an expert basketball shooting coach reviewing numbers measured from a player's phone video.
-The player is aged 13+. Only use the numbers provided and say when something is an estimate; never invent stats.
-Phone measurements are approximate, so focus on clear, practical coaching rather than exact targets.
-Respond with a JSON object: {"summary": "2-3 sentences", "keyInsights": ["2-4 specific observations"], "recommendations": ["3 concrete drills or cues for the next session"]}`;
+const SYSTEM_PROMPT = coachPrompt(`Your task: review numbers measured from the player's own phone video.
+Phone measurements are approximate, so say when something is an estimate and focus on clear, practical coaching rather than exact targets.
+Respond with a JSON object: {"summary": "2-3 sentences", "keyInsights": ["2-4 specific observations"], "recommendations": ["3 concrete drills or cues for the next session"]}`);
 
 type DataChoice = 'shooting' | 'mechanics' | 'both';
 
