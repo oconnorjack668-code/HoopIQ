@@ -3,6 +3,7 @@
 
 import React, { useRef, useState } from 'react';
 import { getBallDetector, createDiagnosticDetector, getActiveDelegate } from '@/lib/video/mediapipe';
+import type { Detection } from '@mediapipe/tasks-vision';
 import { ShotDetector, rimFromEdges, type DetectedShot } from '@/lib/video/shotDetector';
 import { cropRectFor, ballCentreInFrame, magnification, CROP_CANVAS_PX } from '@/lib/video/crop';
 import { Button } from '@/components/ui/Button';
@@ -28,9 +29,18 @@ interface Diagnosis {
   frames: number;
   delegate: string;
   videoSize: string;
-  /** Every COCO class seen, with how many frames it appeared in and its best score. */
-  classes: Array<{ label: string; frames: number; best: number }>;
+  /** Every COCO class seen on the full frame, with frame counts and best score. */
+  classes: ClassStat[];
+  /** The same, measured on the hoop crop. Null when no rim was set. */
+  cropClasses: ClassStat[] | null;
+  magnify: number | null;
   framesWithAnything: number;
+}
+
+interface ClassStat {
+  label: string;
+  frames: number;
+  best: number;
 }
 
 function median(xs: number[]): number {
@@ -113,7 +123,31 @@ export function DetectorBench() {
     });
   }
 
-  /** Runs the model with no class filter, to find out what it can see at all. */
+  /** Adds one frame's detections into a running tally of classes. */
+  function tally(seen: Map<string, { frames: number; best: number }>, detections: Detection[]) {
+    const thisFrame = new Set<string>();
+    for (const d of detections) {
+      const cat = d.categories[0];
+      if (!cat) continue;
+      const label = cat.categoryName || `#${cat.index}`;
+      const prev = seen.get(label) || { frames: 0, best: 0 };
+      seen.set(label, {
+        frames: prev.frames + (thisFrame.has(label) ? 0 : 1),
+        best: Math.max(prev.best, cat.score || 0),
+      });
+      thisFrame.add(label);
+    }
+  }
+
+  const sorted = (seen: Map<string, { frames: number; best: number }>) =>
+    [...seen.entries()].map(([label, v]) => ({ label, ...v })).sort((a, b) => b.frames - a.frames);
+
+  /**
+   * Runs the model with no class filter, to find out what it can see at all -
+   * on the full frame AND on the hoop crop, in the same pass, so the two are
+   * directly comparable. Running it without a rim only measures the full frame,
+   * which is what the tracker already struggled with, so it answers nothing.
+   */
   async function diagnose() {
     const video = videoRef.current;
     if (!video) return;
@@ -121,27 +155,29 @@ export function DetectorBench() {
     setError(null);
     setDiagnosis(null);
     try {
-      const detector = await createDiagnosticDetector();
-      const seen = new Map<string, { frames: number; best: number }>();
+      const [full, cropped] = await Promise.all([createDiagnosticDetector(), createDiagnosticDetector()]);
+      const seenFull = new Map<string, { frames: number; best: number }>();
+      const seenCrop = new Map<string, { frames: number; best: number }>();
       let frames = 0;
       let framesWithAnything = 0;
+      let gain: number | null = null;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = CROP_CANVAS_PX;
+      canvas.height = CROP_CANVAS_PX;
+      const ctx = canvas.getContext('2d');
 
       await sweep((v, _videoMs, ts) => {
         frames += 1;
-        const result = detector.detectForVideo(v, ts);
-        const detections = result.detections || [];
+        const detections = full.detectForVideo(v, ts).detections || [];
         if (detections.length) framesWithAnything += 1;
-        const labelsThisFrame = new Set<string>();
-        for (const d of detections) {
-          const cat = d.categories[0];
-          if (!cat) continue;
-          const label = cat.categoryName || `#${cat.index}`;
-          const prev = seen.get(label) || { frames: 0, best: 0 };
-          seen.set(label, {
-            frames: prev.frames + (labelsThisFrame.has(label) ? 0 : 1),
-            best: Math.max(prev.best, cat.score || 0),
-          });
-          labelsThisFrame.add(label);
+        tally(seenFull, detections);
+
+        if (rim && ctx) {
+          const crop = cropRectFor(rim, v.videoWidth, v.videoHeight);
+          gain = magnification(crop, v.videoWidth);
+          ctx.drawImage(v, crop.sx, crop.sy, crop.side, crop.side, 0, 0, CROP_CANVAS_PX, CROP_CANVAS_PX);
+          tally(seenCrop, cropped.detectForVideo(canvas, ts).detections || []);
         }
       });
 
@@ -150,9 +186,9 @@ export function DetectorBench() {
         delegate: getActiveDelegate() || 'unknown',
         videoSize: `${video.videoWidth}x${video.videoHeight}`,
         framesWithAnything,
-        classes: [...seen.entries()]
-          .map(([label, v]) => ({ label, ...v }))
-          .sort((a, b) => b.frames - a.frames),
+        classes: sorted(seenFull),
+        cropClasses: rim ? sorted(seenCrop) : null,
+        magnify: gain,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Diagnosis failed.');
@@ -293,8 +329,14 @@ export function DetectorBench() {
           </Button>
 
           <Button variant="secondary" size="lg" className="w-full gap-2" isLoading={running} onClick={() => void diagnose()}>
-            <Search className="h-4 w-4" /> What can the model see? (no rim needed)
+            <Search className="h-4 w-4" /> What can the model see?{rim ? ' (full frame vs hoop crop)' : ''}
           </Button>
+          {!rim && (
+            <p className="text-xs text-amber-400">
+              Set the rim first. Without it this only measures the full frame, which is the case that already
+              fails - it cannot tell you whether cropping to the hoop helps.
+            </p>
+          )}
 
           {diagnosis && (
             <div className="space-y-3 rounded-2xl border border-amber-600/40 bg-amber-600/10 p-4">
@@ -312,6 +354,61 @@ export function DetectorBench() {
                 <span className="text-right font-semibold text-white">{diagnosis.delegate}</span>
               </div>
 
+              {/* The answer, stated rather than left to be read off two lists */}
+              {diagnosis.cropClasses ? (
+                (() => {
+                  const ballFull = diagnosis.classes.find((c) => c.label === 'sports ball');
+                  const ballCrop = diagnosis.cropClasses.find((c) => c.label === 'sports ball');
+                  const pctFull = ((ballFull?.frames || 0) / diagnosis.frames) * 100;
+                  const pctCrop = ((ballCrop?.frames || 0) / diagnosis.frames) * 100;
+                  const better = pctCrop > pctFull * 1.5 || (ballCrop?.best || 0) > (ballFull?.best || 0) * 1.5;
+                  return (
+                    <div className={`rounded-xl p-3 ${better ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
+                      <div className={`text-sm font-bold ${better ? 'text-emerald-300' : 'text-red-300'}`}>
+                        {better
+                          ? 'The hoop crop helps. Worth building on.'
+                          : 'The hoop crop does not help. The model cannot resolve this ball.'}
+                      </div>
+                      <div className="mt-1 grid grid-cols-3 gap-2 text-xs text-zinc-300">
+                        <span />
+                        <span className="font-semibold">Full frame</span>
+                        <span className="font-semibold">Hoop crop</span>
+                        <span className="text-zinc-400">Ball found in</span>
+                        <span>{pctFull.toFixed(1)}%</span>
+                        <span>{pctCrop.toFixed(1)}%</span>
+                        <span className="text-zinc-400">Best score</span>
+                        <span>{(ballFull?.best || 0).toFixed(3)}</span>
+                        <span>{(ballCrop?.best || 0).toFixed(3)}</span>
+                      </div>
+                      {diagnosis.magnify && (
+                        <div className="mt-1 text-xs text-zinc-500">
+                          Crop magnified the ball {diagnosis.magnify.toFixed(1)}x
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
+              ) : null}
+
+              {diagnosis.cropClasses && (
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">On the hoop crop</h4>
+                  <div className="space-y-1 text-sm">
+                    {diagnosis.cropClasses.slice(0, 8).map((c) => (
+                      <div key={c.label} className="flex items-center justify-between gap-2">
+                        <span className={c.label === 'sports ball' ? 'font-bold text-emerald-400' : 'text-zinc-300'}>
+                          {c.label}
+                        </span>
+                        <span className="text-zinc-400">
+                          {c.frames} ({pct(c.frames, diagnosis.frames)}) · best {c.best.toFixed(3)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500">On the full frame</h4>
               {diagnosis.classes.length === 0 ? (
                 <p className="text-sm font-semibold text-red-400">
                   The model returned nothing at all, for any class. That is a broken pipeline, not a hard-to-see ball.
