@@ -641,6 +641,31 @@ export interface Database {
         };
         Relationships: [];
       };
+      daily_iq_answers: {
+        Row: {
+          id: string;
+          user_id: string;
+          answer_date: string;
+          item_id: string;
+          question_index: number;
+          chosen_index: number;
+          was_correct: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          answer_date: string;
+          item_id: string;
+          question_index: number;
+          chosen_index: number;
+          was_correct: boolean;
+          created_at?: string;
+        };
+        // No Update: an answer, once given, stands (the table grants no UPDATE).
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       fuel_logs: {
         Row: {
           id: string;

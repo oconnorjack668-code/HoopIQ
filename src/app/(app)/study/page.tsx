@@ -5,6 +5,19 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { BookOpen, CheckCircle2, Play, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { DailyQuestion, type DailyQuestionView } from '@/components/study/DailyQuestion';
+import { pickDailyQuestion, daysUntilRepeat, type QuestionRef } from '@/lib/dailyIq';
+import { streaks } from '@/lib/achievements';
+import { userCalendarNow } from '@/lib/userTime';
+import { addDays } from '@/lib/dates';
+
+/** The shape stored in study_items.quiz_questions (a jsonb column). */
+interface QuizQuestionJson {
+  question: string;
+  options?: string[];
+  correct_index: number;
+  explanation?: string;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -14,13 +27,22 @@ export default async function StudyPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const [{ data: topics }, { data: completed }] = (await Promise.all([
+  const { today } = await userCalendarNow();
+
+  const [{ data: topics }, { data: completed }, { data: dailyRows }] = (await Promise.all([
     supabase
       .from('study_topics')
       .select('id, title, description, study_items(id, title, display_order, quiz_questions)')
       .eq('is_active', true)
       .order('display_order', { ascending: true }),
     supabase.from('study_progress').select('item_id').eq('user_id', user.id).not('completed_at', 'is', null),
+    // Recent answers: today's (if any) plus enough history to show the run
+    supabase
+      .from('daily_iq_answers')
+      .select('answer_date, chosen_index')
+      .eq('user_id', user.id)
+      .gte('answer_date', addDays(today, -400))
+      .order('answer_date', { ascending: false }),
   ])) as [
     {
       data: Array<{
@@ -31,6 +53,7 @@ export default async function StudyPage() {
       }> | null;
     },
     { data: Array<{ item_id: string }> | null },
+    { data: Array<{ answer_date: string; chosen_index: number }> | null },
   ];
 
   const done = new Set((completed || []).map((c) => c.item_id));
@@ -41,6 +64,44 @@ export default async function StudyPage() {
     0
   );
   const overallPercent = totalLessons > 0 ? Math.round((done.size / totalLessons) * 100) : 0;
+
+  // Question of the day. Built from every question in the section, walked in a
+  // per-player order, so the pool lasts as many days as it has questions.
+  const questionPool: QuestionRef[] = [];
+  const lessonsById = new Map<string, { title: string; topicId: string; questions: QuizQuestionJson[] }>();
+  for (const topic of sections) {
+    for (const item of topic.study_items) {
+      const questions = (Array.isArray(item.quiz_questions) ? item.quiz_questions : []) as QuizQuestionJson[];
+      if (questions.length === 0) continue;
+      lessonsById.set(item.id, { title: item.title, topicId: topic.id, questions });
+      questions.forEach((_, index) => questionPool.push({ itemId: item.id, index }));
+    }
+  }
+
+  const todaysRef = pickDailyQuestion(questionPool, user.id, today);
+  const answers = dailyRows || [];
+  const todaysAnswer = answers.find((a) => a.answer_date === today) || null;
+  const answeredDates = answers.map((a) => a.answer_date);
+  // The run of consecutive days answered, counting back from today or yesterday
+  const dailyStreak = streaks(answeredDates, today).current;
+
+  let daily: DailyQuestionView | null = null;
+  if (todaysRef) {
+    const lesson = lessonsById.get(todaysRef.itemId);
+    const q = lesson?.questions[todaysRef.index];
+    if (lesson && q && Array.isArray(q.options) && q.options.length > 0) {
+      daily = {
+        itemId: todaysRef.itemId,
+        questionIndex: todaysRef.index,
+        lessonTitle: lesson.title,
+        topicId: lesson.topicId,
+        text: q.question,
+        options: q.options,
+        correctIndex: q.correct_index,
+        explanation: q.explanation,
+      };
+    }
+  }
 
   // First unfinished lesson in display order - the "pick up where you left off"
   // entry point, so returning players do not have to remember where they were.
@@ -58,6 +119,18 @@ export default async function StudyPage() {
     <div className="flex-1 overflow-auto">
       <div className="p-4 md:p-8 max-w-3xl mx-auto">
         <PageHeader tone="iq" icon={BookOpen} title="Basketball IQ" subtitle="Lessons and quizzes to read the game" />
+
+        {/* Question of the day sits above progress: it is the reason to open
+            this page on a day you were not planning to study. */}
+        {daily && (
+          <DailyQuestion
+            question={daily}
+            date={today}
+            answeredIndex={todaysAnswer ? todaysAnswer.chosen_index : null}
+            streak={dailyStreak}
+            daysLeft={daysUntilRepeat(questionPool.length, today)}
+          />
+        )}
 
         {/* Overall progress */}
         <Card className="border-zinc-800 bg-zinc-900/70 mb-3">
