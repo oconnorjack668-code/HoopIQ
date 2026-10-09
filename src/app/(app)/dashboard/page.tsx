@@ -222,13 +222,21 @@ export default async function DashboardPage() {
             hint={`${shootingByZone.length} zones tracked`}
           />
 
+          {/* A streak that only tells you after it broke is the version of this
+              mechanic that makes people quit. Warn while it can still be saved. */}
           <StatCard
             label="Streak"
             value={metrics.currentStreak}
             badge="days"
-            badgeVariant="success"
-            valueClass="text-emerald-400"
-            hint="Keep it going!"
+            badgeVariant={metrics.streakAtRisk ? 'warning' : 'success'}
+            valueClass={metrics.streakAtRisk ? 'text-amber-400' : 'text-emerald-400'}
+            hint={
+              metrics.streakAtRisk
+                ? 'Train today to keep it'
+                : metrics.currentStreak > 0
+                  ? 'Safe for today'
+                  : 'Train today to start one'
+            }
           />
 
           {/* Consistency, not AI credits. A billing counter was previously

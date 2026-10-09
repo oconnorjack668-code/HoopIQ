@@ -106,8 +106,16 @@ export function rankFor(xp: number): { name: string; next: { name: string; min: 
   return { name: current.name, next: next ? { name: next.name, min: next.min } : null, progress };
 }
 
-/** Longest and current run of consecutive training days (current counts from today or yesterday). */
-export function streaks(days: string[], today: string): { longest: number; current: number } {
+/**
+ * Longest and current run of consecutive training days (current counts from
+ * today or yesterday), plus whether the streak is live but unprotected.
+ *
+ * `atRisk` is true when the player has a streak going and has not trained
+ * today, so the app can say "train today to keep your 6-day streak" while
+ * there is still time. A streak that only ever tells you after it broke is
+ * the version of this mechanic that makes people quit.
+ */
+export function streaks(days: string[], today: string): { longest: number; current: number; atRisk: boolean } {
   const set = new Set(days);
   const sorted = [...set].sort();
   const dayMs = 86_400_000;
@@ -127,5 +135,5 @@ export function streaks(days: string[], today: string): { longest: number; curre
     current++;
     cursor -= dayMs;
   }
-  return { longest, current };
+  return { longest, current, atRisk: current > 0 && !set.has(today) };
 }

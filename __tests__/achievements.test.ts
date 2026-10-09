@@ -50,8 +50,18 @@ describe('achievements', () => {
 
   it('computes longest and current streaks', () => {
     const days = ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-10', '2026-09-23', '2026-09-24'];
-    expect(streaks(days, '2026-09-25')).toEqual({ longest: 3, current: 2 });
-    expect(streaks(days, '2026-09-24')).toEqual({ longest: 3, current: 2 });
+    // Trained yesterday but not today: the streak stands, and is at risk
+    expect(streaks(days, '2026-09-25')).toEqual({ longest: 3, current: 2, atRisk: true });
+    // Trained today: safe
+    expect(streaks(days, '2026-09-24')).toEqual({ longest: 3, current: 2, atRisk: false });
     expect(streaks(days, '2026-09-27').current).toBe(0);
+  });
+
+  it('only flags a streak at risk when there is one to lose', () => {
+    const days = ['2026-09-23', '2026-09-24'];
+    // No streak left at all - nothing to warn about
+    expect(streaks(days, '2026-09-27')).toEqual({ longest: 2, current: 0, atRisk: false });
+    // Never trained
+    expect(streaks([], '2026-09-27')).toEqual({ longest: 0, current: 0, atRisk: false });
   });
 });

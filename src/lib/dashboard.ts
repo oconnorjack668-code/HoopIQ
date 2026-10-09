@@ -9,6 +9,8 @@ export interface DashboardMetrics {
   thisWeekSessions: number;
   shootingPercentage: number;
   currentStreak: number;
+  /** A streak is running but today has no training logged yet - still savable. */
+  streakAtRisk: boolean;
   totalSessions: number;
   personalRecords: number;
   weeklyGoalProgress: number;
@@ -42,7 +44,7 @@ export function computeDashboardMetrics(input: MetricsInput): DashboardMetrics {
 
   // Streak and weekly goal count every training day (hoops session or gym workout), the same
   // rule as the leaderboard, rank card, friends list and Goals page
-  const { current } = streaks(trainingDays, today);
+  const { current, atRisk } = streaks(trainingDays, today);
   const weekTrainingDays = new Set(trainingDays.filter((d) => d >= weekStart && d <= today)).size;
   const since = addDays(today, -(CONSISTENCY_DAYS - 1));
   const activeDays = new Set(trainingDays.filter((d) => d >= since && d <= today)).size;
@@ -51,6 +53,7 @@ export function computeDashboardMetrics(input: MetricsInput): DashboardMetrics {
     thisWeekSessions: sessionDates.filter((d) => d >= weekStart && d <= weekEnd).length,
     shootingPercentage: totalAttempts > 0 ? Math.round((totalMakes / totalAttempts) * 1000) / 10 : 0,
     currentStreak: current,
+    streakAtRisk: atRisk,
     totalSessions: sessionDates.length,
     personalRecords: input.personalRecords,
     weeklyGoalProgress: weekTrainingDays,
