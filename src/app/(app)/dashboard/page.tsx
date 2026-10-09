@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getActiveProgram } from '@/lib/programs';
 import { loadAchievements } from '@/lib/achievements-server';
 import { ShotHeatMap } from '@/components/basketball/ShotHeatMap';
+import { recommendedProgramGoal, programGoalLabel } from '@/lib/recommend';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,6 +84,8 @@ export default async function DashboardPage() {
   ]);
 
   const weeklyGoalPercentage = Math.round((metrics.weeklyGoalProgress / metrics.weeklyGoalTarget) * 100);
+  const recommendedGoal = recommendedProgramGoal(profile?.goals, profile?.focus_areas);
+  const recommendedLabel = programGoalLabel(recommendedGoal);
 
   return (
     <div className="flex-1 overflow-auto">
@@ -117,9 +120,25 @@ export default async function DashboardPage() {
               <div className="mt-1 text-lg font-bold text-white">
                 {activeProgram ? `${activeProgram.program.name} complete!` : 'What are you working on today?'}
               </div>
+              {/* Point at what the player said they wanted. Onboarding collects
+                  goals and focus areas and, until now, only the AI coach ever
+                  read them - so anyone without an AI key answered three screens
+                  of questions and saw nothing come of it. */}
+              {recommendedLabel && (
+                <div className="mt-1 text-sm text-zinc-300">
+                  You said you want to work on{' '}
+                  <span className="font-semibold text-orange-300">{recommendedLabel.toLowerCase()}</span>.
+                </div>
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link href="/programs">
-                  <Button variant="primary" size="sm">{activeProgram ? 'Pick your next program' : 'Follow a program'}</Button>
+                <Link href={recommendedGoal ? `/programs?goal=${recommendedGoal}` : '/programs'}>
+                  <Button variant="primary" size="sm">
+                    {recommendedLabel
+                      ? `See ${recommendedLabel.toLowerCase()} programs`
+                      : activeProgram
+                        ? 'Pick your next program'
+                        : 'Follow a program'}
+                  </Button>
                 </Link>
                 <Link href="/train/generate">
                   <Button variant="outline" size="sm">Build a quick workout</Button>
