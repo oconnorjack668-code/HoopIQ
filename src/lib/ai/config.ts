@@ -16,16 +16,40 @@ export class AINotConfiguredError extends Error {
 }
 
 /**
+ * Works out the provider from the key when AI_PROVIDER is not set.
+ *
+ * Defaulting blindly to one vendor meant that setting only AI_API_KEY to an
+ * OpenAI key sent it to api.anthropic.com, which answers "401 invalid
+ * x-api-key" - an error that points at the key rather than at the real
+ * problem. Anthropic keys are prefixed sk-ant-, OpenAI's are sk- / sk-proj-.
+ */
+export function inferProvider(apiKey: string): string {
+  if (apiKey.startsWith('sk-ant-')) return 'anthropic';
+  if (apiKey.startsWith('sk-')) return 'openai';
+  return 'anthropic';
+}
+
+/**
  * Resolves the configured AI provider and its call config.
  * Throws AINotConfiguredError if AI_API_KEY is missing, or if AI_PROVIDER names
  * a provider with no implementation.
  */
 export function getConfiguredAI(maxTokens: number): { provider: AIProvider; config: AIProviderConfig } {
-  const providerName = (process.env.AI_PROVIDER || 'anthropic').toLowerCase();
-  const apiKey = process.env.AI_API_KEY || '';
+  const explicit = (process.env.AI_PROVIDER || '').trim().toLowerCase();
+  const apiKey = (process.env.AI_API_KEY || '').trim();
   if (!apiKey) {
     throw new AINotConfiguredError('AI features are not configured (AI_API_KEY is missing).');
   }
+
+  // An OpenAI-shaped key with AI_PROVIDER=anthropic is always a misconfiguration,
+  // and the vendor's own 401 blames the key instead of the pairing. Say so here.
+  if (explicit === 'anthropic' && apiKey.startsWith('sk-') && !apiKey.startsWith('sk-ant-')) {
+    throw new AINotConfiguredError(
+      'AI_PROVIDER is set to "anthropic" but AI_API_KEY looks like an OpenAI key (it starts with "sk-", not "sk-ant-"). Set AI_PROVIDER=openai, or supply an Anthropic key.'
+    );
+  }
+
+  const providerName = explicit || inferProvider(apiKey);
 
   let provider: AIProvider;
   try {

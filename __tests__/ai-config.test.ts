@@ -1,0 +1,108 @@
+// __tests__/ai-config.test.ts
+// Covers how AI_PROVIDER / AI_API_KEY / AI_MODEL resolve. This went untested
+// when the AI config was made vendor-agnostic, and the gap shipped a real bug:
+// an OpenAI key with no AI_PROVIDER set was sent to Anthropic, which answered
+// "401 invalid x-api-key" and sent the user looking at their key.
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { getConfiguredAI, inferProvider, AINotConfiguredError } from '@/lib/ai/config';
+
+const OPENAI_KEY = 'sk-proj-abc123';
+const ANTHROPIC_KEY = 'sk-ant-api03-abc123';
+
+let saved: Record<string, string | undefined>;
+
+beforeEach(() => {
+  saved = {
+    AI_PROVIDER: process.env.AI_PROVIDER,
+    AI_API_KEY: process.env.AI_API_KEY,
+    AI_MODEL: process.env.AI_MODEL,
+  };
+  delete process.env.AI_PROVIDER;
+  delete process.env.AI_API_KEY;
+  delete process.env.AI_MODEL;
+});
+
+afterEach(() => {
+  for (const [k, v] of Object.entries(saved)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+});
+
+describe('inferProvider', () => {
+  it('reads an Anthropic key by its sk-ant- prefix', () => {
+    expect(inferProvider(ANTHROPIC_KEY)).toBe('anthropic');
+  });
+
+  it('reads an OpenAI key by its sk- prefix', () => {
+    expect(inferProvider(OPENAI_KEY)).toBe('openai');
+    expect(inferProvider('sk-abc123')).toBe('openai');
+  });
+
+  it('falls back to anthropic for an unrecognised shape', () => {
+    expect(inferProvider('something-else')).toBe('anthropic');
+  });
+});
+
+describe('getConfiguredAI', () => {
+  it('refuses to run with no key', () => {
+    expect(() => getConfiguredAI(100)).toThrow(AINotConfiguredError);
+  });
+
+  it('uses OpenAI when only an OpenAI key is set', () => {
+    // The exact case that broke in production: AI_API_KEY set, AI_PROVIDER not.
+    process.env.AI_API_KEY = OPENAI_KEY;
+    const { provider, config } = getConfiguredAI(100);
+    expect(provider.name).toBe('openai');
+    expect(config.model).toBe('gpt-4o-mini');
+  });
+
+  it('uses Anthropic when only an Anthropic key is set', () => {
+    process.env.AI_API_KEY = ANTHROPIC_KEY;
+    const { provider, config } = getConfiguredAI(100);
+    expect(provider.name).toBe('anthropic');
+    expect(config.model).toBe('claude-sonnet-5');
+  });
+
+  it('lets an explicit AI_PROVIDER win over the key shape', () => {
+    process.env.AI_PROVIDER = 'openai';
+    process.env.AI_API_KEY = 'some-proxy-key';
+    expect(getConfiguredAI(100).provider.name).toBe('openai');
+  });
+
+  it('explains the mismatch instead of letting the vendor return 401', () => {
+    process.env.AI_PROVIDER = 'anthropic';
+    process.env.AI_API_KEY = OPENAI_KEY;
+    expect(() => getConfiguredAI(100)).toThrow(/looks like an OpenAI key/);
+  });
+
+  it('does not mistake a real Anthropic key for an OpenAI one', () => {
+    process.env.AI_PROVIDER = 'anthropic';
+    process.env.AI_API_KEY = ANTHROPIC_KEY;
+    expect(getConfiguredAI(100).provider.name).toBe('anthropic');
+  });
+
+  it('rejects an unknown provider name', () => {
+    process.env.AI_PROVIDER = 'made-up-provider';
+    process.env.AI_API_KEY = OPENAI_KEY;
+    expect(() => getConfiguredAI(100)).toThrow(AINotConfiguredError);
+  });
+
+  it('honours AI_MODEL over the per-provider default', () => {
+    process.env.AI_API_KEY = OPENAI_KEY;
+    process.env.AI_MODEL = 'gpt-4o';
+    expect(getConfiguredAI(100).config.model).toBe('gpt-4o');
+  });
+
+  it('tolerates whitespace pasted around the key', () => {
+    process.env.AI_API_KEY = `  ${OPENAI_KEY}  `;
+    const { provider, config } = getConfiguredAI(100);
+    expect(provider.name).toBe('openai');
+    expect(config.apiKey).toBe(OPENAI_KEY);
+  });
+
+  it('passes maxTokens through', () => {
+    process.env.AI_API_KEY = ANTHROPIC_KEY;
+    expect(getConfiguredAI(1234).config.maxTokens).toBe(1234);
+  });
+});

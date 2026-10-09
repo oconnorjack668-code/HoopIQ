@@ -57,6 +57,43 @@ describe('ShotDetector', () => {
     expect(shots.map((s) => s.made)).toEqual([true, false, true]);
   });
 
+  // The net, the backboard and motion blur all hide the ball at exactly the
+  // moment a shot goes in, so these two cases decide how the tracker behaves on
+  // real footage more than the clean arcs above do.
+  describe('when the ball is lost at the rim', () => {
+    /** A make whose last sighting is just above the rim, then nothing. */
+    function occludedMake(reappearAfterMs: number | null): BallObservation[] {
+      const flight = arc(0, 0.2, 0.5).filter((o) => (o.ball?.y ?? 1) < RIM.y - 0.01);
+      const lastT = flight[flight.length - 1].t;
+      const blank: BallObservation[] = Array.from({ length: 60 }, (_, i) => ({ t: lastT + (i + 1) * 33, ball: null }));
+      if (reappearAfterMs === null) return [...flight, ...blank];
+      const reappearAt = lastT + reappearAfterMs;
+      return [
+        ...flight,
+        ...blank.filter((o) => o.t < reappearAt),
+        // Ball drops out of the bottom of the net, straight under the rim
+        { t: reappearAt, ball: { x: 0.5, y: RIM.y + 0.05 } },
+        { t: reappearAt + 33, ball: { x: 0.5, y: RIM.y + 0.12 } },
+      ];
+    }
+
+    it('still calls a make when the ball reappears below the rim', () => {
+      const shots = run(occludedMake(200));
+      expect(shots).toHaveLength(1);
+      expect(shots[0].made).toBe(true);
+    });
+
+    it('calls a miss when the ball never reappears, even though it went in', () => {
+      // Documents a known false-miss: a swish that hides the ball for longer
+      // than LOST_BALL_MS is scored as a miss. The player can correct it in the
+      // review step, which is why shots are confirmed rather than auto-saved.
+      const shots = run(occludedMake(null));
+      expect(shots).toHaveLength(1);
+      expect(shots[0].made).toBe(false);
+      expect(shots[0].confident).toBe(false);
+    });
+  });
+
   it('ignores the ball when it is nowhere near the hoop (dribbling, passing)', () => {
     const dribbling: BallObservation[] = Array.from({ length: 90 }, (_, i) => ({
       t: i * 33,
