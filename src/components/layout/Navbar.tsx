@@ -91,8 +91,8 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
         <div className="flex items-center gap-3">
           {isOwner && (
             <Link
-              href="/admin/errors"
-              title="Owner tools: app errors"
+              href="/admin"
+              title="Owner tools"
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold hover:bg-amber-500/20"
             >
               <ShieldAlert className="h-3.5 w-3.5" />
