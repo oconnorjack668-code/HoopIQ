@@ -18,13 +18,45 @@ function fileset() {
   return (filesetPromise ??= FilesetResolver.forVisionTasks(WASM_URL));
 }
 
+let activeDelegate: 'GPU' | 'CPU' | null = null;
+
+/** Which delegate the last successful model creation used, for diagnostics. */
+export function getActiveDelegate(): 'GPU' | 'CPU' | null {
+  return activeDelegate;
+}
+
 /** Tries the GPU first (much faster on phones) and falls back to the CPU. */
 async function withDelegate<T>(create: (delegate: 'GPU' | 'CPU') => Promise<T>): Promise<T> {
   try {
-    return await create('GPU');
+    const gpu = await create('GPU');
+    activeDelegate = 'GPU';
+    return gpu;
   } catch {
-    return create('CPU');
+    const cpu = await create('CPU');
+    activeDelegate = 'CPU';
+    return cpu;
   }
+}
+
+/**
+ * An unfiltered detector, for working out what the model actually sees.
+ *
+ * getBallDetector() restricts results to the COCO "sports ball" class, so a
+ * label mismatch, a model that cannot resolve a small fast ball, and a broken
+ * inference pipeline are indistinguishable - all three show up as zero
+ * detections. This one keeps every class at a very low threshold so the
+ * benchmark can report which is happening. Not cached: diagnostics only.
+ */
+export async function createDiagnosticDetector(): Promise<ObjectDetector> {
+  const vision = await fileset();
+  return withDelegate((delegate) =>
+    ObjectDetector.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: BALL_MODEL, delegate },
+      runningMode: 'VIDEO',
+      scoreThreshold: 0.05,
+      maxResults: 10,
+    })
+  );
 }
 
 export function getBallDetector(): Promise<ObjectDetector> {

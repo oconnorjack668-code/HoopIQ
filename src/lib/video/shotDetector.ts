@@ -8,6 +8,30 @@ export interface Rim {
   width: number; // rim width (normalised to frame width)
 }
 
+/** Narrowest and widest believable rim, as a fraction of frame width. */
+export const MIN_RIM_WIDTH = 0.015;
+export const MAX_RIM_WIDTH = 0.6;
+
+/**
+ * Builds a rim from two taps, one on each side of it.
+ *
+ * Replaces a fixed "rim is 8% of the frame" assumption, which only held when
+ * the player framed the hoop a particular way: it ruled out side-on footage and
+ * any clip with the hoop near an edge, and when the real rim was smaller than
+ * assumed the detector armed on balls nowhere near the hoop and scored nearly
+ * everything as a make.
+ */
+export function rimFromEdges(a: { x: number; y: number }, b: { x: number; y: number }): Rim {
+  return {
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+    // Horizontal extent, because the crossing test below is horizontal. Seen
+    // side-on the rim foreshortens, and a narrower target is the right answer
+    // there - the ball really does pass through a narrower gap on screen.
+    width: Math.min(MAX_RIM_WIDTH, Math.max(MIN_RIM_WIDTH, Math.abs(b.x - a.x))),
+  };
+}
+
 export interface BallObservation {
   t: number; // milliseconds
   ball: { x: number; y: number } | null;

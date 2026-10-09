@@ -1,6 +1,6 @@
 // __tests__/shotDetector.test.ts
 import { describe, it, expect } from 'vitest';
-import { ShotDetector, type BallObservation } from '@/lib/video/shotDetector';
+import { ShotDetector, rimFromEdges, MIN_RIM_WIDTH, MAX_RIM_WIDTH, type BallObservation } from '@/lib/video/shotDetector';
 
 const RIM = { x: 0.5, y: 0.3, width: 0.06 };
 
@@ -23,6 +23,57 @@ function run(observations: BallObservation[]) {
   for (const o of observations) d.push(o);
   return d.shots;
 }
+
+describe('rimFromEdges', () => {
+  it('centres the rim between the two taps and measures its width', () => {
+    const rim = rimFromEdges({ x: 0.4, y: 0.3 }, { x: 0.5, y: 0.3 });
+    expect(rim.x).toBeCloseTo(0.45);
+    expect(rim.y).toBeCloseTo(0.3);
+    expect(rim.width).toBeCloseTo(0.1);
+  });
+
+  it('does not care which side is tapped first', () => {
+    const a = rimFromEdges({ x: 0.4, y: 0.3 }, { x: 0.5, y: 0.3 });
+    const b = rimFromEdges({ x: 0.5, y: 0.3 }, { x: 0.4, y: 0.3 });
+    expect(a).toEqual(b);
+  });
+
+  it('handles a hoop at the very edge of frame, which the old framing box forbade', () => {
+    const rim = rimFromEdges({ x: 0.0, y: 0.22 }, { x: 0.06, y: 0.24 });
+    expect(rim.x).toBeCloseTo(0.03);
+    expect(rim.width).toBeCloseTo(0.06);
+  });
+
+  it('gives a narrow rim for a side-on view, which is the correct target there', () => {
+    // Seen from the side the rim foreshortens to a sliver; the ball genuinely
+    // passes through a narrower gap on screen.
+    const sideOn = rimFromEdges({ x: 0.70, y: 0.30 }, { x: 0.73, y: 0.31 });
+    const faceOn = rimFromEdges({ x: 0.44, y: 0.30 }, { x: 0.56, y: 0.30 });
+    expect(sideOn.width).toBeLessThan(faceOn.width);
+  });
+
+  it('clamps a double-tap in one spot to a usable width', () => {
+    const rim = rimFromEdges({ x: 0.5, y: 0.3 }, { x: 0.5, y: 0.3 });
+    expect(rim.width).toBe(MIN_RIM_WIDTH);
+    expect(rim.width).toBeGreaterThan(0);
+  });
+
+  it('clamps an absurdly wide pair of taps', () => {
+    const rim = rimFromEdges({ x: 0, y: 0.3 }, { x: 1, y: 0.3 });
+    expect(rim.width).toBe(MAX_RIM_WIDTH);
+  });
+
+  it('produces a rim the detector can score a make with', () => {
+    const rim = rimFromEdges({ x: 0.47, y: 0.3 }, { x: 0.53, y: 0.3 });
+    const d = new ShotDetector(rim);
+    // Straight down through the middle of the measured rim
+    for (let i = 0; i <= 20; i++) {
+      d.push({ t: i * 33, ball: { x: 0.5, y: 0.1 + i * 0.015 } });
+    }
+    expect(d.shots).toHaveLength(1);
+    expect(d.shots[0].made).toBe(true);
+  });
+});
 
 describe('ShotDetector', () => {
   it('counts a ball dropping through the rim as a make', () => {

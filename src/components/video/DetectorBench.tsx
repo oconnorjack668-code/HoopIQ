@@ -2,14 +2,12 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { getBallDetector } from '@/lib/video/mediapipe';
-import { ShotDetector, type DetectedShot } from '@/lib/video/shotDetector';
+import { getBallDetector, createDiagnosticDetector, getActiveDelegate } from '@/lib/video/mediapipe';
+import { ShotDetector, rimFromEdges, type DetectedShot } from '@/lib/video/shotDetector';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-import { FileVideo, Play } from 'lucide-react';
+import { FileVideo, Play, Search } from 'lucide-react';
 
-/** Must match ShotTracker so the benchmark measures what players actually run. */
-const RIM_WIDTH_FRACTION = 0.08;
 /** Mirrors LOST_BALL_MS in shotDetector: a gap longer than this turns an armed
  *  shot into a miss, so gaps are the statistic that predicts false misses. */
 const LOST_BALL_MS = 1500;
@@ -23,6 +21,15 @@ interface Report {
   maxGapMs: number;
   gapsOverLimit: number;
   shots: DetectedShot[];
+}
+
+interface Diagnosis {
+  frames: number;
+  delegate: string;
+  videoSize: string;
+  /** Every COCO class seen, with how many frames it appeared in and its best score. */
+  classes: Array<{ label: string; frames: number; best: number }>;
+  framesWithAnything: number;
 }
 
 function median(xs: number[]): number {
@@ -40,8 +47,10 @@ export function DetectorBench() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasVideo, setHasVideo] = useState(false);
   const [rim, setRim] = useState<{ x: number; y: number; width: number } | null>(null);
+  const [firstEdge, setFirstEdge] = useState<{ x: number; y: number } | null>(null);
   const [running, setRunning] = useState(false);
   const [report, setReport] = useState<Report | null>(null);
+  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Ground truth, typed in by whoever shot the clip
@@ -60,11 +69,94 @@ export function DetectorBench() {
 
   function tapRim(e: React.MouseEvent<HTMLVideoElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
-    setRim({
+    const point = {
       x: (e.clientX - rect.left) / rect.width,
       y: (e.clientY - rect.top) / rect.height,
-      width: RIM_WIDTH_FRACTION,
+    };
+    if (!firstEdge) {
+      setFirstEdge(point);
+      setRim(null);
+      return;
+    }
+    setRim(rimFromEdges(firstEdge, point));
+    setFirstEdge(null);
+  }
+
+  /**
+   * Plays the clip through once, handing each frame to `onFrame`.
+   * Shared so the benchmark and the diagnosis measure identical conditions.
+   */
+  async function sweep(onFrame: (video: HTMLVideoElement, videoMs: number, ts: number) => void) {
+    const video = videoRef.current;
+    if (!video) return;
+    let lastTs = 0;
+    video.currentTime = 0;
+    video.playbackRate = 1;
+    await video.play();
+    await new Promise<void>((resolve) => {
+      const step = () => {
+        if (video.paused || video.ended) {
+          resolve();
+          return;
+        }
+        const videoMs = video.currentTime * 1000;
+        const ts = Math.max(lastTs + 1, Math.round(videoMs));
+        lastTs = ts;
+        onFrame(video, videoMs, ts);
+        const v = video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number };
+        if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(step);
+        else requestAnimationFrame(step);
+      };
+      step();
     });
+  }
+
+  /** Runs the model with no class filter, to find out what it can see at all. */
+  async function diagnose() {
+    const video = videoRef.current;
+    if (!video) return;
+    setRunning(true);
+    setError(null);
+    setDiagnosis(null);
+    try {
+      const detector = await createDiagnosticDetector();
+      const seen = new Map<string, { frames: number; best: number }>();
+      let frames = 0;
+      let framesWithAnything = 0;
+
+      await sweep((v, _videoMs, ts) => {
+        frames += 1;
+        const result = detector.detectForVideo(v, ts);
+        const detections = result.detections || [];
+        if (detections.length) framesWithAnything += 1;
+        const labelsThisFrame = new Set<string>();
+        for (const d of detections) {
+          const cat = d.categories[0];
+          if (!cat) continue;
+          const label = cat.categoryName || `#${cat.index}`;
+          const prev = seen.get(label) || { frames: 0, best: 0 };
+          seen.set(label, {
+            frames: prev.frames + (labelsThisFrame.has(label) ? 0 : 1),
+            best: Math.max(prev.best, cat.score || 0),
+          });
+          labelsThisFrame.add(label);
+        }
+      });
+
+      setDiagnosis({
+        frames,
+        delegate: getActiveDelegate() || 'unknown',
+        videoSize: `${video.videoWidth}x${video.videoHeight}`,
+        framesWithAnything,
+        classes: [...seen.entries()]
+          .map(([label, v]) => ({ label, ...v }))
+          .sort((a, b) => b.frames - a.frames),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Diagnosis failed.');
+    } finally {
+      setRunning(false);
+    }
   }
 
   async function run() {
@@ -83,56 +175,36 @@ export function DetectorBench() {
       let maxGapMs = 0;
       let gapsOverLimit = 0;
       let lastBallMs: number | null = null;
-      let lastTs = 0;
-
-      video.currentTime = 0;
-      video.playbackRate = 1;
-      await video.play();
       const startedAt = performance.now();
 
-      await new Promise<void>((resolve) => {
-        const onFrame = () => {
-          if (video.paused || video.ended) {
-            resolve();
-            return;
+      // Video time, not wall clock: the detector reasons in milliseconds and
+      // this keeps the gap measurements true to the footage.
+      await sweep((v, videoMs, ts) => {
+        const result = detector.detectForVideo(v, ts);
+        const best = [...(result.detections || [])].sort(
+          (a, b) => (b.categories[0]?.score || 0) - (a.categories[0]?.score || 0)
+        )[0];
+        frames += 1;
+
+        const box = best?.boundingBox;
+        if (box) {
+          framesWithBall += 1;
+          scores.push(best.categories[0]?.score || 0);
+          if (lastBallMs !== null) {
+            const gap = videoMs - lastBallMs;
+            if (gap > maxGapMs) maxGapMs = gap;
+            if (gap > LOST_BALL_MS) gapsOverLimit += 1;
           }
-          // Video time, not wall clock: the detector reasons in milliseconds and
-          // this keeps the gap measurements true to the footage.
-          const videoMs = video.currentTime * 1000;
-          const ts = Math.max(lastTs + 1, Math.round(videoMs));
-          lastTs = ts;
+          lastBallMs = videoMs;
+        }
 
-          const result = detector.detectForVideo(video, ts);
-          const best = [...(result.detections || [])].sort(
-            (a, b) => (b.categories[0]?.score || 0) - (a.categories[0]?.score || 0)
-          )[0];
-          frames += 1;
-
-          const box = best?.boundingBox;
-          if (box) {
-            framesWithBall += 1;
-            scores.push(best.categories[0]?.score || 0);
-            if (lastBallMs !== null) {
-              const gap = videoMs - lastBallMs;
-              if (gap > maxGapMs) maxGapMs = gap;
-              if (gap > LOST_BALL_MS) gapsOverLimit += 1;
+        const ball = box
+          ? {
+              x: (box.originX + box.width / 2) / v.videoWidth,
+              y: (box.originY + box.height / 2) / v.videoHeight,
             }
-            lastBallMs = videoMs;
-          }
-
-          const ball = box
-            ? {
-                x: (box.originX + box.width / 2) / video.videoWidth,
-                y: (box.originY + box.height / 2) / video.videoHeight,
-              }
-            : null;
-          shotDetector.push({ t: videoMs, ball });
-
-          const v = video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number };
-          if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(onFrame);
-          else requestAnimationFrame(onFrame);
-        };
-        onFrame();
+          : null;
+        shotDetector.push({ t: videoMs, ball });
       });
 
       setReport({
@@ -182,21 +254,77 @@ export function DetectorBench() {
               onClick={tapRim}
               className="w-full rounded-2xl bg-black cursor-crosshair"
             />
-            {rim && (
+            {firstEdge && (
               <div
                 className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500 ring-2 ring-white"
-                style={{ left: `${rim.x * 100}%`, top: `${rim.y * 100}%` }}
+                style={{ left: `${firstEdge.x * 100}%`, top: `${firstEdge.y * 100}%` }}
+              />
+            )}
+            {rim && (
+              <div
+                className="pointer-events-none absolute h-1 -translate-y-1/2 rounded-full bg-orange-500 ring-1 ring-white/60"
+                style={{ left: `${(rim.x - rim.width / 2) * 100}%`, top: `${rim.y * 100}%`, width: `${rim.width * 100}%` }}
               />
             )}
           </div>
 
           <p className="text-sm text-zinc-400">
-            {rim ? 'Rim set. Run the benchmark.' : 'Pause on a frame showing the hoop, then tap the centre of the rim.'}
+            {rim
+              ? `Rim measured: ${(rim.width * 100).toFixed(1)}% of frame width. Run the benchmark.`
+              : firstEdge
+                ? 'Now tap the other side of the rim.'
+                : 'Pause on a frame showing the hoop, then tap one side of the rim and the other.'}
           </p>
 
           <Button variant="primary" size="lg" className="w-full gap-2" disabled={!rim} isLoading={running} onClick={() => void run()}>
             <Play className="h-4 w-4" /> {running ? 'Processing in real time…' : 'Run benchmark'}
           </Button>
+
+          <Button variant="secondary" size="lg" className="w-full gap-2" isLoading={running} onClick={() => void diagnose()}>
+            <Search className="h-4 w-4" /> What can the model see? (no rim needed)
+          </Button>
+
+          {diagnosis && (
+            <div className="space-y-3 rounded-2xl border border-amber-600/40 bg-amber-600/10 p-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-amber-300">Everything the model detected</h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <span className="text-zinc-400">Frames</span>
+                <span className="text-right font-semibold text-white">{diagnosis.frames}</span>
+                <span className="text-zinc-400">Frames with any object</span>
+                <span className="text-right font-semibold text-white">
+                  {diagnosis.framesWithAnything} ({pct(diagnosis.framesWithAnything, diagnosis.frames)})
+                </span>
+                <span className="text-zinc-400">Video size</span>
+                <span className="text-right font-semibold text-white">{diagnosis.videoSize}</span>
+                <span className="text-zinc-400">Running on</span>
+                <span className="text-right font-semibold text-white">{diagnosis.delegate}</span>
+              </div>
+
+              {diagnosis.classes.length === 0 ? (
+                <p className="text-sm font-semibold text-red-400">
+                  The model returned nothing at all, for any class. That is a broken pipeline, not a hard-to-see ball.
+                </p>
+              ) : (
+                <div className="space-y-1 text-sm">
+                  {diagnosis.classes.map((c) => (
+                    <div key={c.label} className="flex items-center justify-between gap-2">
+                      <span className={c.label === 'sports ball' ? 'font-bold text-emerald-400' : 'text-zinc-300'}>
+                        {c.label}
+                      </span>
+                      <span className="text-zinc-400">
+                        {c.frames} frames ({pct(c.frames, diagnosis.frames)}) · best {c.best.toFixed(3)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-zinc-400">
+                If &ldquo;sports ball&rdquo; is absent but other classes are present, the model works and simply cannot
+                resolve the ball. If it is present here but the benchmark above finds nothing, the score threshold or
+                the class filter is wrong.
+              </p>
+            </div>
+          )}
 
           {report && (
             <div className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">

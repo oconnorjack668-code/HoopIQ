@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-import { ShotDetector, type DetectedShot, type Rim } from '@/lib/video/shotDetector';
+import { ShotDetector, rimFromEdges, type DetectedShot, type Rim } from '@/lib/video/shotDetector';
 import { getBallDetector } from '@/lib/video/mediapipe';
 import { ZONE_LABELS, ZONE_SPOTS, type CourtZone } from '@/lib/court';
 import type { ShootingSummary } from '@/components/video/VideoAIFeedback';
@@ -16,10 +16,6 @@ import { Camera, FileVideo, Crosshair, Square, Trash2, Plus, Activity } from 'lu
 type Step = 'source' | 'calibrate' | 'tracking' | 'review';
 type Source = 'camera' | 'file';
 
-// Rim width as a fraction of the frame width. Fixed rather than player-adjustable:
-// the "frame the whole hoop" guide at calibration time does the sizing work instead
-// of a manual ring the player has to drag, matching a single-tap calibration flow.
-const RIM_WIDTH_FRACTION = 0.08;
 
 export interface TrackedShot extends DetectedShot {
   id: number;
@@ -151,24 +147,31 @@ export function ShotTracker({
     });
   }
 
-  // One tap calibrates the rim and starts tracking immediately - no ring, no size
-  // slider, no separate "start" step. The "frame the whole hoop" guide shown before
-  // the tap does the job a manual ring used to do.
+  // Tap one side of the rim, then the other. Tracking starts on the second tap -
+  // no ring to drag, no size slider, no separate "start" step.
   const [calibrating, setCalibrating] = useState(false);
+  const [firstEdge, setFirstEdge] = useState<{ x: number; y: number } | null>(null);
 
   function tapRim(e: React.MouseEvent<HTMLCanvasElement>) {
     if (step !== 'calibrate' || calibrating) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const tapped: Rim = {
+    const point = {
       x: (e.clientX - rect.left) / rect.width,
       y: (e.clientY - rect.top) / rect.height,
-      width: RIM_WIDTH_FRACTION,
     };
-    setRim(tapped);
-    // Pass the tapped rim directly instead of relying on the `rim` state, which
-    // would still read null on this render (state updates are not synchronous).
+
+    if (!firstEdge) {
+      setFirstEdge(point);
+      return;
+    }
+
+    const measured = rimFromEdges(firstEdge, point);
+    setRim(measured);
+    setFirstEdge(null);
+    // Pass the measured rim directly instead of relying on the `rim` state,
+    // which would still read null on this render (state is not synchronous).
     setCalibrating(true);
-    startTracking(tapped).finally(() => setCalibrating(false));
+    startTracking(measured).finally(() => setCalibrating(false));
   }
 
   // Draws a small, fixed marker at the rim (while tracking) and the detected ball
@@ -180,11 +183,27 @@ export function ShotTracker({
     canvas.height = canvas.clientHeight;
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // The first edge marker is a DOM overlay, not canvas: draw() runs from the
+    // tracking loop and would read a stale firstEdge from its closure.
     if (rim) {
-      ctx.fillStyle = '#f97316';
+      // The measured rim, drawn as the span between the two taps so the player
+      // can see what was actually captured rather than trusting a dot.
+      const half = (rim.width / 2) * canvas.width;
+      const cx = rim.x * canvas.width;
+      const cy = rim.y * canvas.height;
+      ctx.strokeStyle = '#f97316';
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(rim.x * canvas.width, rim.y * canvas.height, 5, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(cx - half, cy);
+      ctx.lineTo(cx + half, cy);
+      ctx.stroke();
+      ctx.fillStyle = '#f97316';
+      for (const x of [cx - half, cx + half]) {
+        ctx.beginPath();
+        ctx.arc(x, cy, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     if (ball) {
       ctx.strokeStyle = '#22c55e';
@@ -399,10 +418,11 @@ export function ShotTracker({
         <div className="relative w-full overflow-hidden rounded-2xl bg-black">
           <video ref={videoRef} playsInline muted className="w-full h-auto" />
           <canvas ref={canvasRef} onClick={tapRim} className="absolute inset-0 h-full w-full touch-manipulation" />
-          {step === 'calibrate' && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
-              <div className="aspect-square w-2/3 max-w-xs rounded-2xl border-2 border-dashed border-orange-400/70" />
-            </div>
+          {step === 'calibrate' && firstEdge && (
+            <div
+              className="pointer-events-none absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500 ring-2 ring-white"
+              style={{ left: `${firstEdge.x * 100}%`, top: `${firstEdge.y * 100}%` }}
+            />
           )}
           {step === 'tracking' && (
             <>
@@ -466,9 +486,18 @@ export function ShotTracker({
       {step === 'calibrate' && (
         <div className="space-y-3">
           <p className="text-sm text-zinc-300 flex items-center gap-2">
-            <Crosshair className="h-4 w-4 text-orange-400" />
-            {calibrating ? 'Starting…' : 'Line the hoop up in the dashed box, then tap the rim to start tracking.'}
+            <Crosshair className="h-4 w-4 flex-shrink-0 text-orange-400" />
+            {calibrating
+              ? 'Starting…'
+              : firstEdge
+                ? 'Now tap the other side of the rim.'
+                : 'Tap one side of the rim, then the other. The hoop can be anywhere in the frame.'}
           </p>
+          {firstEdge && !calibrating && (
+            <button type="button" onClick={() => setFirstEdge(null)} className="text-xs text-zinc-500 underline">
+              Start the rim again
+            </button>
+          )}
           {source === 'file' && !calibrating && (
             <label className="text-xs text-zinc-400 flex items-center gap-2">
               Analysis speed
