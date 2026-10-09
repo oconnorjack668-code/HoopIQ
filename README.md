@@ -15,8 +15,15 @@ npm run dev
 ```
 
 You need a Supabase project. Create one, then apply everything in
-`supabase/migrations/` in filename order (24 migrations) via the Supabase SQL
-editor or the Supabase CLI. They are written to be safe to re-run.
+`supabase/migrations/` in filename order (30 migrations) via the Supabase SQL
+editor or the Supabase CLI, then `supabase/seed.sql`. Every migration is safe
+to re-run: policies are dropped before they are created, tables and indexes use
+`IF NOT EXISTS`, and content inserts skip rows that already exist.
+
+One exception worth reading before you run it: `00025` deletes duplicate
+post-session AI reports (keeping the oldest for each session) because the
+unique index it adds cannot be created while duplicates exist. The file carries
+a `SELECT` that previews exactly what it would remove.
 
 Set `OWNER_EMAIL` to the account that should hold the `owner` role — it grants
 unlimited AI credits, Pro features and the admin screens, and is enforced
@@ -32,23 +39,33 @@ fabricating output or silently failing.
 ```bash
 npm run lint        # eslint
 npx tsc --noEmit    # types
-npm test            # vitest (25 files, 113 tests)
+npm test            # vitest (35 files, 247 tests)
 npm run build       # production build
 ```
 
-All four are expected to pass. `tsc --noEmit` in particular should stay at zero
-errors — the Supabase schema types in `src/lib/supabase/types.ts` are
-hand-maintained (there is no `supabase gen types` step), and a schema that
-doesn't satisfy the client's `GenericSchema` constraint silently degrades every
-query to `never` without any lint error. If you add a table or column in a
-migration, add it there too, including its `Relationships: []` entry.
+All four are expected to pass, with exactly one accepted lint warning: a
+`react-hooks/exhaustive-deps` on `loadQuiz` in `study/[id]/quiz/page.tsx`. Leave
+it — the obvious fix (adding `loadQuiz` to the dependency array) ships an
+infinite fetch loop, because the function is recreated on every render.
+
+Run the gates **sequentially**. Running `npm test` alongside `lint`/`tsc`
+starves the test process and `stripe-webhook.test.ts` fails on vitest's 5s
+default timeout; the test is not flaky on its own.
+
+`tsc --noEmit` in particular should stay at zero errors — the Supabase schema
+types in `src/lib/supabase/types.ts` are hand-maintained (there is no
+`supabase gen types` step), and a schema that doesn't satisfy the client's
+`GenericSchema` constraint silently degrades every query to `never` without any
+lint error. If you add a table or column in a migration, add it there too,
+including its `Relationships: []` entry — and if you add an enum-like `CHECK`
+constraint, widen the matching TypeScript union, which has drifted before.
 
 ## Layout
 
 ```
 src/app/(auth)/       login, signup, verify, reset
-src/app/(app)/        the app: dashboard, basketball, workouts, goals,
-                      ai-coach, study, drills, programs, guides, video,
+src/app/(app)/        the app: dashboard, basketball, workouts (incl. fuel),
+                      goals, ai-coach, study, drills, programs, guides, video,
                       leaderboard, achievements, friends, teams, games,
                       style-match, settings, profile, pro, admin
 src/app/api/          route handlers (AI, Stripe webhook, push, crons, share)
@@ -63,6 +80,24 @@ Auth session refresh runs in `src/proxy.ts` (Next.js 16 renamed `middleware` to
 `proxy`). Every player-owned table has RLS restricting rows to their owner, and
 video is kept in a private bucket.
 
+Owner-only tools live at `/admin`, reachable from the shield badge in the
+header. They include a detector benchmark for measuring shot detection against
+a real clip.
+
+## Two deliberate design decisions
+
+**Fuel tracking is habits, not calories.** `fuel_logs` records whether you ate
+before and after training, water, sleep and energy — there is no intake total in
+the schema and no composite score in the UI. Players start at 13, a numeric
+intake target aimed at teenagers is a documented route into disordered eating,
+and it would contradict the safety rules the AI coach already enforces. Don't
+add macros without an explicit decision to, and age-gate them if you do.
+
+**The IQ section is designed not to be finishable.** A question of the day walks
+a per-player shuffle of the whole pool, so every question is seen once before
+any repeats — 300 questions is 300 days. Adding content extends that directly;
+it is not the only lever.
+
 ## On-device video
 
 Shot tracking and form check run entirely in the browser via MediaPipe Tasks
@@ -70,8 +105,29 @@ Vision — frames never leave the phone. Shot detection uses a general-purpose
 COCO object detector plus rim-crossing geometry, with the player confirming or
 correcting every call before it is saved.
 
-Its accuracy has not been measured against labelled footage. Treat the counts as
-assistive rather than authoritative, and keep the review step before saving.
+Detection runs on a **crop around the rim**, not the whole frame. The model
+takes a 320px square input, so a 2561px-wide clip was downscaled about 8× and a
+basketball landed on roughly a dozen pixels. Measured on real footage: the model
+scored `person` at 0.919 but `sports ball` at only 0.174 full-frame, rising to
+0.729 on the crop. The rim is measured from two taps — one on each side — rather
+than assumed, which is what makes the crop possible and what lets the tracker
+work on side-on footage or with the hoop near a frame edge.
+
+Overall counting accuracy still has not been measured against labelled footage.
+Treat the counts as assistive rather than authoritative, and keep the review
+step before saving. `/admin/detector-bench` measures a clip and compares
+full-frame against the crop.
+
+## Lesson videos
+
+`study_items.youtube_video_id` holds a real YouTube id, and the lesson page
+embeds it via `youtube-nocookie`. A lesson still holding `'placeholder'` falls
+back to a YouTube search and says so.
+
+If you curate more, verify the id before committing it: YouTube's oEmbed
+endpoint returns the title and channel for a real video and HTTP 400 for an
+invented one. Use the `author_name` it returns as the channel, rather than
+typing one in.
 
 ## Historical docs
 
