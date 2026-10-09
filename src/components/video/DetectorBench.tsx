@@ -4,6 +4,7 @@
 import React, { useRef, useState } from 'react';
 import { getBallDetector, createDiagnosticDetector, getActiveDelegate } from '@/lib/video/mediapipe';
 import { ShotDetector, rimFromEdges, type DetectedShot } from '@/lib/video/shotDetector';
+import { cropRectFor, ballCentreInFrame, magnification, CROP_CANVAS_PX } from '@/lib/video/crop';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { FileVideo, Play, Search } from 'lucide-react';
@@ -51,6 +52,7 @@ export function DetectorBench() {
   const [running, setRunning] = useState(false);
   const [report, setReport] = useState<Report | null>(null);
   const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
+  const [magnify, setMagnify] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
   // Ground truth, typed in by whoever shot the clip
@@ -179,8 +181,20 @@ export function DetectorBench() {
 
       // Video time, not wall clock: the detector reasons in milliseconds and
       // this keeps the gap measurements true to the footage.
+      const canvas = document.createElement('canvas');
+      canvas.width = CROP_CANVAS_PX;
+      canvas.height = CROP_CANVAS_PX;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not get a 2d canvas context.');
+      let gain = 1;
+
       await sweep((v, videoMs, ts) => {
-        const result = detector.detectForVideo(v, ts);
+        // Same hoop crop the tracker uses, so the benchmark measures the real thing
+        const crop = cropRectFor(rim, v.videoWidth, v.videoHeight);
+        gain = magnification(crop, v.videoWidth);
+        ctx.drawImage(v, crop.sx, crop.sy, crop.side, crop.side, 0, 0, CROP_CANVAS_PX, CROP_CANVAS_PX);
+
+        const result = detector.detectForVideo(canvas, ts);
         const best = [...(result.detections || [])].sort(
           (a, b) => (b.categories[0]?.score || 0) - (a.categories[0]?.score || 0)
         )[0];
@@ -198,14 +212,12 @@ export function DetectorBench() {
           lastBallMs = videoMs;
         }
 
-        const ball = box
-          ? {
-              x: (box.originX + box.width / 2) / v.videoWidth,
-              y: (box.originY + box.height / 2) / v.videoHeight,
-            }
-          : null;
-        shotDetector.push({ t: videoMs, ball });
+        shotDetector.push({
+          t: videoMs,
+          ball: box ? ballCentreInFrame(box, crop, v.videoWidth, v.videoHeight) : null,
+        });
       });
+      setMagnify(gain);
 
       setReport({
         durationS: video.duration || 0,
@@ -339,6 +351,12 @@ export function DetectorBench() {
                   </span>
                   <span className="text-zinc-400">Median confidence</span>
                   <span className="text-right font-semibold text-white">{median(report.scores).toFixed(3)}</span>
+                  <span className="text-zinc-400">Best confidence</span>
+                  <span className="text-right font-semibold text-white">
+                    {report.scores.length ? Math.max(...report.scores).toFixed(3) : '–'}
+                  </span>
+                  <span className="text-zinc-400">Hoop crop magnification</span>
+                  <span className="text-right font-semibold text-white">{magnify.toFixed(1)}x</span>
                   <span className="text-zinc-400">Longest gap with no ball</span>
                   <span className="text-right font-semibold text-white">{Math.round(report.maxGapMs)} ms</span>
                   <span className="text-zinc-400">Gaps over {LOST_BALL_MS} ms</span>

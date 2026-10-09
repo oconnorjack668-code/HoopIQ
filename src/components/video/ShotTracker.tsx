@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { ShotDetector, rimFromEdges, type DetectedShot, type Rim } from '@/lib/video/shotDetector';
+import { cropRectFor, ballCentreInFrame, CROP_CANVAS_PX } from '@/lib/video/crop';
 import { getBallDetector } from '@/lib/video/mediapipe';
 import { ZONE_LABELS, ZONE_SPOTS, type CourtZone } from '@/lib/court';
 import type { ShootingSummary } from '@/components/video/VideoAIFeedback';
@@ -39,6 +40,10 @@ export function ShotTracker({
   const streamRef = useRef<MediaStream | null>(null);
   const fileRef = useRef<File | null>(null);
   const stopRef = useRef(false);
+  // Offscreen: the hoop crop is drawn here and handed to the model, never shown.
+  // Created when tracking starts, not during render - document.createElement is
+  // impure and would run on every render.
+  const cropCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lockRef = useRef<{ release: () => Promise<void> } | null>(null);
 
   const [step, setStep] = useState<Step>('source');
@@ -237,6 +242,13 @@ export function ShotTracker({
     const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
     nav.wakeLock?.request('screen').then((l) => (lockRef.current = l)).catch(() => undefined);
 
+    if (!cropCanvasRef.current) {
+      const c = document.createElement('canvas');
+      c.width = CROP_CANVAS_PX;
+      c.height = CROP_CANVAS_PX;
+      cropCanvasRef.current = c;
+    }
+
     const shotDetector = new ShotDetector(calibratedRim);
     const startedAt = performance.now();
     let lastTs = -1;
@@ -258,21 +270,37 @@ export function ShotTracker({
         // MediaPipe needs strictly increasing timestamps
         const ts = Math.max(lastTs + 1, Math.round(performance.now()));
         lastTs = ts;
-        const result = detector.detectForVideo(video, ts);
+
+        // Detect on a crop around the hoop rather than the whole frame. The
+        // model takes a 320px square, so a 2561px-wide frame put the ball on
+        // about a dozen pixels and it scored 0.174 at best; the crop hands it
+        // the ball at a size it can actually resolve.
+        const crop = cropRectFor(calibratedRim, video.videoWidth, video.videoHeight);
+        const canvas = cropCanvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+        ctx.drawImage(video, crop.sx, crop.sy, crop.side, crop.side, 0, 0, CROP_CANVAS_PX, CROP_CANVAS_PX);
+
+        const result = detector.detectForVideo(canvas, ts);
         const best = [...(result.detections || [])].sort(
           (a, b) => (b.categories[0]?.score || 0) - (a.categories[0]?.score || 0)
         )[0];
         const box = best?.boundingBox;
-        const ball = box
-          ? {
-              x: box.originX / video.videoWidth,
-              y: box.originY / video.videoHeight,
-              w: box.width / video.videoWidth,
-              h: box.height / video.videoHeight,
-            }
-          : null;
+        // Crop pixels back to whole-frame fractions, so everything downstream
+        // keeps working in the coordinate space it always used.
+        const scale = crop.side / CROP_CANVAS_PX;
+        const centre = box ? ballCentreInFrame(box, crop, video.videoWidth, video.videoHeight) : null;
+        const ball =
+          box && centre
+            ? {
+                w: (box.width * scale) / video.videoWidth,
+                h: (box.height * scale) / video.videoHeight,
+                x: centre.x - (box.width * scale) / video.videoWidth / 2,
+                y: centre.y - (box.height * scale) / video.videoHeight / 2,
+              }
+            : null;
         const t = source === 'file' ? video.currentTime * 1000 : performance.now() - startedAt;
-        const shot = shotDetector.push({ t, ball: ball ? { x: ball.x + ball.w / 2, y: ball.y + ball.h / 2 } : null });
+        const shot = shotDetector.push({ t, ball: centre });
         if (shot) {
           setShots((cur) => [...cur, { ...shot, id: nextId++ }]);
           navigator.vibrate?.(shot.made ? 40 : [20, 50, 20]);
