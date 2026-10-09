@@ -19,6 +19,49 @@ export const metadata = {
   title: 'Dashboard - HoopIQ',
 };
 
+/**
+ * One stat tile. Extracted because the four were hand-written copies that had
+ * already drifted apart - the consistency tile ended up with the plain grey
+ * badge while the other three were tinted to match their number.
+ *
+ * The row wraps and the number steps down on small screens: in the two-column
+ * phone grid a value like "37.5%" at text-3xl plus its badge is wider than the
+ * card, and neither flex child could shrink, so the badge hung out of the side.
+ */
+function StatCard({
+  label,
+  value,
+  badge,
+  badgeVariant,
+  valueClass,
+  hint,
+  children,
+}: {
+  label: string;
+  value: React.ReactNode;
+  badge: string;
+  badgeVariant: React.ComponentProps<typeof Badge>['variant'];
+  valueClass: string;
+  hint: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Card className="border-zinc-800 bg-zinc-900/70">
+      <CardContent className="p-4 md:p-5">
+        <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">{label}</div>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+          <span className={`text-2xl sm:text-3xl font-black leading-none ${valueClass}`}>{value}</span>
+          <Badge variant={badgeVariant} className="flex-shrink-0 text-[10px] sm:text-xs">
+            {badge}
+          </Badge>
+        </div>
+        <div className="text-xs text-zinc-500 mt-2">{hint}</div>
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function DashboardPage() {
   const user = await requireUser();
   const profile = await getCurrentProfile();
@@ -135,58 +178,51 @@ export default async function DashboardPage() {
         {/* Quick stats. 2x2 on a phone rather than four full-width cards
             stacked, which was ~400px of scrolling for four small numbers. */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
-          <Card className="border-zinc-800 bg-zinc-900/70">
-            <CardContent className="p-5">
-              <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">This Week</div>
-              <div className="flex items-baseline justify-between mb-2">
-                <span className="text-3xl font-black text-orange-400">{metrics.thisWeekSessions}</span>
-                <Badge variant="orange" className="text-xs">sessions</Badge>
-              </div>
-              <div className="text-xs text-zinc-500">Goal: {metrics.weeklyGoalTarget} days</div>
-              <div className="mt-2 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all"
-                  style={{ width: `${Math.min(weeklyGoalPercentage, 100)}%` }}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="This week"
+            value={metrics.thisWeekSessions}
+            badge="sessions"
+            badgeVariant="orange"
+            valueClass="text-orange-400"
+            hint={`Goal: ${metrics.weeklyGoalTarget} days`}
+          >
+            <div className="mt-2 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all"
+                style={{ width: `${Math.min(weeklyGoalPercentage, 100)}%` }}
+              />
+            </div>
+          </StatCard>
 
-          <Card className="border-zinc-800 bg-zinc-900/70">
-            <CardContent className="p-5">
-              <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">Shooting %</div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-black text-purple-400">{metrics.shootingPercentage.toFixed(1)}%</span>
-                <Badge variant="purple" className="text-xs">career</Badge>
-              </div>
-              <div className="text-xs text-zinc-500 mt-2">{shootingByZone.length} zones tracked</div>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Shooting %"
+            value={`${metrics.shootingPercentage.toFixed(1)}%`}
+            badge="career"
+            badgeVariant="purple"
+            valueClass="text-purple-400"
+            hint={`${shootingByZone.length} zones tracked`}
+          />
 
-          <Card className="border-zinc-800 bg-zinc-900/70">
-            <CardContent className="p-5">
-              <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">Streak</div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-black text-emerald-400">{metrics.currentStreak}</span>
-                <Badge variant="success" className="text-xs">days</Badge>
-              </div>
-              <div className="text-xs text-zinc-500 mt-2">Keep it going!</div>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Streak"
+            value={metrics.currentStreak}
+            badge="days"
+            badgeVariant="success"
+            valueClass="text-emerald-400"
+            hint="Keep it going!"
+          />
 
           {/* Consistency, not AI credits. A billing counter was previously
               given the same visual weight as the player's training streak;
               credits now sit in the slim row below instead. */}
-          <Card className="border-zinc-800 bg-zinc-900/70">
-            <CardContent className="p-5">
-              <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">Consistency</div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-black text-cyan-400">{metrics.consistency}%</span>
-                <Badge variant="default" className="text-xs">30 days</Badge>
-              </div>
-              <div className="text-xs text-zinc-500 mt-2">Days with any training logged</div>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Consistency"
+            value={`${metrics.consistency}%`}
+            badge="30 days"
+            badgeVariant="cyan"
+            valueClass="text-cyan-400"
+            hint="Days with any training logged"
+          />
         </div>
 
         {/* AI credits: useful to know, but it is billing, not training */}
