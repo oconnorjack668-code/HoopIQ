@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { CourtMap } from '@/components/basketball/CourtMap';
 import { classifyZone, ZONE_LABELS, ZONE_SPOTS, type CourtZone } from '@/lib/court';
+import { localDateString } from '@/lib/dates';
 import { sessionCategoryForSkill } from '@/lib/drills';
 import {
   enqueue,
@@ -69,11 +70,6 @@ const SESSION_TYPES = [
 ];
 const CHALLENGE_MINUTES = [1, 3, 5, 10];
 
-function todayString(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 function newDrill(name: string, category = 'shooting'): Drill {
   return { key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, category, minutes: '', shots: [] };
 }
@@ -89,7 +85,7 @@ function formatClock(totalSeconds: number): string {
 
 function freshDraft(): Draft {
   const first = newDrill('Spot shooting');
-  return { startedAt: Date.now(), sessionDate: todayString(), sessionType: 'shooting', drills: [first], activeKey: first.key };
+  return { startedAt: Date.now(), sessionDate: localDateString(), sessionType: 'shooting', drills: [first], activeKey: first.key };
 }
 
 export default function NewBasketballSessionPage() {

@@ -10,6 +10,7 @@ import { Alert } from '@/components/ui/Alert';
 import { FILM_TAGS, STYLE_TAGS, findMatches, styleFromFilm, MIN_FILM_SHOTS, type NbaPlayer } from '@/lib/styleMatch';
 import { boxScoreFromFilm, statEventCount, tagCountsToBoxScore, type FilmEvent } from '@/lib/filmStats';
 import { GAME_TYPES, points, statLine } from '@/lib/games';
+import { localDateString } from '@/lib/dates';
 import { enqueue, getUserIdForSave, isOffline, newId, saveGame, type GameSavePayload } from '@/lib/offline';
 import type { Database } from '@/lib/supabase/types';
 import { FileVideo, Undo2, Users, X, Rewind, FastForward, StepForward, ClipboardList } from 'lucide-react';
@@ -17,11 +18,6 @@ import { FileVideo, Undo2, Users, X, Rewind, FastForward, StepForward, Clipboard
 const SPEEDS = [0.25, 0.5, 1] as const;
 /** One frame at 30fps - enough to land on the exact moment a shot drops. */
 const FRAME = 1 / 30;
-
-function todayString(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function clock(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
@@ -43,7 +39,7 @@ export function FilmTagger({ heightCm, position }: { heightCm: number | null; po
   // Game details, only needed when saving the tagged film as a game
   // Lazy initializer: todayString() reads the clock, so calling it inline would
   // be an impure call during render (and would re-run on every render).
-  const [gameDate, setGameDate] = useState(todayString);
+  const [gameDate, setGameDate] = useState(localDateString);
   const [gameType, setGameType] = useState<string>('pickup');
   const [opponent, setOpponent] = useState('');
 

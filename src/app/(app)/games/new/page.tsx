@@ -10,6 +10,7 @@ import { Alert } from '@/components/ui/Alert';
 import { SavedOfflineCard } from '@/components/SavedOfflineCard';
 import { COUNTING_STATS, EMPTY_BOX, GAME_TYPES, clampBox, points, type BoxScore, type CountingStat } from '@/lib/games';
 import { enqueue, getUserIdForSave, isOffline, newId, saveGame, type GameSavePayload } from '@/lib/offline';
+import { localDateString } from '@/lib/dates';
 import { ArrowLeft, Undo2, Pencil } from 'lucide-react';
 
 const DRAFT_KEY = 'hoopiq-game-draft-v1';
@@ -22,12 +23,7 @@ interface Draft {
   history: Array<Partial<BoxScore>>;
 }
 
-function today(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-const fresh = (): Draft => ({ date: today(), type: 'league', opponent: '', box: { ...EMPTY_BOX }, history: [] });
+const fresh = (): Draft => ({ date: localDateString(), type: 'league', opponent: '', box: { ...EMPTY_BOX }, history: [] });
 
 // Tap buttons: each adds to one or more stats
 const SHOTS: Array<{ label: string; sub: string; add: Partial<BoxScore>; tone: 'make' | 'miss' }> = [

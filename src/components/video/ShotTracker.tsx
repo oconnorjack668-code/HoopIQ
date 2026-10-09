@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { ShotDetector, rimFromEdges, type DetectedShot, type Rim } from '@/lib/video/shotDetector';
 import { cropRectFor, ballCentreInFrame, CROP_CANVAS_PX } from '@/lib/video/crop';
+import { localDateString } from '@/lib/dates';
 import { getBallDetector } from '@/lib/video/mediapipe';
 import { ZONE_LABELS, ZONE_SPOTS, type CourtZone } from '@/lib/court';
 import type { ShootingSummary } from '@/components/video/VideoAIFeedback';
@@ -365,8 +366,7 @@ export function ShotTracker({
     }
     const makes = shots.filter((s) => s.made).length;
     const minutes = Math.min(360, Math.max(5, Math.round(elapsedMs / 60000)));
-    const today = new Date();
-    const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const date = localDateString();
 
     const { data: session, error: sessionError } = await supabase
       .from('training_sessions')

@@ -10,6 +10,7 @@ import type { Database } from '@/lib/supabase/types';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { ExercisePicker } from '@/components/workouts/ExercisePicker';
+import { localDateString } from '@/lib/dates';
 import {
   categoryForMuscle,
   isPersonalRecord,
@@ -79,11 +80,6 @@ const WORKOUT_TYPES = [
   { value: 'mixed', label: 'Mixed' },
 ];
 
-function todayString(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 function formatClock(totalSeconds: number): string {
   const s = Math.max(0, Math.round(totalSeconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -109,7 +105,7 @@ export default function NewWorkoutPage() {
 
   const [draft, setDraft] = useState<Draft>(() => ({
     startedAt: Date.now(),
-    workoutDate: todayString(),
+    workoutDate: localDateString(),
     workoutType: 'strength',
     exercises: [],
   }));
@@ -551,7 +547,7 @@ export default function NewWorkoutPage() {
   }
 
   function startAnother() {
-    setDraft({ startedAt: Date.now(), workoutDate: todayString(), workoutType: 'strength', exercises: [] });
+    setDraft({ startedAt: Date.now(), workoutDate: localDateString(), workoutType: 'strength', exercises: [] });
     setNotes('');
     setSaveAsRoutine(false);
     setRoutineName('');
