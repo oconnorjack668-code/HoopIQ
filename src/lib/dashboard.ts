@@ -4,6 +4,7 @@ import { streaks } from '@/lib/achievements';
 import { addDays } from '@/lib/dates';
 import { userCalendarNow } from '@/lib/userTime';
 import { getPersonalRecordCount, getShotTotals, getTrainingDates, type ZoneTotal } from '@/lib/player-activity';
+import { trainingLoad, type TrainingLoad } from '@/lib/trainingLoad';
 
 export interface DashboardMetrics {
   thisWeekSessions: number;
@@ -17,6 +18,8 @@ export interface DashboardMetrics {
   weeklyGoalTarget: number;
   /** % of the last 30 days (including today) with any training logged */
   consistency: number;
+  /** This week's workload against last week's, in plain language */
+  load: TrainingLoad;
 }
 
 export const CONSISTENCY_DAYS = 30;
@@ -59,6 +62,7 @@ export function computeDashboardMetrics(input: MetricsInput): DashboardMetrics {
     weeklyGoalProgress: weekTrainingDays,
     weeklyGoalTarget: input.weeklyGoalTarget || 4,
     consistency: Math.round((activeDays / CONSISTENCY_DAYS) * 100),
+    load: trainingLoad(trainingDays, today),
   };
 }
 

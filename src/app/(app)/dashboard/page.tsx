@@ -4,7 +4,7 @@ import { requireUser, getCurrentProfile, getCurrentSubscription } from '@/lib/au
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { calculateDashboardMetrics, getShootingByZone } from '@/lib/dashboard';
-import { Zap, TrendingUp, Target, Award, Star, Users, MessageCircle } from 'lucide-react';
+import { Zap, TrendingUp, Target, Award, Star, Users, MessageCircle, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -146,6 +146,22 @@ export default async function DashboardPage() {
               </div>
             </>
           )}
+        </div>
+
+        {/* Workload. Every other number here only moves when you train, so there
+            is nothing to come back for on a rest day. This one still says
+            something useful - including "take a rest day". */}
+        <div
+          className={`mb-4 flex items-start gap-2.5 rounded-2xl border p-3.5 text-sm ${
+            metrics.load.status === 'heavy'
+              ? 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+              : 'border-zinc-800 bg-zinc-900/70 text-zinc-300'
+          }`}
+        >
+          <Activity
+            className={`mt-0.5 h-4 w-4 flex-shrink-0 ${metrics.load.status === 'heavy' ? 'text-amber-400' : 'text-cyan-400'}`}
+          />
+          <span>{metrics.load.message}</span>
         </div>
 
         {/* Rank. rankFor() already returns the next rank and the fraction of the
