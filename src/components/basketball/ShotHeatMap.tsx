@@ -14,6 +14,25 @@ export interface ZoneShooting {
  *  should not be presented with the same confidence as a real sample. */
 const LOW_SAMPLE = 10;
 
+/** Blob radius in feet, from the smallest sample to the largest. */
+export const MIN_RADIUS_FT = 2.8;
+export const MAX_RADIUS_FT = 6;
+
+/**
+ * The corner zones sit at x = 1.5ft and 48.5ft on a 50ft court, so their blobs
+ * reach well past the sideline. Without this breathing room the viewBox clipped
+ * them in half and the corner percentages ran off the edge of the chart.
+ * shotHeatMap.test.ts asserts no blob can escape these bounds.
+ */
+export const PAD_X_FT = 6;
+export const PAD_TOP_FT = 4;
+
+/** Area grows with volume, so a 200-attempt zone reads heavier than a 12-attempt one. */
+export function blobRadiusFt(attempts: number, maxAttempts: number): number {
+  if (maxAttempts <= 0) return MIN_RADIUS_FT;
+  return MIN_RADIUS_FT + (MAX_RADIUS_FT - MIN_RADIUS_FT) * Math.sqrt(attempts / maxAttempts);
+}
+
 interface Band {
   label: string;
   fill: string;
@@ -51,7 +70,7 @@ export function ShotHeatMap({ zones }: { zones: ZoneShooting[] }) {
   return (
     <div>
       <svg
-        viewBox={`0 0 ${COURT_WIDTH_FT * S} ${COURT_LENGTH_FT * S}`}
+        viewBox={`${-PAD_X_FT * S} ${-PAD_TOP_FT * S} ${(COURT_WIDTH_FT + 2 * PAD_X_FT) * S} ${(COURT_LENGTH_FT + PAD_TOP_FT) * S}`}
         role="img"
         aria-label={`Shooting heat map. ${tracked
           .map((z) => `${ZONE_LABELS[z.zone as CourtZone]}: ${z.percentage}% on ${z.attempts} attempts`)
@@ -74,9 +93,7 @@ export function ShotHeatMap({ zones }: { zones: ZoneShooting[] }) {
         {/* Blobs sit under the line work so the court stays readable */}
         {tracked.map((z) => {
           const spot = ZONE_SPOTS[z.zone as CourtZone];
-          // Area scales with volume, so a 200-attempt zone reads as heavier
-          // than a 12-attempt one at the same percentage.
-          const radiusFt = 3.4 + 4.2 * Math.sqrt(z.attempts / maxAttempts);
+          const radiusFt = blobRadiusFt(z.attempts, maxAttempts);
           return (
             <circle
               key={z.zone}
