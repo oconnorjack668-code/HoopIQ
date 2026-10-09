@@ -14,7 +14,7 @@ import {
   type PlayerStats,
 } from '@/lib/achievements';
 import { userCalendarNow } from '@/lib/userTime';
-import { getPersonalRecordCount, getShotTotals, getShotsSince, getTrainingDates } from '@/lib/player-activity';
+import { getPersonalRecordCount, getShotTotals, getShotsSince, getTrainingCounts, getTrainingDates } from '@/lib/player-activity';
 
 export interface ChallengeView {
   id: string;
@@ -33,6 +33,7 @@ export async function loadAchievements(userId: string) {
 
   const [
     { sessions: sessionDays, workouts: workoutDays },
+    counts,
     shotTotals,
     weekShots,
     { data: lessons },
@@ -47,6 +48,7 @@ export async function loadAchievements(userId: string) {
   ] = await Promise.all([
     // Shared with the dashboard metrics (cached per request, so read once)
     getTrainingDates(userId),
+    getTrainingCounts(userId),
     getShotTotals(userId),
     getShotsSince(userId, weekStartIso),
     supabase.from('study_progress').select('completed_at, study_items(topic_id)').eq('user_id', userId).not('completed_at', 'is', null),
@@ -65,8 +67,10 @@ export async function loadAchievements(userId: string) {
   const lessonRows = (lessons || []) as unknown as Array<{ completed_at: string; study_items: { topic_id: string } | null }>;
 
   const stats: PlayerStats = {
-    totalSessions: sessionDays.length,
-    totalWorkouts: workoutDays.length,
+    // Lifetime counts, not the windowed date list - these drive XP, so they
+    // must stay exact however far back the date window reaches.
+    totalSessions: counts.sessions,
+    totalWorkouts: counts.workouts,
     totalMakes: shotTotals.reduce((n, z) => n + z.makes, 0),
     totalLessons: lessonRows.length,
     sectionsWithLesson: new Set(lessonRows.map((l) => l.study_items?.topic_id).filter(Boolean)).size,

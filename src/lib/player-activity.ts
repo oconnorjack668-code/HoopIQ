@@ -8,6 +8,7 @@
 // (a single request would silently stop counting after 1,000 rows).
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
+import { addDays, dateInTimeZone } from '@/lib/dates';
 
 export const PAGE_SIZE = 1000;
 
@@ -46,15 +47,45 @@ export function totalsByZone(rows: Array<{ shot_zone: string; makes: number; att
   return [...zones.values()];
 }
 
-/** Every date the player logged a basketball session / a gym workout ("YYYY-MM-DD", repeats kept). */
+/**
+ * How far back the date loader reads.
+ *
+ * The dashboard, achievements and goals pages all need training dates, and
+ * this used to read the player's entire career on every one of those visits -
+ * O(all history) on the three most-visited screens. Everything those pages
+ * compute from dates looks at a recent window anyway: this week, the last 30
+ * days for consistency, the last 14 for workload, and the current streak.
+ *
+ * The one exception is the longest-ever streak, which now means "longest in
+ * the last two years". That is a deliberate trade: two years is longer than
+ * this app has existed, so no player is affected today, and a bounded read
+ * keeps the dashboard fast for the player who logs daily for a decade.
+ * Totals are not affected - they come from getTrainingCounts below, which
+ * counts in the database rather than by reading rows.
+ */
+export const HISTORY_WINDOW_DAYS = 730;
+
+/** Exact lifetime counts, counted in the database rather than by reading rows. */
+export const getTrainingCounts = cache(async (userId: string): Promise<{ sessions: number; workouts: number }> => {
+  const supabase = await createClient();
+  const [{ count: sessions }, { count: workouts }] = await Promise.all([
+    supabase.from('training_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    supabase.from('workouts').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+  ]);
+  return { sessions: sessions || 0, workouts: workouts || 0 };
+});
+
+/** Dates the player logged a session / workout in the last HISTORY_WINDOW_DAYS ("YYYY-MM-DD", repeats kept). */
 export const getTrainingDates = cache(async (userId: string): Promise<{ sessions: string[]; workouts: string[] }> => {
   const supabase = await createClient();
+  const since = addDays(dateInTimeZone(), -HISTORY_WINDOW_DAYS);
   const [sessions, workouts] = await Promise.all([
     fetchAllRows<{ session_date: string }>((from, to) =>
       supabase
         .from('training_sessions')
         .select('session_date')
         .eq('user_id', userId)
+        .gte('session_date', since)
         .order('session_date', { ascending: false })
         .order('id')
         .range(from, to)
@@ -64,6 +95,7 @@ export const getTrainingDates = cache(async (userId: string): Promise<{ sessions
         .from('workouts')
         .select('workout_date')
         .eq('user_id', userId)
+        .gte('workout_date', since)
         .order('workout_date', { ascending: false })
         .order('id')
         .range(from, to)

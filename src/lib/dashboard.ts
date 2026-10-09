@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { streaks } from '@/lib/achievements';
 import { addDays } from '@/lib/dates';
 import { userCalendarNow } from '@/lib/userTime';
-import { getPersonalRecordCount, getShotTotals, getTrainingDates, type ZoneTotal } from '@/lib/player-activity';
+import { getPersonalRecordCount, getShotTotals, getTrainingCounts, getTrainingDates, type ZoneTotal } from '@/lib/player-activity';
 import { trainingLoad, type TrainingLoad } from '@/lib/trainingLoad';
 
 export interface DashboardMetrics {
@@ -25,8 +25,11 @@ export interface DashboardMetrics {
 export const CONSISTENCY_DAYS = 30;
 
 interface MetricsInput {
+  /** Only the recent window - see HISTORY_WINDOW_DAYS. Not the full career. */
   sessionDates: string[];
   workoutDates: string[];
+  /** Lifetime count, counted in the database (sessionDates is windowed). */
+  totalSessions: number;
   zones: ZoneTotal[];
   personalRecords: number;
   weeklyGoalTarget: number | null | undefined;
@@ -57,7 +60,7 @@ export function computeDashboardMetrics(input: MetricsInput): DashboardMetrics {
     shootingPercentage: totalAttempts > 0 ? Math.round((totalMakes / totalAttempts) * 1000) / 10 : 0,
     currentStreak: current,
     streakAtRisk: atRisk,
-    totalSessions: sessionDates.length,
+    totalSessions: input.totalSessions,
     personalRecords: input.personalRecords,
     weeklyGoalProgress: weekTrainingDays,
     weeklyGoalTarget: input.weeklyGoalTarget || 4,
@@ -72,8 +75,9 @@ export async function calculateDashboardMetrics(userId: string): Promise<Dashboa
 
   // All independent reads run in parallel; the history loaders are shared with the
   // achievements on the same page (cached per request)
-  const [{ sessions, workouts }, zones, personalRecords, { data: weeklyGoal }] = await Promise.all([
+  const [{ sessions, workouts }, counts, zones, personalRecords, { data: weeklyGoal }] = await Promise.all([
     getTrainingDates(userId),
+    getTrainingCounts(userId),
     getShotTotals(userId),
     getPersonalRecordCount(userId),
     // Weekly goal (most recent if several are active)
@@ -91,6 +95,7 @@ export async function calculateDashboardMetrics(userId: string): Promise<Dashboa
   return computeDashboardMetrics({
     sessionDates: sessions,
     workoutDates: workouts,
+    totalSessions: counts.sessions,
     zones,
     personalRecords,
     weeklyGoalTarget: weeklyGoal?.target_value,

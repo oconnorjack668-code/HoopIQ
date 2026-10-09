@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { computeDashboardMetrics, rankZones } from '@/lib/dashboard';
 import { fetchAllRows, PAGE_SIZE, totalsByZone } from '@/lib/player-activity';
 
-const base = { zones: [], personalRecords: 0, weeklyGoalTarget: null, today: '2026-09-24', weekStart: '2026-09-21' };
+const base = { zones: [], personalRecords: 0, weeklyGoalTarget: null, totalSessions: 0, today: '2026-09-24', weekStart: '2026-09-21' };
 
 describe('dashboard metrics', () => {
   it('consistency is the share of the last 30 days with training (not always 100%)', () => {
@@ -18,12 +18,27 @@ describe('dashboard metrics', () => {
       ...base,
       sessionDates: ['2026-09-24', '2026-09-22'],
       workoutDates: ['2026-09-23', '2026-09-21'],
+      totalSessions: 2,
     });
     expect(m.currentStreak).toBe(4);
     expect(m.weeklyGoalProgress).toBe(4);
     expect(m.thisWeekSessions).toBe(2);
     expect(m.totalSessions).toBe(2);
     expect(m.weeklyGoalTarget).toBe(4); // default when no goal is set
+  });
+
+  it('reports the lifetime total, not just what is inside the date window', () => {
+    // The date list is capped at HISTORY_WINDOW_DAYS, so a long-standing player's
+    // total must come from the database count rather than the rows that were read.
+    const m = computeDashboardMetrics({
+      ...base,
+      sessionDates: ['2026-09-24', '2026-09-22'],
+      workoutDates: [],
+      totalSessions: 1843,
+    });
+    expect(m.totalSessions).toBe(1843);
+    // Windowed stats still come from the dates
+    expect(m.thisWeekSessions).toBe(2);
   });
 
   it('streak counts from yesterday when today is not logged yet', () => {
