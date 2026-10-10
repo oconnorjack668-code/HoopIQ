@@ -1,4 +1,4 @@
-# HoopIQ
+# Deadeye
 
 A mobile-first basketball player development app: log basketball sessions and
 gym work, track goals and streaks, study the game, get AI coaching grounded in
