@@ -3,7 +3,15 @@
 // session loggers: those are kept (network first) so players can log in a gym with no
 // signal. That page cache is wiped on sign out (see Navbar). Everything else falls back
 // to a static offline page. Public, versioned static assets are cached.
-const CACHE_NAME = 'hoopiq-v3';
+// Bumped to v4 for the Deadeye icons: icon-192 and icon-512 are precached
+// below, so without a new cache name installed devices keep serving the old
+// HoopIQ artwork. The activate handler deletes any cache that is not this one
+// or PAGE_CACHE, so the old assets go and the offline logger pages stay.
+//
+// The 'hoopiq-' prefix is deliberate and is not part of the rename: PAGE_CACHE
+// and the localStorage keys hold a player's unsynced work, and renaming them
+// would strand it on every device that already has the app.
+const CACHE_NAME = 'hoopiq-v4';
 const PAGE_CACHE = 'hoopiq-pages-v1';
 const OFFLINE_PAGES = ['/basketball/new', '/workouts/new', '/games/new'];
 
