@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 
-export const metadata = { title: 'Privacy Policy - HoopIQ' };
+export const metadata = { title: 'Privacy Policy - Deadeye' };
 
 const LAST_UPDATED = 'September 26, 2026';
 
@@ -12,15 +12,15 @@ export default function PrivacyPage() {
   return (
     <div className="flex-1 bg-zinc-950 px-6 py-12">
       <main className="mx-auto max-w-2xl space-y-6 text-sm leading-6 text-zinc-300">
-        <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-300">← HoopIQ</Link>
+        <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-300">← Deadeye</Link>
         <h1 className="text-3xl font-black text-white">Privacy Policy</h1>
         <p className="text-xs text-zinc-500">Last updated: {LAST_UPDATED}</p>
-        <p>This policy covers HoopIQ AI Basketball Trainer (&ldquo;HoopIQ&rdquo;), the app and website.</p>
+        <p>This policy covers Deadeye Basketball Training (&ldquo;Deadeye&rdquo;), the app and website.</p>
 
         <section className="space-y-2">
-          <h2 className="text-lg font-bold text-white">Who HoopIQ is for</h2>
+          <h2 className="text-lg font-bold text-white">Who Deadeye is for</h2>
           <p>
-            HoopIQ is for players aged 13 and over. We do not knowingly collect information from children under 13.
+            Deadeye is for players aged 13 and over. We do not knowingly collect information from children under 13.
             If you believe a child under 13 has created an account, contact us and we will delete it.
           </p>
         </section>
@@ -40,7 +40,7 @@ export default function PrivacyPage() {
             <li>AI coaching reports generated from your session data.</li>
             <li>Programmes, goals, challenges, badges and NBA style match results.</li>
             <li>Game stats you log (box scores, opponent name, score) and teams you create or join.</li>
-            <li>Settings you choose: country, county/region, time zone, whether you use HoopIQ as a player or coach, and your privacy choices.</li>
+            <li>Settings you choose: country, county/region, time zone, whether you use Deadeye as a player or coach, and your privacy choices.</li>
             <li>Reminder settings (time, days, time zone) and, if you turn reminders on, your browser&apos;s push address.</li>
             <li>If you buy Pro: your plan and billing status. Card details are handled by Stripe and never reach us.</li>
             <li>
@@ -111,7 +111,7 @@ export default function PrivacyPage() {
             Protection Commission (dataprotection.ie).
           </p>
           <p>
-            HoopIQ only uses the cookies needed to keep you logged in. Data is stored on servers that may be outside the
+            Deadeye only uses the cookies needed to keep you logged in. Data is stored on servers that may be outside the
             EU; our providers use the EU&apos;s standard contractual clauses to protect it.
           </p>
         </section>

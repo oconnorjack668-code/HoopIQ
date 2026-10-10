@@ -1,5 +1,5 @@
 // src/lib/stripe.ts
-// SERVER-ONLY: Stripe for the HoopIQ Pro subscription. Everything is off until
+// SERVER-ONLY: Stripe for the Deadeye Pro subscription. Everything is off until
 // STRIPE_SECRET_KEY and a price id are set in the environment.
 import Stripe from 'stripe';
 

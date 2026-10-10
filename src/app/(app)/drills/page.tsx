@@ -8,7 +8,7 @@ import { ListChecks, Clock, User, Users } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Drill Library - HoopIQ' };
+export const metadata = { title: 'Drill Library - Deadeye' };
 
 type Filters = { skill?: string; level?: string; players?: string };
 

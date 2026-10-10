@@ -13,7 +13,7 @@ import { addDays } from '@/lib/dates';
 import { Apple, ArrowLeft, Lightbulb } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Fuel - HoopIQ' };
+export const metadata = { title: 'Fuel - Deadeye' };
 
 /** How much history the summary and the insight look at. */
 const WINDOW_DAYS = 60;

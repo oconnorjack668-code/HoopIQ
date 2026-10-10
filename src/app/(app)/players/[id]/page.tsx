@@ -10,7 +10,7 @@ import { countryName } from '@/lib/regions';
 import { ArrowLeft, Award, Flame, Lock, MapPin, Trophy } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Player - HoopIQ' };
+export const metadata = { title: 'Player - Deadeye' };
 
 interface Card {
   user_id: string;

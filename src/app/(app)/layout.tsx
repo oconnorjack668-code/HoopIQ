@@ -7,7 +7,7 @@ import { QuickLog } from '@/components/layout/QuickLog';
 import { OfflineSync } from '@/components/OfflineSync';
 
 export const metadata = {
-  title: 'HoopIQ AI Basketball Trainer',
+  title: 'Deadeye Basketball Training',
   description: 'Train with intent. See your progress. Improve every day.',
 };
 

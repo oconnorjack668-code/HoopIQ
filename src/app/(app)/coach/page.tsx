@@ -1,5 +1,5 @@
 // src/app/(app)/coach/page.tsx
-// Coach dashboard (HoopIQ Pro): every team you coach at a glance.
+// Coach dashboard (Deadeye Pro): every team you coach at a glance.
 import React from 'react';
 import Link from 'next/link';
 import { requireUser, getCurrentSubscription } from '@/lib/auth';
@@ -9,7 +9,7 @@ import { userCalendarNow } from '@/lib/userTime';
 import { ClipboardCheck, Crown, Flame, Moon, Plus, Shield, Users } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Coach dashboard - HoopIQ' };
+export const metadata = { title: 'Coach dashboard - Deadeye' };
 
 export default async function CoachPage() {
   const user = await requireUser();
@@ -34,14 +34,14 @@ export default async function CoachPage() {
         {header}
         <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 space-y-2">
           <p className="flex items-center gap-2 font-bold text-white">
-            <Crown className="h-5 w-5 text-amber-400" /> Coaching is part of HoopIQ Pro
+            <Crown className="h-5 w-5 text-amber-400" /> Coaching is part of Deadeye Pro
           </p>
           <p className="text-sm text-zinc-300">
             Create teams, post assignments, see every player&apos;s training and game stats (when they share), and track your whole squad from one
             dashboard. Players always join for free.
           </p>
           <Link href="/pro" className="inline-block rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-zinc-950">
-            See HoopIQ Pro
+            See Deadeye Pro
           </Link>
         </div>
       </div>

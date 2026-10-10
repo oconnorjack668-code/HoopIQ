@@ -8,7 +8,7 @@ import { TeamClient, type Assignment, type RosterRow } from './TeamClient';
 import { ArrowLeft, Shield } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Team - HoopIQ' };
+export const metadata = { title: 'Team - Deadeye' };
 
 export default async function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

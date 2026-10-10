@@ -59,10 +59,10 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
           <Logo size={36} />
           <div className="flex flex-col">
             <span className="text-base font-black tracking-tight text-white uppercase leading-none">
-              HoopIQ
+              Deadeye
             </span>
             <span className="text-[10px] font-semibold text-orange-400 tracking-wider uppercase leading-none mt-0.5">
-              AI Basketball Trainer
+              Aim is earned
             </span>
           </div>
         </Link>

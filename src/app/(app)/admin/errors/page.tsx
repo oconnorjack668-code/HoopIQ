@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { Bug, CheckCircle2 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'App errors - HoopIQ' };
+export const metadata = { title: 'App errors - Deadeye' };
 
 interface ErrorRow {
   id: string;

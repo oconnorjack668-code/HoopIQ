@@ -6,7 +6,7 @@ import { safeAppPath } from '@/lib/safePath';
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
-  // Only follow links inside HoopIQ ("?next=//other-site" must not leave the app)
+  // Only follow links inside Deadeye ("?next=//other-site" must not leave the app)
   const next = safeAppPath(requestUrl.searchParams.get('next'));
 
   if (code) {

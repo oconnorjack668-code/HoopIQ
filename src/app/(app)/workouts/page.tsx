@@ -12,7 +12,7 @@ import { DeleteRoutineButton } from './DeleteRoutineButton';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Workouts - HoopIQ',
+  title: 'Workouts - Deadeye',
 };
 
 export default async function WorkoutsPage() {

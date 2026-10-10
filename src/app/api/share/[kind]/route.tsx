@@ -38,7 +38,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
     supabase.from('profiles').select('display_name, measurement_system').eq('id', user.id).maybeSingle(),
     iconData(url.origin),
   ]);
-  const name = profile?.display_name || 'HoopIQ player';
+  const name = profile?.display_name || 'Deadeye player';
   let body: React.ReactNode;
 
   if (kind === 'session') {

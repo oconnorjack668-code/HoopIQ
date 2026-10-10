@@ -7,7 +7,7 @@ import { TeamsActions } from './TeamsActions';
 import { Shield, ChevronRight } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Teams - HoopIQ' };
+export const metadata = { title: 'Teams - Deadeye' };
 
 export default async function TeamsPage() {
   const user = await requireUser();
@@ -28,7 +28,7 @@ export default async function TeamsPage() {
           </div>
           <div>
             <h1 className="text-3xl font-black tracking-tight text-white">Teams</h1>
-            <p className="text-sm text-zinc-400">Your club or school team on HoopIQ</p>
+            <p className="text-sm text-zinc-400">Your club or school team on Deadeye</p>
           </div>
         </div>
 

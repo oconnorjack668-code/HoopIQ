@@ -13,7 +13,7 @@ describe('form validation', () => {
     expect(firstMessage(signUpSchema.safeParse({ ...ok, email: 'nope' }))).toBe('Please enter a valid email address');
     expect(firstMessage(signUpSchema.safeParse({ ...ok, password: 'password1' }))).toBe('Password must contain at least one uppercase letter');
     expect(firstMessage(signUpSchema.safeParse({ ...ok, password: 'Pass1' }))).toBe('Password must be at least 8 characters');
-    expect(firstMessage(signUpSchema.safeParse({ ...ok, ageConfirmed: false }))).toBe('You must be 13 or older to use HoopIQ');
+    expect(firstMessage(signUpSchema.safeParse({ ...ok, ageConfirmed: false }))).toBe('You must be 13 or older to use Deadeye');
   });
 
   it('basketball session', () => {

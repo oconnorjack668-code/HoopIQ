@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { Plus, TrendingUp, Award, Zap } from 'lucide-react';
 
 export const metadata = {
-  title: 'Performance Tests - HoopIQ',
+  title: 'Performance Tests - Deadeye',
 };
 
 const TEST_TYPES = [

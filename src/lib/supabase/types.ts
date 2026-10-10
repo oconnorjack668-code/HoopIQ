@@ -1,5 +1,5 @@
 // src/lib/supabase/types.ts
-// Database schema type definitions for HoopIQ
+// Database schema type definitions for Deadeye
 
 export type Json =
   | string

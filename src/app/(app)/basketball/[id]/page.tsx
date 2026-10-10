@@ -13,7 +13,7 @@ import { ShareCardButton } from '@/components/ShareCardButton';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Session - HoopIQ' };
+export const metadata = { title: 'Session - Deadeye' };
 
 function pct(makes: number, attempts: number): string {
   return attempts > 0 ? `${Math.round((makes / attempts) * 100)}%` : '–';
@@ -79,7 +79,7 @@ export default async function BasketballSessionPage({ params }: { params: Promis
         <div className="-mt-3 mb-6">
           <ShareCardButton
             path={`/api/share/session?id=${id}`}
-            text={attempts > 0 ? `${makes}/${attempts} shots today on HoopIQ 🏀` : 'Put the work in today on HoopIQ 🏀'}
+            text={attempts > 0 ? `${makes}/${attempts} shots today on Deadeye 🏀` : 'Put the work in today on Deadeye 🏀'}
           />
         </div>
 

@@ -5,7 +5,7 @@ import { requireUser } from '@/lib/auth';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { CalendarCheck, Wand2, ListChecks, Sparkles, Video, Users, BookHeart, Trophy, ChevronRight, Medal, Crosshair, Crown, Shield, UserPlus, MessageCircle, ClipboardList, ClipboardCheck } from 'lucide-react';
 
-export const metadata = { title: 'Train - HoopIQ' };
+export const metadata = { title: 'Train - Deadeye' };
 
 interface Item {
   href: string;
@@ -61,7 +61,7 @@ const GROUPS: Array<{ label: string; labelColor: string; items: Item[] }> = [
       { href: '/video', icon: Video, title: 'Video AI', desc: 'Shot tracking, form check, jump test', tile: 'bg-red-600/20', iconColor:'text-red-400' },
       { href: '/teams', icon: Shield, title: 'Teams', desc: 'Join a team, roster', tile: 'bg-blue-600/20', iconColor:'text-blue-400' },
       { href: '/coach', icon: ClipboardCheck, title: 'Coach dashboard', desc: 'All your teams', tile: 'bg-indigo-600/20', iconColor:'text-indigo-400', badge: 'PRO' },
-      { href: '/pro', icon: Crown, title: 'HoopIQ Pro', desc: 'Unlimited AI coaching', tile: 'bg-amber-600/20', iconColor:'text-amber-300' },
+      { href: '/pro', icon: Crown, title: 'Deadeye Pro', desc: 'Unlimited AI coaching', tile: 'bg-amber-600/20', iconColor:'text-amber-300' },
     ],
   },
 ];

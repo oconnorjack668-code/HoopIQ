@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   const used = usedToday || 0;
   if (!unlimited && used >= FREE_CHAT_PER_DAY) {
     return Response.json(
-      { error: `You've used your ${FREE_CHAT_PER_DAY} free questions today. Come back tomorrow, or get unlimited chat with HoopIQ Pro.`, limit: true },
+      { error: `You've used your ${FREE_CHAT_PER_DAY} free questions today. Come back tomorrow, or get unlimited chat with Deadeye Pro.`, limit: true },
       { status: 402 }
     );
   }

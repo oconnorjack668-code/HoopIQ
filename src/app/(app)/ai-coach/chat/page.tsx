@@ -9,7 +9,7 @@ import { CoachChat, type ChatEntry } from './CoachChat';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Ask Coach - HoopIQ' };
+export const metadata = { title: 'Ask Coach - Deadeye' };
 
 export default async function CoachChatPage() {
   const user = await requireUser();

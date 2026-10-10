@@ -21,7 +21,7 @@ interface QuizQuestionJson {
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Basketball IQ - HoopIQ' };
+export const metadata = { title: 'Basketball IQ - Deadeye' };
 
 export default async function StudyPage() {
   const user = await requireUser();

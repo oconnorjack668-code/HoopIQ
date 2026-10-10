@@ -254,7 +254,7 @@ export default function OnboardingPage() {
             <Logo size={36} />
             <div>
               <h2 className="text-sm font-black uppercase tracking-wider text-white">
-                {isEditing ? 'Edit Player Info' : 'HoopIQ Setup'}
+                {isEditing ? 'Edit Player Info' : 'Deadeye Setup'}
               </h2>
               <p className="text-[11px] text-zinc-400">Step {step} of 3</p>
             </div>
@@ -553,7 +553,7 @@ export default function OnboardingPage() {
                 isLoading={isLoading}
                 className="gap-2"
               >
-                <Sparkles className="h-4 w-4" /> {isEditing ? 'Save changes' : 'Enter HoopIQ OS'}
+                <Sparkles className="h-4 w-4" /> {isEditing ? 'Save changes' : 'Enter Deadeye OS'}
               </Button>
             </CardFooter>
           </Card>

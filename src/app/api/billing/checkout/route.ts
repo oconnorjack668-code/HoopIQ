@@ -1,5 +1,5 @@
 // src/app/api/billing/checkout/route.ts
-// Starts a Stripe Checkout for HoopIQ Pro (monthly or yearly).
+// Starts a Stripe Checkout for Deadeye Pro (monthly or yearly).
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getStripe, priceIdFor, stripeConfigured } from '@/lib/stripe';

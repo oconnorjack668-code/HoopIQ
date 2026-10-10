@@ -32,7 +32,7 @@ self.addEventListener('activate', (event) => {
 
 // Training reminders (web push)
 self.addEventListener('push', (event) => {
-  let data = { title: 'HoopIQ', body: 'Time to train!', url: '/dashboard' };
+  let data = { title: 'Deadeye', body: 'Time to train!', url: '/dashboard' };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {

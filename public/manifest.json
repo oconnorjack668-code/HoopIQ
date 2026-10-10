@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "HoopIQ AI Basketball Trainer",
-  "short_name": "HoopIQ",
-  "description": "AI basketball trainer: track every shot, check your shooting form on video, follow training programs and build your basketball IQ.",
+  "name": "Deadeye Basketball Training",
+  "short_name": "Deadeye",
+  "description": "Aim is earned. Track every shot, check your form on video, follow training programs and build your basketball IQ.",
   "lang": "en-IE",
   "dir": "ltr",
   "start_url": "/dashboard",

@@ -1,5 +1,5 @@
 // src/app/api/account/export/route.ts
-// GDPR right of access: downloads everything HoopIQ stores about the signed-in player as one JSON file.
+// GDPR right of access: downloads everything Deadeye stores about the signed-in player as one JSON file.
 // Uses the admin client (filtered to this user) so server-written rows like badges are included too.
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -76,14 +76,14 @@ export async function GET() {
 
   const body = {
     exported_at: new Date().toISOString(),
-    app: 'HoopIQ AI Basketball Trainer',
+    app: 'Deadeye Basketball Training',
     account: { id: user.id, email: user.email, created_at: authUser.data?.user?.created_at ?? null },
     profile: profile.data || null,
     data,
     note: 'Uploaded video files are not included in this file. They stay in your account until you delete them.',
   };
 
-  const filename = `hoopiq-data-${new Date().toISOString().slice(0, 10)}.json`;
+  const filename = `deadeye-data-${new Date().toISOString().slice(0, 10)}.json`;
   return new Response(JSON.stringify(body, null, 2), {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',

@@ -10,7 +10,7 @@ import { DeleteGameButton } from './DeleteGameButton';
 import { ArrowLeft } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Game - HoopIQ' };
+export const metadata = { title: 'Game - Deadeye' };
 
 export default async function GamePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -64,7 +64,7 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
 
-        <ShareCardButton path={`/api/share/game?id=${g.id}`} text={`${g.points} pts, ${g.oreb + g.dreb} reb, ${g.ast} ast 🏀 #HoopIQ`} label="Share stat line" />
+        <ShareCardButton path={`/api/share/game?id=${g.id}`} text={`${g.points} pts, ${g.oreb + g.dreb} reb, ${g.ast} ast 🏀 #Deadeye`} label="Share stat line" />
 
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 divide-y divide-zinc-800">
           {rows.map(([label, value]) => (

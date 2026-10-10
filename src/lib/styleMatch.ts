@@ -1,5 +1,5 @@
 // src/lib/styleMatch.ts
-// Play Style Match: scores NBA player profiles against a HoopIQ player.
+// Play Style Match: scores NBA player profiles against a Deadeye player.
 
 export const STYLE_TAGS: Array<{ id: string; label: string }> = [
   { id: 'pick_and_roll_handler', label: 'I run pick-and-roll with the ball' },
@@ -88,7 +88,7 @@ function positionScore(user: string | null, nba: string): number | null {
   return u === 'wing' || n === 'wing' ? 0.5 : 0;
 }
 
-/** Converts HoopIQ zone totals into rim / mid / three shares of attempts. */
+/** Converts Deadeye zone totals into rim / mid / three shares of attempts. */
 export function shotProfileFromZones(rows: Array<{ shot_zone: string; attempts: number }>): ShotProfile | null {
   let rim = 0;
   let mid = 0;

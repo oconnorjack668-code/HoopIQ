@@ -72,7 +72,7 @@ export function HighlightReel({ file, makeTimesMs, makes, attempts }: { file: Fi
             ctx.textAlign = 'center';
             ctx.fillStyle = '#fff';
             ctx.font = font(64, 900);
-            ctx.fillText('HoopIQ', canvas.width / 2, canvas.height * 0.42);
+            ctx.fillText('Deadeye', canvas.width / 2, canvas.height * 0.42);
             ctx.fillStyle = '#f97316';
             ctx.font = font(26, 700);
             ctx.fillText('SHOOTING HIGHLIGHTS', canvas.width / 2, canvas.height * 0.42 + 44 * (canvas.width / 720));
@@ -127,7 +127,7 @@ export function HighlightReel({ file, makeTimesMs, makes, attempts }: { file: Fi
       await stopped;
       if (cancelRef.current) return;
       const blob = new Blob(chunks, { type: type.mimeType.split(';')[0] });
-      setResult({ url: URL.createObjectURL(blob), blob, name: `hoopiq-highlights.${type.extension}` });
+      setResult({ url: URL.createObjectURL(blob), blob, name: `deadeye-highlights.${type.extension}` });
     } catch {
       setError('Could not build the highlight reel from this video.');
     } finally {
@@ -141,7 +141,7 @@ export function HighlightReel({ file, makeTimesMs, makes, attempts }: { file: Fi
     const shareFile = new File([result.blob], result.name, { type: result.blob.type });
     try {
       if (navigator.canShare?.({ files: [shareFile] })) {
-        await navigator.share({ files: [shareFile], text: `${makes}/${attempts} on HoopIQ 🏀` });
+        await navigator.share({ files: [shareFile], text: `${makes}/${attempts} on Deadeye 🏀` });
         return;
       }
     } catch {

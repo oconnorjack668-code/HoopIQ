@@ -11,7 +11,7 @@ import { formatShootingPercentage } from '@/lib/stats';
 import { getShotTotals } from '@/lib/player-activity';
 
 export const metadata = {
-  title: 'Hoops - HoopIQ',
+  title: 'Hoops - Deadeye',
 };
 
 export default async function BasketballPage() {

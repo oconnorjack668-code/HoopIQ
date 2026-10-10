@@ -13,7 +13,7 @@ import { isRealYoutubeId, youtubeEmbedUrl, youtubeSearchUrl } from '@/lib/video/
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Study Topic - HoopIQ',
+  title: 'Study Topic - Deadeye',
 };
 
 export default async function StudyTopicPage({

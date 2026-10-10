@@ -143,7 +143,7 @@ export function JumpTest({ units }: { units: MeasurementSystem }) {
       value,
       unit,
       is_personal_record: isPR,
-      notes: `Measured with HoopIQ video jump test (flight time ${flight.toFixed(3)} s${slow > 1 ? `, ${slow}× slow-mo` : ''})`,
+      notes: `Measured with Deadeye video jump test (flight time ${flight.toFixed(3)} s${slow > 1 ? `, ${slow}× slow-mo` : ''})`,
     });
     setSaving(false);
     setMessage(

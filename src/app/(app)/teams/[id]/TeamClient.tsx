@@ -149,7 +149,7 @@ export function TeamClient({
 
   async function share() {
     const url = `${window.location.origin}/teams`;
-    const text = `Join ${teamName} on HoopIQ! Open ${url} and enter team code ${joinCode}`;
+    const text = `Join ${teamName} on Deadeye! Open ${url} and enter team code ${joinCode}`;
     try {
       if (navigator.share) await navigator.share({ title: teamName, text });
       else {
@@ -516,7 +516,7 @@ export function TeamClient({
           </table>
         </div>
         <p className="text-[11px] text-zinc-500">
-          Training numbers are the last 7 days; game averages cover the last 12 months of games each player logged in HoopIQ.
+          Training numbers are the last 7 days; game averages cover the last 12 months of games each player logged in Deadeye.
         </p>
       </section>
 

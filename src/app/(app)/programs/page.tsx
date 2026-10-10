@@ -8,7 +8,7 @@ import { CalendarCheck, ChevronRight, Play } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Programs - HoopIQ' };
+export const metadata = { title: 'Programs - Deadeye' };
 
 export default async function ProgramsPage({ searchParams }: { searchParams: Promise<{ goal?: string }> }) {
   const user = await requireUser();

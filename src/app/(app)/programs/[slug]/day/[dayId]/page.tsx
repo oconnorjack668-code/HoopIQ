@@ -11,7 +11,7 @@ import { ArrowLeft, Target, Dumbbell, BookOpen, Award, Info, Clock } from 'lucid
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Program Session - HoopIQ' };
+export const metadata = { title: 'Program Session - Deadeye' };
 
 const TEST_LABELS: Record<string, string> = {
   standing_vertical: 'Standing vertical',

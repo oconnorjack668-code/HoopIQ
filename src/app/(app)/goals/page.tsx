@@ -10,7 +10,7 @@ import { Crosshair } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Goals - HoopIQ' };
+export const metadata = { title: 'Goals - Deadeye' };
 
 export default async function GoalsPage() {
   const user = await requireUser();

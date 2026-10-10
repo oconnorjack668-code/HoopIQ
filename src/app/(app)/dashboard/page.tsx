@@ -17,7 +17,7 @@ import { recommendedProgramGoal, programGoalLabel } from '@/lib/recommend';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Dashboard - HoopIQ',
+  title: 'Dashboard - Deadeye',
 };
 
 /**

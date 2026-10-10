@@ -99,7 +99,7 @@ export function ProfileSettings({ initialIsPublic, showLeaderboard = true }: { i
         <CardHeader>
           <CardTitle>Your data</CardTitle>
           <CardDescription>
-            Download a copy of everything HoopIQ stores about you (profile, sessions, workouts, study, AI reports) as
+            Download a copy of everything Deadeye stores about you (profile, sessions, workouts, study, AI reports) as
             a JSON file.
           </CardDescription>
         </CardHeader>

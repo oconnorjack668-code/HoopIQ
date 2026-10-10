@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Trophy, Plus } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Games - HoopIQ' };
+export const metadata = { title: 'Games - Deadeye' };
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (

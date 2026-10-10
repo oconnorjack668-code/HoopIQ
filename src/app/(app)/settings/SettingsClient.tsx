@@ -179,7 +179,7 @@ export function SettingsClient({
           </div>
         </Row>
         <Row>
-          <div className="text-xs text-zinc-400 mb-2">I use HoopIQ as a…</div>
+          <div className="text-xs text-zinc-400 mb-2">I use Deadeye as a…</div>
           <div className="grid grid-cols-3 gap-2">
             {(['player', 'coach', 'both'] as Role[]).map((r) => (
               <button
@@ -377,12 +377,12 @@ export function SettingsClient({
           Privacy Policy <ChevronRight className="h-4 w-4 text-zinc-600" />
         </Link>
         {supportEmail && (
-          <a href={`mailto:${supportEmail}?subject=HoopIQ%20support`} className="flex items-center justify-between px-4 py-3 text-sm text-zinc-100 hover:bg-zinc-900">
+          <a href={`mailto:${supportEmail}?subject=Deadeye%20support`} className="flex items-center justify-between px-4 py-3 text-sm text-zinc-100 hover:bg-zinc-900">
             Contact support <ChevronRight className="h-4 w-4 text-zinc-600" />
           </a>
         )}
         <Row>
-          <p className="text-xs text-zinc-500">HoopIQ AI Basketball Trainer · version {version}</p>
+          <p className="text-xs text-zinc-500">Deadeye Basketball Training · version {version}</p>
         </Row>
       </Section>
     </div>

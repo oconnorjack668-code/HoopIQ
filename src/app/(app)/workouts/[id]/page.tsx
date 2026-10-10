@@ -13,7 +13,7 @@ import { notFound } from 'next/navigation';
 import { ShareCardButton } from '@/components/ShareCardButton';
 
 export const metadata = {
-  title: 'Workout Details - HoopIQ',
+  title: 'Workout Details - Deadeye',
 };
 
 export default async function WorkoutDetailPage({
@@ -104,7 +104,7 @@ export default async function WorkoutDetailPage({
               })}
             </p>
             <div className="pt-2">
-              <ShareCardButton path={`/api/share/workout?id=${id}`} text="Workout done on HoopIQ 💪" />
+              <ShareCardButton path={`/api/share/workout?id=${id}`} text="Workout done on Deadeye 💪" />
             </div>
           </div>
           <Link href="/workouts">

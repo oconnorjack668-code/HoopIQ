@@ -15,7 +15,7 @@ import { safeAppPath } from '@/lib/safePath';
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Only follow links inside HoopIQ (never "//other-site", "/\other-site" or "https://…")
+  // Only follow links inside Deadeye (never "//other-site", "/\other-site" or "https://…")
   const redirectTo = safeAppPath(searchParams.get('redirectTo'));
   const queryError = searchParams.get('error');
 
@@ -66,8 +66,8 @@ function LoginContent() {
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8 text-center">
           <Logo size={56} className="mb-3" />
-          <h1 className="text-2xl font-black tracking-tight text-white uppercase">HoopIQ</h1>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-orange-400">AI Basketball Trainer</p>
+          <h1 className="text-2xl font-black tracking-tight text-white uppercase">Deadeye</h1>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-orange-400">Aim is earned</p>
           <p className="text-xs text-zinc-400 mt-1">Player Development Operating System</p>
         </div>
 
@@ -136,7 +136,7 @@ function LoginContent() {
               </Button>
 
               <p className="text-xs text-center text-zinc-400">
-                New to HoopIQ?{' '}
+                New to Deadeye?{' '}
                 <Link
                   href="/signup"
                   className="font-semibold text-orange-400 hover:text-orange-300 transition-colors"

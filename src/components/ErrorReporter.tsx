@@ -7,7 +7,7 @@ import { detectPlayStoreApp } from '@/lib/platform';
 
 /**
  * Reports uncaught errors and promise rejections that no error boundary caught.
- * Also records, on first load, whether HoopIQ was opened as the Play Store app.
+ * Also records, on first load, whether Deadeye was opened as the Play Store app.
  */
 export function ErrorReporter() {
   useEffect(() => {

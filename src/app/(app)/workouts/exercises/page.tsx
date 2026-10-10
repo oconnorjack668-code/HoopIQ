@@ -8,7 +8,7 @@ import { ArrowLeft, Flame } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Exercise Library - HoopIQ' };
+export const metadata = { title: 'Exercise Library - Deadeye' };
 
 export default async function ExerciseLibraryPage({
   searchParams,

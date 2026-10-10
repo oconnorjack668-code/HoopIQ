@@ -7,7 +7,7 @@ import { Crown, Check } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'HoopIQ Pro' };
+export const metadata = { title: 'Deadeye Pro' };
 
 const FREE = [
   'Shot tracking, workouts, programs and all 150 drills',
@@ -20,7 +20,7 @@ const PRO = [
   'Unlimited AI coaching on sessions and video',
   'AI development plan from your NBA style match',
   'Everything in Free',
-  'Support HoopIQ and shape what gets built next',
+  'Support Deadeye and shape what gets built next',
 ];
 
 async function priceLabel(priceId: string | undefined): Promise<string | null> {
@@ -53,7 +53,7 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
             <Crown className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-white">HoopIQ Pro</h1>
+            <h1 className="text-3xl font-black tracking-tight text-white">Deadeye Pro</h1>
             <p className="text-sm text-zinc-400 mt-1">Unlimited AI coaching for serious players</p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* HoopIQ is a dark-only app */
+/* Deadeye is a dark-only app */
 :root {
   --background: #09090b;
   --foreground: #f4f4f5;

@@ -10,7 +10,7 @@ import { DetectorBench } from '@/components/video/DetectorBench';
 import { Gauge } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Detector benchmark - HoopIQ' };
+export const metadata = { title: 'Detector benchmark - Deadeye' };
 
 export default async function DetectorBenchPage() {
   if (!(await checkIsOwner())) notFound();

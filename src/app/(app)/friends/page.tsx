@@ -7,7 +7,7 @@ import { FriendsClient } from './FriendsClient';
 import { Users } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Friends - HoopIQ' };
+export const metadata = { title: 'Friends - Deadeye' };
 
 export default async function FriendsPage() {
   const user = await requireUser();

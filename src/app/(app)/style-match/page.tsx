@@ -10,7 +10,7 @@ import { Users } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Play Style Match - HoopIQ' };
+export const metadata = { title: 'Play Style Match - Deadeye' };
 
 export default async function StyleMatchPage() {
   const user = await requireUser();

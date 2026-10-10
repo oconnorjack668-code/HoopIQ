@@ -33,14 +33,14 @@ export function Frame({ icon, name, children }: { icon: string | null; name: str
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {icon ? <img src={icon} width={96} height={96} style={{ borderRadius: 24 }} alt="" /> : null}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: 52, fontWeight: 900 }}>HoopIQ</div>
+          <div style={{ fontSize: 52, fontWeight: 900 }}>Deadeye</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: ORANGE, letterSpacing: 3 }}>AI BASKETBALL TRAINER</div>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, justifyContent: 'center' }}>{children}</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 30, color: '#a1a1aa' }}>
         <div style={{ display: 'flex', fontWeight: 700, color: '#fff' }}>{name}</div>
-        <div style={{ display: 'flex' }}>Train with HoopIQ</div>
+        <div style={{ display: 'flex' }}>Train with Deadeye</div>
       </div>
     </div>
   );

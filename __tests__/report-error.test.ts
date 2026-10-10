@@ -10,7 +10,7 @@ describe('crash report filter', () => {
     expect(isIgnoredError('ResizeObserver loop completed with undelivered notifications.')).toBe(true);
   });
 
-  it('keeps real HoopIQ errors', () => {
+  it('keeps real Deadeye errors', () => {
     expect(isIgnoredError("TypeError: Cannot read properties of undefined (reading 'makes')")).toBe(false);
     expect(isIgnoredError("ReferenceError: Can't find variable: shotZones")).toBe(false);
   });

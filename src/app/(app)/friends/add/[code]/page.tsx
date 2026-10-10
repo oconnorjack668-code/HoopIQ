@@ -1,5 +1,5 @@
 // src/app/(app)/friends/add/[code]/page.tsx
-// Invite links (hoopiq…/friends/add/ABC123) land here after login.
+// Invite links (deadeye…/friends/add/ABC123) land here after login.
 import React from 'react';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
@@ -9,7 +9,7 @@ import { AddFriendButton } from './AddFriendButton';
 import { UserPlus } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Add friend - HoopIQ' };
+export const metadata = { title: 'Add friend - Deadeye' };
 
 export default async function AddFriendPage({ params }: { params: Promise<{ code: string }> }) {
   const user = await requireUser();

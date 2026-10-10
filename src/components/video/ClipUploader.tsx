@@ -220,7 +220,7 @@ export function ClipUploader() {
   return (
     <div>
       <div>
-        <p className="text-sm text-zinc-400 mb-4">Keep short clips (up to 50MB) in your HoopIQ account to watch back later.</p>
+        <p className="text-sm text-zinc-400 mb-4">Keep short clips (up to 50MB) in your Deadeye account to watch back later.</p>
 
         {error && (
           <Alert variant="error" title="Error" className="mb-8">
@@ -325,7 +325,7 @@ export function ClipUploader() {
                 className="mt-0.5"
               />
               <span>
-                I consent to this video being uploaded to my private HoopIQ account and analysed to measure movement
+                I consent to this video being uploaded to my private Deadeye account and analysed to measure movement
                 and shooting data. This is not medical advice or a guarantee of performance.
               </span>
             </label>

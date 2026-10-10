@@ -19,7 +19,7 @@ export function ShareCardButton({ path, text, label = 'Share' }: { path: string;
       const res = await fetch(path);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
-      const file = new File([blob], 'hoopiq.png', { type: 'image/png' });
+      const file = new File([blob], 'deadeye.png', { type: 'image/png' });
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text });
         return;
@@ -27,7 +27,7 @@ export function ShareCardButton({ path, text, label = 'Share' }: { path: string;
       const href = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = href;
-      a.download = 'hoopiq.png';
+      a.download = 'deadeye.png';
       a.click();
       setTimeout(() => URL.revokeObjectURL(href), 5000);
     } catch (err) {

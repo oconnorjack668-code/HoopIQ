@@ -13,7 +13,7 @@ import { countryName } from '@/lib/regions';
 import { Trophy, Flame, Star, Target, Users, MapPin } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Leaderboard - HoopIQ' };
+export const metadata = { title: 'Leaderboard - Deadeye' };
 
 type Scope = 'everyone' | 'country' | 'region' | 'friends' | 'team';
 const AGE_GROUPS = [

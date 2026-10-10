@@ -8,7 +8,7 @@ import { ShareCardButton } from '@/components/ShareCardButton';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Achievements - HoopIQ' };
+export const metadata = { title: 'Achievements - Deadeye' };
 
 const BADGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Target, Flame, Crown, CircleDot, Gem, Zap, Trophy, Dumbbell, BookOpen, GraduationCap, CalendarCheck, Video,
@@ -35,7 +35,7 @@ export default async function AchievementsPage() {
           <div className="text-3xl font-black text-white">{a.rank.name}</div>
           <div className="text-sm text-zinc-300">{a.xp.toLocaleString()} XP</div>
           <div className="mt-3">
-            <ShareCardButton path="/api/share/rank" text={`I'm ranked ${a.rank.name} on HoopIQ 🏀`} label="Share my rank" />
+            <ShareCardButton path="/api/share/rank" text={`I'm ranked ${a.rank.name} on Deadeye 🏀`} label="Share my rank" />
           </div>
           {a.rank.next && (
             <>

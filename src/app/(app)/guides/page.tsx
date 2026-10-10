@@ -7,7 +7,7 @@ import { BookHeart, Clock } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Guides - HoopIQ' };
+export const metadata = { title: 'Guides - Deadeye' };
 
 const GUIDE_CATEGORIES: Record<string, string> = {
   mental_game: 'Mental Game',

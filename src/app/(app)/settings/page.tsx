@@ -9,7 +9,7 @@ import { Settings as SettingsIcon } from 'lucide-react';
 import pkg from '../../../../package.json';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Settings - HoopIQ' };
+export const metadata = { title: 'Settings - Deadeye' };
 
 export default async function SettingsPage() {
   const user = await requireUser();

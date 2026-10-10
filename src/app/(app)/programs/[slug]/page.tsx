@@ -10,7 +10,7 @@ import { ArrowLeft, CheckCircle2, Circle, Clock } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Program - HoopIQ' };
+export const metadata = { title: 'Program - Deadeye' };
 
 export default async function ProgramPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

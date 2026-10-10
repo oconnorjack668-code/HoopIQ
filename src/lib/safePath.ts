@@ -1,5 +1,5 @@
 // src/lib/safePath.ts
-// Only ever follow links that stay inside HoopIQ. "//evil.example", "/\evil.example" (browsers
+// Only ever follow links that stay inside Deadeye. "//evil.example", "/\evil.example" (browsers
 // read a backslash as a slash) and "https://…" would otherwise send players to another site.
 
 /** True for a same-site path such as "/dashboard" or "/programs/x?y=1". */

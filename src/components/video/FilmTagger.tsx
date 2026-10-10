@@ -202,7 +202,7 @@ export function FilmTagger({ heightCm, position }: { heightCm: number | null; po
     <div className="space-y-4">
       {error && <Alert variant="error" title="Check this">{error}</Alert>}
       <p className="text-sm text-zinc-300">
-        Play back your game and tap a button each time you make a play. HoopIQ turns the tags into a real box score you
+        Play back your game and tap a button each time you make a play. Deadeye turns the tags into a real box score you
         can save to your stats, and into a style profile that finds the NBA players you play most like.
       </p>
 

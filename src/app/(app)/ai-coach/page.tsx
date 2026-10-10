@@ -13,7 +13,7 @@ import { GenerateFeedbackButton } from './GenerateFeedbackButton';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'AI Coach - HoopIQ',
+  title: 'AI Coach - Deadeye',
 };
 
 export default async function AICoachPage() {

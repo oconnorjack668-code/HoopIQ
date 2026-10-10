@@ -15,7 +15,7 @@ export async function POST() {
 
   let sent = 0;
   for (const s of subs) {
-    const result = await sendPush(s, { title: 'HoopIQ reminders are on 🏀', body: 'This is how your training reminders will look.', url: '/dashboard' });
+    const result = await sendPush(s, { title: 'Deadeye reminders are on 🏀', body: 'This is how your training reminders will look.', url: '/dashboard' });
     if (result === 'sent') sent++;
     if (result === 'gone') await supabase.from('push_subscriptions').delete().eq('endpoint', s.endpoint);
   }

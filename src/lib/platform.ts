@@ -1,5 +1,5 @@
 // src/lib/platform.ts
-// Detects when HoopIQ runs inside the Google Play app (Trusted Web Activity).
+// Detects when Deadeye runs inside the Google Play app (Trusted Web Activity).
 // Google Play does not allow selling digital subscriptions through Stripe inside a Play app,
 // so Pro checkout is hidden there. The flag lives in sessionStorage (not localStorage) because
 // a TWA shares storage with Chrome, and normal browsing on the same phone must not be affected.

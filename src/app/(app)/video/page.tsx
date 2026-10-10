@@ -7,7 +7,7 @@ import { Video } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Video AI - HoopIQ' };
+export const metadata = { title: 'Video AI - Deadeye' };
 
 export default async function VideoPage() {
   await requireUser();

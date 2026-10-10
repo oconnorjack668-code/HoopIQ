@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HoopIQ AI Basketball Trainer",
-  description: "Train with intent. See your progress. Improve every day.",
-  applicationName: "HoopIQ AI Basketball Trainer",
+  title: "Deadeye Basketball Training",
+  description: "Aim is earned. Track every shot, check your form on video, follow training programs and build your basketball IQ.",
+  applicationName: "Deadeye",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "HoopIQ",
+    title: "Deadeye",
     statusBarStyle: "black",
   },
 };

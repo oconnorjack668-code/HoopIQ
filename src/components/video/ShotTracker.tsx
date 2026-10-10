@@ -101,7 +101,7 @@ export function ShotTracker({
     // when the app is opened over plain http://, and the generic catch below
     // used to show a misleading "allow camera access" message for that case.
     if (typeof window !== 'undefined' && !window.isSecureContext) {
-      setError('Your camera needs a secure connection. Open HoopIQ at its https:// address to use the camera.');
+      setError('Your camera needs a secure connection. Open Deadeye at its https:// address to use the camera.');
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -129,7 +129,7 @@ export function ShotTracker({
     } catch (err) {
       const name = err instanceof DOMException ? err.name : null;
       if (name === 'NotAllowedError') {
-        setError('Camera access was blocked. Allow the camera for HoopIQ in your browser or phone Settings, then try again.');
+        setError('Camera access was blocked. Allow the camera for Deadeye in your browser or phone Settings, then try again.');
       } else if (name === 'NotFoundError') {
         setError('No camera was found on this device.');
       } else if (name === 'NotReadableError') {
@@ -377,7 +377,7 @@ export function ShotTracker({
         duration_minutes: minutes,
         intensity_rpe: 6,
         perceived_quality: 3,
-        notes: `Tracked with HoopIQ video shot tracking (${source === 'camera' ? 'live camera' : 'video'})`,
+        notes: `Tracked with Deadeye video shot tracking (${source === 'camera' ? 'live camera' : 'video'})`,
       })
       .select('id')
       .single();

@@ -99,14 +99,14 @@ export function RemindersCard() {
       return;
     }
     if (isIos && !standalone) {
-      setMessage('On iPhone, add HoopIQ to your home screen first (Share → Add to Home Screen), then open it from there.');
+      setMessage('On iPhone, add Deadeye to your home screen first (Share → Add to Home Screen), then open it from there.');
       return;
     }
     setBusy(true);
     try {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        setMessage('Notifications are blocked. Allow them for HoopIQ in your phone or browser settings.');
+        setMessage('Notifications are blocked. Allow them for Deadeye in your phone or browser settings.');
         return;
       }
       const reg = await navigator.serviceWorker.ready;
@@ -164,7 +164,7 @@ export function RemindersCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {!supported ? (
-          <p className="text-sm text-zinc-400">This browser doesn&apos;t support notifications. Try Chrome on Android, or HoopIQ installed on your iPhone home screen.</p>
+          <p className="text-sm text-zinc-400">This browser doesn&apos;t support notifications. Try Chrome on Android, or Deadeye installed on your iPhone home screen.</p>
         ) : (
           <>
             <label className="flex items-center justify-between gap-4 text-sm text-zinc-200">

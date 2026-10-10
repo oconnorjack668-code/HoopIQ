@@ -8,7 +8,7 @@ import { ArrowLeft, Clock } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Guide - HoopIQ' };
+export const metadata = { title: 'Guide - Deadeye' };
 
 /** Renders plain-text guide bodies: blank-line paragraphs and "- " bullet lines. */
 function GuideBody({ text }: { text: string }) {

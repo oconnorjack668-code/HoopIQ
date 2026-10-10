@@ -72,10 +72,10 @@ export function FriendsClient({ myId, myCode, rows, feed }: { myId: string; myCo
   }
 
   async function share() {
-    const text = `Add me on HoopIQ! My friend code is ${myCode}`;
+    const text = `Add me on Deadeye! My friend code is ${myCode}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'HoopIQ', text, url: inviteUrl });
+        await navigator.share({ title: 'Deadeye', text, url: inviteUrl });
         return;
       }
       await navigator.clipboard.writeText(`${text}: ${inviteUrl}`);

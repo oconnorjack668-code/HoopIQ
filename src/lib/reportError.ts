@@ -7,11 +7,11 @@ const IGNORE = [
   /chrome-extension:|moz-extension:|safari-extension:/i,
   /AbortError|The user aborted a request/i,
   /Failed to fetch|NetworkError|Load failed|network request failed/i, // connection problems, not bugs
-  // Scripts that in-app browsers and webviews inject into every page (not HoopIQ code)
+  // Scripts that in-app browsers and webviews inject into every page (not Deadeye code)
   /SCDynimacBridge|__gCrWeb|_AutofillCallbackHandler|webkit\.messageHandlers|WeixinJSBridge|zaloJSV2|instantSearchSDKJSBridge/,
 ];
 
-/** True for errors that come from the browser or another app, not from HoopIQ. */
+/** True for errors that come from the browser or another app, not from Deadeye. */
 export function isIgnoredError(text: string): boolean {
   return IGNORE.some((re) => re.test(text));
 }

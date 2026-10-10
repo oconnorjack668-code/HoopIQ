@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ShieldAlert, Bug, Gauge, ChevronRight } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Owner tools - HoopIQ' };
+export const metadata = { title: 'Owner tools - Deadeye' };
 
 const TOOLS = [
   {

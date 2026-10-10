@@ -11,7 +11,7 @@ import { seasonAverages, type BoxScore } from '@/lib/games';
 import { ArrowLeft, Lock, Target, Dumbbell, Trophy, Timer, CheckCircle2, Circle } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Player details - HoopIQ' };
+export const metadata = { title: 'Player details - Deadeye' };
 
 interface Detail {
   profile: { display_name: string; position: string | null; height_cm: number | null; dominant_hand: string | null; playing_level: string | null };

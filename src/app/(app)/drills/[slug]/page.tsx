@@ -10,7 +10,7 @@ import { ArrowLeft, Clock, Play, PlayCircle, CheckCircle2, AlertTriangle, Wrench
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Drill - HoopIQ' };
+export const metadata = { title: 'Drill - Deadeye' };
 
 export default async function DrillPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

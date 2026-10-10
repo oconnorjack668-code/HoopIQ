@@ -100,7 +100,7 @@ export function TeamsActions({ canCreate }: { canCreate: boolean }) {
           <p className="text-sm text-zinc-400">
             Creating a team is part of{' '}
             <Link href="/pro" className="underline text-cyan-300">
-              HoopIQ Pro
+              Deadeye Pro
             </Link>
             . Players join for free.
           </p>

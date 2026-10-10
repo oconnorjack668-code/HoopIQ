@@ -16,7 +16,7 @@ export function SavedOfflineCard({ what, backHref, onAnother }: { what: string; 
         <h1 className="text-xl font-black text-white">Saved on your phone</h1>
         <p className="mt-2 text-sm text-zinc-400">
           No signal right now, so your {what} is stored on this phone. It uploads automatically as soon as you are back
-          online. Keep HoopIQ installed and don&apos;t clear its data until then.
+          online. Keep Deadeye installed and don&apos;t clear its data until then.
         </p>
         <div className="mt-5 space-y-2">
           <Button variant="primary" size="lg" className="w-full" onClick={onAnother}>
