@@ -88,7 +88,7 @@ export function ProfileSettings({ initialIsPublic, showLeaderboard = true }: { i
               checked={isPublic}
               disabled={savingVisibility}
               onChange={toggleVisibility}
-              className="h-5 w-5 accent-orange-500"
+              className="h-5 w-5 accent-red-500"
             />
           </label>
         </CardContent>

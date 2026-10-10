@@ -77,7 +77,7 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
-                  isActive ? 'bg-orange-500/10 text-orange-400' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                  isActive ? 'bg-red-500/10 text-red-400' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -104,11 +104,11 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
             href="/profile"
             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
               pathname === '/profile'
-                ? 'border-orange-500 bg-orange-500/10 text-white'
+                ? 'border-red-500 bg-red-500/10 text-white'
                 : 'border-zinc-800 bg-zinc-900/60 hover:border-zinc-700 text-zinc-300'
             }`}
           >
-            <div className="h-6 w-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-orange-400">
+            <div className="h-6 w-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-red-400">
               {profile?.display_name?.charAt(0).toUpperCase() || 'P'}
             </div>
             <span className="text-xs font-medium hidden sm:inline">
@@ -122,7 +122,7 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
             aria-label="Settings"
             className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-colors ${
               pathname === '/settings'
-                ? 'border-orange-500 bg-orange-500/10 text-white'
+                ? 'border-red-500 bg-red-500/10 text-white'
                 : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:text-white'
             }`}
           >

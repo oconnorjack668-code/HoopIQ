@@ -90,7 +90,7 @@ export function QuickLog() {
         aria-haspopup="menu"
         aria-label={open ? 'Close log menu' : 'Log training'}
         className={`fixed bottom-[5.5rem] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-2xl ring-1 ring-black/20 transition-transform active:scale-95 ${
-          open ? 'bg-zinc-700 text-white' : 'bg-orange-600 text-white'
+          open ? 'bg-zinc-700 text-white' : 'bg-red-600 text-white'
         }`}
       >
         {open ? <X className="h-6 w-6" /> : <Plus className="h-7 w-7" />}

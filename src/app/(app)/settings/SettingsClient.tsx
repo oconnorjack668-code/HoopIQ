@@ -49,7 +49,7 @@ function Toggle({ label, hint, checked, onChange }: { label: string; hint?: stri
         <span className="block text-sm text-zinc-100">{label}</span>
         {hint && <span className="block text-xs text-zinc-500">{hint}</span>}
       </span>
-      <input type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-5 w-5 flex-shrink-0 accent-orange-500" />
+      <input type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-5 w-5 flex-shrink-0 accent-red-500" />
     </label>
   );
 }
@@ -187,7 +187,7 @@ export function SettingsClient({
                 type="button"
                 aria-pressed={s.account_role === r}
                 onClick={() => void save({ account_role: r })}
-                className={`rounded-lg py-2 text-sm font-semibold capitalize ${s.account_role === r ? 'bg-orange-600 text-white' : 'bg-zinc-800 text-zinc-300'}`}
+                className={`rounded-lg py-2 text-sm font-semibold capitalize ${s.account_role === r ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300'}`}
               >
                 {r === 'both' ? 'Player & coach' : r}
               </button>
@@ -343,7 +343,7 @@ export function SettingsClient({
                 type="button"
                 aria-pressed={s.measurement_system === u}
                 onClick={() => void save({ measurement_system: u })}
-                className={`rounded-lg py-2 text-sm font-semibold ${s.measurement_system === u ? 'bg-orange-600 text-white' : 'bg-zinc-800 text-zinc-300'}`}
+                className={`rounded-lg py-2 text-sm font-semibold ${s.measurement_system === u ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300'}`}
               >
                 {u === 'metric' ? 'Metric (cm, kg)' : 'Imperial (ft, lbs)'}
               </button>

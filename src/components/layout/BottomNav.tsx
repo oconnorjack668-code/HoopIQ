@@ -47,7 +47,7 @@ export function BottomNav() {
               href={item.href}
               aria-current={isActive ? 'page' : undefined}
               className={`flex flex-col items-center justify-center py-1.5 rounded-xl transition-all ${
-                isActive ? 'text-orange-500 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+                isActive ? 'text-red-500 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <Icon className={`h-6 w-6 ${isActive ? 'scale-110' : ''} transition-transform`} />
