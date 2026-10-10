@@ -1,6 +1,13 @@
 // __tests__/stripe-webhook.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// post() dynamically imports the webhook route, which pulls in the Stripe SDK
+// and the Supabase client. That cold import lands inside the first test and
+// takes most of a second on an idle machine - and well past vitest's 5s default
+// when the suite runs alongside anything else. The test is not slow, its first
+// import is, so it gets room rather than a smaller job.
+vi.setConfig({ testTimeout: 30_000 });
+
 const calls: Array<{ update: Record<string, unknown>; filters: string[] }> = [];
 let updateError: { message: string } | null = null;
 

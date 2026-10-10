@@ -48,9 +48,10 @@ All four are expected to pass, with exactly one accepted lint warning: a
 it — the obvious fix (adding `loadQuiz` to the dependency array) ships an
 infinite fetch loop, because the function is recreated on every render.
 
-Run the gates **sequentially**. Running `npm test` alongside `lint`/`tsc`
-starves the test process and `stripe-webhook.test.ts` fails on vitest's 5s
-default timeout; the test is not flaky on its own.
+`stripe-webhook.test.ts` sets its own 30s timeout. Its first test pays for a
+cold dynamic import of the Stripe SDK and the Supabase client, which runs past
+vitest's 5s default whenever the machine is busy. If you see a timeout in a
+test that passes on its own, suspect the same cause before suspecting the code.
 
 `tsc --noEmit` in particular should stay at zero errors — the Supabase schema
 types in `src/lib/supabase/types.ts` are hand-maintained (there is no

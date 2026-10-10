@@ -40,9 +40,13 @@ export function Alert({
       {...props}
     >
       {icons[variant]}
-      <div className="space-y-1">
+      {/* min-w-0 lets the text column shrink inside the flex row, and
+          break-words splits strings with no spaces in them. Without both, a
+          long technical message - a stack trace, a URL, a MediaPipe error -
+          pushes straight through the border instead of wrapping. */}
+      <div className="min-w-0 flex-1 space-y-1">
         {title && <h5 className="font-semibold leading-none tracking-tight">{title}</h5>}
-        <div className="text-xs opacity-90">{children}</div>
+        <div className="text-xs opacity-90 break-words">{children}</div>
       </div>
     </div>
   );

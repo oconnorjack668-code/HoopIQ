@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
-import { getBallDetector, createDiagnosticDetector, getActiveDelegate } from '@/lib/video/mediapipe';
-import type { Detection } from '@mediapipe/tasks-vision';
+import { createBallDetector, createDiagnosticDetector, getActiveDelegate } from '@/lib/video/mediapipe';
+import type { Detection, ObjectDetector } from '@mediapipe/tasks-vision';
 import { ShotDetector, rimFromEdges, type DetectedShot } from '@/lib/video/shotDetector';
 import { cropRectFor, ballCentreInFrame, magnification, CROP_CANVAS_PX } from '@/lib/video/crop';
 import { Button } from '@/components/ui/Button';
@@ -167,8 +167,16 @@ export function DetectorBench() {
     setRunning(true);
     setError(null);
     setDiagnosis(null);
+    // Closed in the finally below: these are per-run instances, and without
+    // closing them each run leaks its WASM model into the tab.
+    let full: ObjectDetector | null = null;
+    let cropped: ObjectDetector | null = null;
     try {
-      const [full, cropped] = await Promise.all([createDiagnosticDetector(), createDiagnosticDetector()]);
+      [full, cropped] = await Promise.all([createDiagnosticDetector(), createDiagnosticDetector()]);
+      // Non-null bindings: the outer lets exist only so finally can close them,
+      // and TypeScript cannot see through the sweep callback to narrow them.
+      const fullDetector = full;
+      const cropDetector = cropped;
       const seenFull = new Map<string, { frames: number; best: number }>();
       const seenCrop = new Map<string, { frames: number; best: number }>();
       let frames = 0;
@@ -182,7 +190,7 @@ export function DetectorBench() {
 
       await sweep((v, _videoMs, ts) => {
         frames += 1;
-        const detections = full.detectForVideo(v, ts).detections || [];
+        const detections = fullDetector.detectForVideo(v, ts).detections || [];
         if (detections.length) framesWithAnything += 1;
         tally(seenFull, detections);
 
@@ -190,7 +198,7 @@ export function DetectorBench() {
           const crop = cropRectFor(rim, v.videoWidth, v.videoHeight);
           gain = magnification(crop, v.videoWidth);
           ctx.drawImage(v, crop.sx, crop.sy, crop.side, crop.side, 0, 0, CROP_CANVAS_PX, CROP_CANVAS_PX);
-          tally(seenCrop, cropped.detectForVideo(canvas, ts).detections || []);
+          tally(seenCrop, cropDetector.detectForVideo(canvas, ts).detections || []);
         }
       });
 
@@ -206,6 +214,8 @@ export function DetectorBench() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Diagnosis failed.');
     } finally {
+      full?.close();
+      cropped?.close();
       setRunning(false);
     }
   }
@@ -217,8 +227,13 @@ export function DetectorBench() {
     setError(null);
     setReport(null);
 
+    let detector: ObjectDetector | null = null;
     try {
-      const detector = await getBallDetector();
+      // Its own instance, not the shared one: this replays the clip from the
+      // start every run, so its timestamps restart and would go backwards on a
+      // detector the live tracker had already advanced.
+      detector = await createBallDetector();
+      const ballDetector = detector;
       const shotDetector = new ShotDetector(rim);
       const scores: number[] = [];
       let frames = 0;
@@ -243,7 +258,7 @@ export function DetectorBench() {
         gain = magnification(crop, v.videoWidth);
         ctx.drawImage(v, crop.sx, crop.sy, crop.side, crop.side, 0, 0, CROP_CANVAS_PX, CROP_CANVAS_PX);
 
-        const result = detector.detectForVideo(canvas, ts);
+        const result = ballDetector.detectForVideo(canvas, ts);
         const best = [...(result.detections || [])].sort(
           (a, b) => (b.categories[0]?.score || 0) - (a.categories[0]?.score || 0)
         )[0];
@@ -281,6 +296,7 @@ export function DetectorBench() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Detection failed.');
     } finally {
+      detector?.close();
       setRunning(false);
     }
   }

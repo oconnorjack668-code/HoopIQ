@@ -59,25 +59,44 @@ export async function createDiagnosticDetector(): Promise<ObjectDetector> {
   );
 }
 
+/**
+ * A ball detector that is NOT shared.
+ *
+ * MediaPipe's VIDEO mode requires strictly increasing timestamps per detector
+ * instance. The cached getBallDetector() below is shared by the live tracker
+ * and the benchmark, and those feed it different clocks - the tracker uses
+ * performance.now(), the benchmark uses video time that restarts at zero on
+ * every run. Whichever went second handed the shared instance a timestamp that
+ * went backwards, and MediaPipe aborted the whole graph:
+ *
+ *   "Packet timestamp mismatch ... expected 27441001 but received 1000"
+ *
+ * Anything that replays a file from the start needs its own instance.
+ */
+export async function createBallDetector(): Promise<ObjectDetector> {
+  const vision = await fileset();
+  return withDelegate((delegate) => ObjectDetector.createFromOptions(vision, ballOptions(delegate)));
+}
+
+function ballOptions(delegate: 'GPU' | 'CPU') {
+  return {
+    baseOptions: { modelAssetPath: BALL_MODEL, delegate },
+    runningMode: 'VIDEO' as const,
+    // A basketball in flight is small and motion-blurred relative to the COCO
+    // training images this general-purpose model learned from, so confidence
+    // scores run lower than for e.g. a person or a car. 0.25 was dropping most
+    // genuine balls; ShotTracker already picks the single highest-scoring
+    // candidate per frame, so a lower floor trades some false positives (which
+    // the player reviews and can delete) for far fewer missed true positives.
+    scoreThreshold: 0.12,
+    maxResults: 5,
+    categoryAllowlist: ['sports ball'],
+  };
+}
+
+/** Shared instance for the live tracker, whose timestamps only ever go up. */
 export function getBallDetector(): Promise<ObjectDetector> {
-  return (ballDetectorPromise ??= (async () => {
-    const vision = await fileset();
-    return withDelegate((delegate) =>
-      ObjectDetector.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: BALL_MODEL, delegate },
-        runningMode: 'VIDEO',
-        // A basketball in flight is small and motion-blurred relative to the COCO
-        // training images this general-purpose model learned from, so confidence
-        // scores run lower than for e.g. a person or a car. 0.25 was dropping most
-        // genuine balls; ShotTracker already picks the single highest-scoring
-        // candidate per frame, so a lower floor trades some false positives (which
-        // the player reviews and can delete) for far fewer missed true positives.
-        scoreThreshold: 0.12,
-        maxResults: 5,
-        categoryAllowlist: ['sports ball'],
-      })
-    );
-  })());
+  return (ballDetectorPromise ??= createBallDetector());
 }
 
 export function getPoseLandmarker(): Promise<PoseLandmarker> {
