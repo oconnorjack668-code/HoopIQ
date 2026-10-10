@@ -103,7 +103,7 @@ export function CoachChat({ initial, remaining: initialRemaining }: { initial: C
           {messages.length === 0 && (
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
               <p className="font-semibold text-white flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-400" /> Ask anything about your game
+                <Sparkles className="h-4 w-4 text-red-400" /> Ask anything about your game
               </p>
               <p className="mt-1 text-sm text-zinc-400">
                 The coach sees your recent sessions, shooting zones, workouts, goals and latest form check.
@@ -175,13 +175,13 @@ export function CoachChat({ initial, remaining: initialRemaining }: { initial: C
             rows={1}
             placeholder="Ask the coach…"
             aria-label="Message the coach"
-            className="flex-1 max-h-32 resize-none rounded-xl border border-zinc-700/80 bg-zinc-900/90 px-3.5 py-2.5 text-sm text-zinc-100 focus:border-purple-500 focus:outline-none"
+            className="flex-1 max-h-32 resize-none rounded-xl border border-zinc-700/80 bg-zinc-900/90 px-3.5 py-2.5 text-sm text-zinc-100 focus:border-red-500 focus:outline-none"
           />
           <button
             type="submit"
             disabled={sending || !input.trim()}
             aria-label="Send"
-            className="h-10 w-10 flex items-center justify-center rounded-xl bg-purple-600 text-white disabled:opacity-40"
+            className="h-10 w-10 flex items-center justify-center rounded-xl bg-red-600 text-white disabled:opacity-40"
           >
             <Send className="h-4 w-4" />
           </button>

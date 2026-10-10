@@ -56,9 +56,9 @@ export function VideoAIFeedback({ shooting, mechanics }: { shooting: ShootingSum
   }
 
   return (
-    <div className="rounded-2xl border border-purple-600/40 bg-purple-600/10 p-4 space-y-3">
+    <div className="rounded-2xl border border-red-600/40 bg-red-600/10 p-4 space-y-3">
       <h3 className="font-bold text-white flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-purple-400" /> AI feedback
+        <Sparkles className="h-5 w-5 text-red-400" /> AI feedback
       </h3>
       {!report ? (
         <>
@@ -66,7 +66,7 @@ export function VideoAIFeedback({ shooting, mechanics }: { shooting: ShootingSum
           <div className="space-y-1.5">
             {options.map((o) => (
               <label key={o.id} className={`flex items-center gap-2 text-sm ${o.enabled ? 'text-zinc-200' : 'text-zinc-600'}`}>
-                <input type="radio" name="video-ai-data" disabled={!o.enabled} checked={choice === o.id} onChange={() => setChoice(o.id)} className="accent-purple-500" />
+                <input type="radio" name="video-ai-data" disabled={!o.enabled} checked={choice === o.id} onChange={() => setChoice(o.id)} className="accent-red-500" />
                 {o.label}
               </label>
             ))}

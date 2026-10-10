@@ -63,7 +63,7 @@ export default async function AICoachPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center shadow-lg">
+            <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-red-600 to-pink-500 flex items-center justify-center shadow-lg">
               <Zap className="h-6 w-6 text-white" />
             </div>
             <div>
@@ -73,7 +73,7 @@ export default async function AICoachPage() {
           </div>
           <Link
             href="/ai-coach/chat"
-            className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-purple-500"
+            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-500"
           >
             <MessageCircle className="h-4 w-4" /> Ask Coach anything
           </Link>
@@ -85,7 +85,7 @@ export default async function AICoachPage() {
             <CardContent className="p-5">
               <div className="text-xs text-zinc-400 font-semibold uppercase tracking-wider mb-2">This Month</div>
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-purple-400">{monthlyUsage}</span>
+                <span className="text-2xl font-black text-red-400">{monthlyUsage}</span>
                 <span className="text-xs text-zinc-500">credits used</span>
               </div>
             </CardContent>
@@ -157,7 +157,7 @@ export default async function AICoachPage() {
         {reports && reports.length > 0 ? (
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-purple-400" />
+              <TrendingUp className="h-5 w-5 text-red-400" />
               Coaching Reports
             </h2>
 

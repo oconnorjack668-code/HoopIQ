@@ -248,9 +248,9 @@ export function StyleMatchClient({
             ))}
           </div>
 
-          <div className="rounded-2xl border border-purple-600/40 bg-purple-600/10 p-4">
+          <div className="rounded-2xl border border-red-600/40 bg-red-600/10 p-4">
             <h2 className="font-bold text-white flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-400" /> AI development plan
+              <Sparkles className="h-5 w-5 text-red-400" /> AI development plan
             </h2>
             {result.report ? (
               <div className="mt-3 space-y-3 text-sm text-zinc-200">

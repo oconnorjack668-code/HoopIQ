@@ -58,8 +58,8 @@ function LoginContent() {
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-zinc-950">
       {/* Basketball court subtle background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-orange-600/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-amber-600/10 rounded-full blur-3xl" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-red-600/10 rounded-full blur-3xl" />
       </div>
 
       <div className="w-full max-w-md relative z-10">
@@ -67,7 +67,7 @@ function LoginContent() {
         <div className="flex flex-col items-center mb-8 text-center">
           <Logo size={56} className="mb-3" />
           <h1 className="text-2xl font-black tracking-tight text-white uppercase">Deadeye</h1>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-orange-400">Aim is earned</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-red-400">Aim is earned</p>
           <p className="text-xs text-zinc-400 mt-1">Player Development Operating System</p>
         </div>
 
@@ -107,7 +107,7 @@ function LoginContent() {
                   </label>
                   <Link
                     href="/reset-password"
-                    className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                    className="text-xs text-red-400 hover:text-red-300 transition-colors"
                   >
                     Forgot password?
                   </Link>
@@ -139,7 +139,7 @@ function LoginContent() {
                 New to Deadeye?{' '}
                 <Link
                   href="/signup"
-                  className="font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+                  className="font-semibold text-red-400 hover:text-red-300 transition-colors"
                 >
                   Create an account
                 </Link>
@@ -157,7 +157,7 @@ export default function LoginPage() {
     <Suspense fallback={
       <div className="min-h-screen w-full flex items-center justify-center p-4 bg-zinc-950">
         <div className="text-center">
-          <div className="h-10 w-10 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="h-10 w-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-sm text-zinc-400">Loading...</p>
         </div>
       </div>

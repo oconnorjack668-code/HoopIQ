@@ -169,15 +169,15 @@ export default async function DashboardPage() {
             than a bare XP total with nothing to aim at. */}
         <Link
           href="/achievements"
-          className="mb-8 block rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 hover:bg-amber-500/15"
+          className="mb-8 block rounded-2xl border border-red-500/30 bg-red-500/10 p-4 hover:bg-red-500/15"
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/20">
-                <Star className="h-5 w-5 text-amber-300" />
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-red-500/20">
+                <Star className="h-5 w-5 text-red-300" />
               </span>
               <div className="min-w-0">
-                <div className="font-black text-amber-300">{achievements.rank.name}</div>
+                <div className="font-black text-red-300">{achievements.rank.name}</div>
                 {achievements.rank.next && (
                   <div className="text-xs text-zinc-400">
                     {(achievements.rank.next.min - achievements.xp).toLocaleString()} XP to{' '}
@@ -195,12 +195,12 @@ export default async function DashboardPage() {
           </div>
           <div className="mt-3 h-2 rounded-full bg-zinc-800 overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-400 transition-all"
+              className="h-full rounded-full bg-gradient-to-r from-red-500 to-red-400 transition-all"
               style={{ width: `${Math.round(Math.min(1, Math.max(0, achievements.rank.progress)) * 100)}%` }}
             />
           </div>
           <div className="mt-2.5 flex items-center justify-between text-xs">
-            <span className="font-semibold text-amber-300">
+            <span className="font-semibold text-red-300">
               Weekly challenges · {achievements.challenges.filter((c) => c.done).length} of{' '}
               {achievements.challenges.length} done
             </span>
@@ -233,8 +233,8 @@ export default async function DashboardPage() {
             label="Shooting %"
             value={`${metrics.shootingPercentage.toFixed(1)}%`}
             badge="career"
-            badgeVariant="purple"
-            valueClass="text-purple-400"
+            badgeVariant="brand"
+            valueClass="text-red-400"
             hint={`${shootingByZone.length} zones tracked`}
           />
 
@@ -329,8 +329,8 @@ export default async function DashboardPage() {
             </div>
           </Link>
           <Link href="/ai-coach/chat" className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 hover:bg-zinc-900">
-            <div className="h-9 w-9 rounded-lg bg-purple-600/20 flex items-center justify-center">
-              <MessageCircle className="h-5 w-5 text-purple-400" />
+            <div className="h-9 w-9 rounded-lg bg-red-600/20 flex items-center justify-center">
+              <MessageCircle className="h-5 w-5 text-red-400" />
             </div>
             <div>
               <div className="text-sm font-bold text-white">Ask Coach</div>

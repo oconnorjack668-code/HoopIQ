@@ -17,8 +17,8 @@ function VerifyEmailContent() {
       <div className="w-full max-w-md">
         <Card className="border-zinc-800/80 bg-zinc-900/90 shadow-2xl backdrop-blur-xl text-center">
           <CardHeader className="flex flex-col items-center pb-2">
-            <div className="h-16 w-16 rounded-full bg-orange-600/10 border border-orange-500/20 flex items-center justify-center mb-4">
-              <Mail className="h-8 w-8 text-orange-500 animate-pulse" />
+            <div className="h-16 w-16 rounded-full bg-red-600/10 border border-red-500/20 flex items-center justify-center mb-4">
+              <Mail className="h-8 w-8 text-red-500 animate-pulse" />
             </div>
             <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
             <CardDescription className="text-sm mt-1">
@@ -61,7 +61,7 @@ export default function VerifyEmailPage() {
     <Suspense fallback={
       <div className="min-h-screen w-full flex items-center justify-center p-4 bg-zinc-950">
         <div className="text-center">
-          <div className="h-10 w-10 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="h-10 w-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-sm text-zinc-400">Loading...</p>
         </div>
       </div>

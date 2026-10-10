@@ -82,14 +82,14 @@ export default function SignUpPage() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-zinc-950">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-orange-600/10 rounded-full blur-3xl" />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-red-600/10 rounded-full blur-3xl" />
       </div>
 
       <div className="w-full max-w-md relative z-10">
         <div className="flex flex-col items-center mb-8 text-center">
           <Logo size={56} className="mb-3" />
           <h1 className="text-2xl font-black tracking-tight text-white uppercase">Deadeye</h1>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-orange-400">Aim is earned</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-red-400">Aim is earned</p>
           <p className="text-xs text-zinc-400 mt-1">Join serious players building intentional habits</p>
         </div>
 
@@ -148,15 +148,15 @@ export default function SignUpPage() {
                     type="checkbox"
                     checked={ageConfirmed}
                     onChange={(e) => setAgeConfirmed(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-orange-500"
+                    className="mt-0.5 h-4 w-4 accent-red-500"
                   />
                   <span>
                     I am 13 or older and agree to the{' '}
-                    <Link href="/privacy" target="_blank" className="text-orange-400 underline hover:text-orange-300">
+                    <Link href="/privacy" target="_blank" className="text-red-400 underline hover:text-red-300">
                       privacy policy
                     </Link>{' '}
                     and{' '}
-                    <Link href="/terms" target="_blank" className="text-orange-400 underline hover:text-orange-300">
+                    <Link href="/terms" target="_blank" className="text-red-400 underline hover:text-red-300">
                       terms of use
                     </Link>
                   </span>
@@ -180,7 +180,7 @@ export default function SignUpPage() {
                 Already have an account?{' '}
                 <Link
                   href="/login"
-                  className="font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+                  className="font-semibold text-red-400 hover:text-red-300 transition-colors"
                 >
                   Sign in
                 </Link>

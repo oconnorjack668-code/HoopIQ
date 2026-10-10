@@ -19,7 +19,7 @@ const TIER_STYLES: Record<string, string> = {
   silver: 'from-zinc-400 to-zinc-600',
   gold: 'from-amber-400 to-yellow-600',
   diamond: 'from-cyan-400 to-blue-600',
-  legend: 'from-purple-500 to-fuchsia-600',
+  legend: 'from-red-500 to-fuchsia-600',
 };
 
 export default async function AchievementsPage() {
@@ -30,8 +30,8 @@ export default async function AchievementsPage() {
     <div className="flex-1 overflow-auto">
       <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-8">
         {/* Rank */}
-        <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/15 to-transparent p-5">
-          <div className="text-xs font-bold uppercase tracking-wider text-amber-300">Your rank</div>
+        <div className="rounded-2xl border border-red-500/40 bg-gradient-to-br from-red-500/15 to-transparent p-5">
+          <div className="text-xs font-bold uppercase tracking-wider text-red-300">Your rank</div>
           <div className="text-3xl font-black text-white">{a.rank.name}</div>
           <div className="text-sm text-zinc-300">{a.xp.toLocaleString()} XP</div>
           <div className="mt-3">
@@ -40,7 +40,7 @@ export default async function AchievementsPage() {
           {a.rank.next && (
             <>
               <div className="mt-3 h-2 rounded-full bg-zinc-800 overflow-hidden">
-                <div className="h-full bg-amber-400" style={{ width: `${Math.round(a.rank.progress * 100)}%` }} />
+                <div className="h-full bg-red-500" style={{ width: `${Math.round(a.rank.progress * 100)}%` }} />
               </div>
               <div className="mt-1 text-xs text-zinc-400">
                 {(a.rank.next.min - a.xp).toLocaleString()} XP to {a.rank.next.name}

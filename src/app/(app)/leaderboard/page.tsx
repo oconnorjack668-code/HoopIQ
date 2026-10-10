@@ -261,7 +261,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
                   <span className="font-bold text-amber-400">Quiz:</span> +10 for each IQ Study topic quiz passed at 80%+
                 </li>
                 <li>
-                  <span className="font-bold text-purple-400">Challenges:</span> bonus points for weekly challenges
+                  <span className="font-bold text-red-400">Challenges:</span> bonus points for weekly challenges
                 </li>
               </ul>
               <p className="mt-2 text-xs text-zinc-500">
@@ -275,7 +275,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
         {challenges && challenges.length > 0 && (
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-3">
-              <Target className="h-5 w-5 text-purple-400" /> Active challenges
+              <Target className="h-5 w-5 text-red-400" /> Active challenges
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {(challenges as Array<{ id: string; title: string; description: string; points: number }>).map((c) => (

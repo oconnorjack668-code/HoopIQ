@@ -61,7 +61,7 @@ export function Navbar({ profile, isOwner = false }: NavbarProps) {
             <span className="text-base font-black tracking-tight text-white uppercase leading-none">
               Deadeye
             </span>
-            <span className="text-[10px] font-semibold text-orange-400 tracking-wider uppercase leading-none mt-0.5">
+            <span className="text-[10px] font-semibold text-red-400 tracking-wider uppercase leading-none mt-0.5">
               Aim is earned
             </span>
           </div>

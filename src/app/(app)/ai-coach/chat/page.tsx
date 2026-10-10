@@ -32,7 +32,7 @@ export default async function CoachChatPage() {
         <Link href="/ai-coach" aria-label="Back to AI Coach" className="text-zinc-400 hover:text-white">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div className="h-9 w-9 rounded-lg bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center">
+        <div className="h-9 w-9 rounded-lg bg-gradient-to-tr from-red-600 to-pink-500 flex items-center justify-center">
           <MessageCircle className="h-5 w-5 text-white" />
         </div>
         <div>

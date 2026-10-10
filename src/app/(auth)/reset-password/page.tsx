@@ -46,8 +46,8 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md">
         <Card className="border-zinc-800/80 bg-zinc-900/90 shadow-2xl backdrop-blur-xl">
           <CardHeader className="space-y-1">
-            <div className="h-12 w-12 rounded-xl bg-orange-600/10 border border-orange-500/20 flex items-center justify-center mb-2">
-              <KeyRound className="h-6 w-6 text-orange-500" />
+            <div className="h-12 w-12 rounded-xl bg-red-600/10 border border-red-500/20 flex items-center justify-center mb-2">
+              <KeyRound className="h-6 w-6 text-red-500" />
             </div>
             <CardTitle className="text-xl">Reset your password</CardTitle>
             <CardDescription>

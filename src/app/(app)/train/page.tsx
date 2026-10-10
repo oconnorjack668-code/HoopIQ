@@ -54,10 +54,10 @@ const GROUPS: Array<{ label: string; labelColor: string; items: Item[] }> = [
   },
   {
     label: 'Coaching',
-    labelColor: 'text-purple-400',
+    labelColor: 'text-red-400',
     items: [
-      { href: '/ai-coach', icon: Sparkles, title: 'AI coach', desc: 'Feedback on your sessions', tile: 'bg-purple-600/20', iconColor:'text-purple-400' },
-      { href: '/ai-coach/chat', icon: MessageCircle, title: 'Ask coach', desc: 'Chat, knows your numbers', tile: 'bg-purple-600/20', iconColor:'text-purple-300' },
+      { href: '/ai-coach', icon: Sparkles, title: 'AI coach', desc: 'Feedback on your sessions', tile: 'bg-red-600/20', iconColor:'text-red-400' },
+      { href: '/ai-coach/chat', icon: MessageCircle, title: 'Ask coach', desc: 'Chat, knows your numbers', tile: 'bg-red-600/20', iconColor:'text-red-300' },
       { href: '/video', icon: Video, title: 'Video AI', desc: 'Shot tracking, form check, jump test', tile: 'bg-red-600/20', iconColor:'text-red-400' },
       { href: '/teams', icon: Shield, title: 'Teams', desc: 'Join a team, roster', tile: 'bg-blue-600/20', iconColor:'text-blue-400' },
       { href: '/coach', icon: ClipboardCheck, title: 'Coach dashboard', desc: 'All your teams', tile: 'bg-indigo-600/20', iconColor:'text-indigo-400', badge: 'PRO' },

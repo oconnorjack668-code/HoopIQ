@@ -191,7 +191,7 @@ export default async function StudyTopicPage({
         {hasQuiz && (
           <div className="mt-8">
             <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
-              <BookOpen className="h-5 w-5 text-purple-400" />
+              <BookOpen className="h-5 w-5 text-red-400" />
               Test Your Knowledge
             </h2>
             <Link href={`/study/${id}/quiz`}>
